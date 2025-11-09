@@ -28,6 +28,7 @@ export default function AuthButton() {
 
   const handleSignIn = async () => {
     try {
+      console.log('Attempting Google sign-in with API key:', process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
       const user = await signInWithGoogle();
       if (isAdmin(user.email)) {
         router.push('/admin/overview');
