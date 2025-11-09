@@ -1,40 +1,44 @@
+import Link from 'next/link';
+
 export default function EcommerceOverview() {
   const stats = [
-    { label: "Total Revenue", value: "$82,450", trend: "+12.4% vs. last month" },
-    { label: "Orders", value: "1,248", trend: "+4.1%" },
-    { label: "Active Customers", value: "5,327", trend: "↗︎ steady" },
-    { label: "Refund Rate", value: "1.8%", trend: "-0.6%" },
+    { label: 'Total Revenue', value: '$82,450', trend: '+12.4% vs. last month' },
+    { label: 'Orders', value: '1,248', trend: '+4.1%' },
+    { label: 'Active Customers', value: '5,327', trend: '↗︎ steady' },
+    { label: 'Refund Rate', value: '1.8%', trend: '-0.6%' },
   ];
 
   const recentOrders = [
     {
-      id: "INV-2043",
-      customer: "Maria Chen",
-      total: "$248.90",
-      status: "Fulfilled",
-      date: "2 hours ago",
+      id: 'INV-2043',
+      customer: 'Maria Chen',
+      total: '$248.90',
+      status: 'Fulfilled',
+      date: '2 hours ago',
     },
     {
-      id: "INV-2042",
-      customer: "Jordan Lee",
-      total: "$89.10",
-      status: "Processing",
-      date: "4 hours ago",
+      id: 'INV-2042',
+      customer: 'Jordan Lee',
+      total: '$89.10',
+      status: 'Processing',
+      date: '4 hours ago',
     },
     {
-      id: "INV-2041",
-      customer: "Gabriel Alvarez",
-      total: "$642.37",
-      status: "Pending",
-      date: "Yesterday",
+      id: 'INV-2041',
+      customer: 'Gabriel Alvarez',
+      total: '$642.37',
+      status: 'Pending',
+      date: 'Yesterday',
     },
   ];
 
   const quickLinks = [
-    { href: "#", label: "Add product" },
-    { href: "#", label: "Manage discounts" },
-    { href: "#", label: "View analytics" },
-    { href: "#", label: "Customer support" },
+    { href: '/admin/products/new', label: 'Create new product' },
+    { href: '/admin/categories', label: 'Manage categories' },
+    { href: '/admin/plans/products', label: 'Product management plan' },
+    { href: '/admin/plans/promotions', label: 'Promotion strategy plan' },
+    { href: '/admin/plans/orders', label: 'Order operations plan' },
+    { href: '/admin/plans/analytics', label: 'Engagement & analytics plan' },
   ];
 
   return (
@@ -109,18 +113,18 @@ export default function EcommerceOverview() {
             <div>
               <h2 className="text-lg font-semibold">Quick links</h2>
               <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                Shortcuts to the tools you use most.
+                Jump into the implementation guides for key workflows.
               </p>
             </div>
             <nav className="flex flex-col gap-3">
               {quickLinks.map((link) => (
-                <a
+                <Link
                   key={link.label}
                   href={link.href}
                   className="rounded-full border border-zinc-200/70 px-4 py-2 text-sm font-medium transition hover:border-emerald-200 hover:bg-emerald-50/50 dark:border-zinc-800/80 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/10"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </nav>
 
