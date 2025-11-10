@@ -30,12 +30,10 @@ export default function ProductDetailPage({ category, product, variants }) {
 
   const galleryImages = useMemo(() => {
     const baseImages = Array.isArray(product.images) ? product.images.filter(Boolean) : [];
-    const variantImages = variants
-      .map((variant) => variant.image)
-      .filter(Boolean)
-      .filter((img) => !baseImages.includes(img));
-    return [...baseImages, ...variantImages];
-  }, [product.images, variants]);
+    const variantImage = selectedVariant?.image ? [selectedVariant.image] : [];
+    const dedupedBase = baseImages.filter((img) => !variantImage.includes(img));
+    return [...variantImage, ...dedupedBase];
+  }, [product.images, selectedVariant?.image]);
 
   useEffect(() => {
     const primaryImage =

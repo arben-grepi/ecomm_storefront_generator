@@ -62,13 +62,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
           hasAnyProducts,
         };
       })
-      .filter(({ category, hasAnyProducts }) => {
-        if (!hasAnyProducts) {
-          console.log(`[Category Filter] Hiding category "${category.name || category.label}" (slug: ${category.slug}) - no products assigned`);
-          return false;
-        }
-        return true;
-      });
+      .filter(({ hasAnyProducts }) => hasAnyProducts);
 
     return filtered;
   }, [categories, products]);
