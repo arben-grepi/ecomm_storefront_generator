@@ -20,6 +20,8 @@
 # logs
 *.log 
 
+# txt
+*.txt
 # production
 /build
 
