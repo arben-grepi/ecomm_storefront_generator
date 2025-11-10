@@ -77,7 +77,40 @@ A Next.js e-commerce application featuring a minimalist lingerie boutique with a
 - Tailwind CSS 4
 - Google Fonts (Geist)
 
+## Deployment
+
+### Firebase Hosting Setup
+
+This project uses Firebase Hosting with Next.js SSR support, which requires Cloud Functions.
+
+**Before deploying, ensure:**
+
+1. **Cloud Functions API is enabled** (⚠️ **Required - one-time setup**):
+   - Go to [Google Cloud Console](https://console.cloud.google.com/apis/library/cloudfunctions.googleapis.com?project=ecommerce-2f366)
+   - Click "Enable" button
+   - Wait 2-3 minutes for activation
+   - **No CLI tools needed** - just use the web console
+
+2. **Required Firebase APIs:**
+   - Cloud Functions API
+   - Cloud Build API (for building functions)
+   - Firebase Hosting API
+
+3. **Service Account Permissions:**
+   - The GitHub Actions service account needs permissions to:
+     - Create/update Cloud Functions
+     - Deploy to Firebase Hosting
+     - Enable APIs (or enable manually)
+
+### Manual Deployment
+
+```bash
+npm run build
+firebase deploy
+```
+
 ## Learn More
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Firebase Authentication](https://firebase.google.com/docs/auth)
+- [Firebase Hosting with Next.js](https://firebase.google.com/docs/hosting/frameworks/nextjs)
