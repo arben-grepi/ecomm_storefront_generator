@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useCart } from '@/lib/cart';
+import AuthButton from '@/components/AuthButton';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -15,6 +16,7 @@ export default function ProductDetailPage({ category, product, variants }) {
   const { addToCart, getCartItemCount, cart } = useCart();
   const [addingToCart, setAddingToCart] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
   const hasVariants = Array.isArray(variants) && variants.length > 0;
   
   // Group variants by color
@@ -66,6 +68,10 @@ export default function ProductDetailPage({ category, product, variants }) {
       setSelectedSize(null);
     }
   }, [selectedColor, availableSizes]);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   // Find selected variant based on color + size
   const selectedVariant = useMemo(() => {
@@ -167,38 +173,44 @@ export default function ProductDetailPage({ category, product, variants }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-pink-50/40 to-white">
+    <div className="relative min-h-screen bg-gradient-to-b from-white via-pink-50/40 to-white">
       <header className="sticky top-0 z-40 border-b border-pink-100/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-6 lg:px-8">
-          {/* Mobile: Back button, Desktop: Back link */}
-          <Link
-            href={`/${category.slug}`}
-            className="flex items-center gap-2 text-sm font-medium text-pink-500 transition hover:text-pink-600"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/${category.slug}`}
+              className="flex items-center text-pink-500 transition hover:text-pink-600"
+              aria-label={`Back to ${category.label}`}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-            <span className="hidden sm:inline">Back to {category.label}</span>
-            <span className="sm:hidden">Back</span>
-          </Link>
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="2"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </Link>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
+              <h1 className="whitespace-nowrap text-xl font-light text-slate-800 tracking-wide sm:hidden">
+                Lingerie Boutique
+              </h1>
+              <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] text-pink-400 sm:flex">
+                <Link href="/" className="transition hover:text-pink-500">
+                  Home
+                </Link>
+                <span>•</span>
+                <Link href={`/${category.slug}`} className="transition hover:text-pink-500">
+                  {category.label}
+                </Link>
+                <span>•</span>
+                <span className="text-pink-500">{product.name}</span>
+              </nav>
+            </div>
+          </div>
           <div className="flex items-center gap-3 sm:gap-4">
-            <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] text-pink-400 sm:flex">
-              <Link href="/" className="transition hover:text-pink-500">
-                Home
-              </Link>
-              <span>•</span>
-              <Link href={`/${category.slug}`} className="transition hover:text-pink-500">
-                {category.label}
-              </Link>
-              <span>•</span>
-              <span className="text-pink-500">{product.name}</span>
-            </nav>
+            <AuthButton />
             <Link
               href="/cart"
               className="relative ml-2 flex items-center justify-center rounded-full border border-pink-200/70 bg-white/80 p-2 text-pink-600 shadow-sm transition-colors hover:bg-pink-100 hover:text-pink-700"
@@ -217,7 +229,7 @@ export default function ProductDetailPage({ category, product, variants }) {
                   d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
                 />
               </svg>
-              {getCartItemCount() > 0 && (
+              {hasMounted && getCartItemCount() > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-pink-500 text-xs font-semibold text-white">
                   {getCartItemCount() > 9 ? '9+' : getCartItemCount()}
                 </span>
@@ -227,7 +239,7 @@ export default function ProductDetailPage({ category, product, variants }) {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6 lg:flex-row lg:items-start lg:gap-16 lg:px-8">
+          <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6 lg:flex-row lg:items-start lg:gap-16 lg:px-8">
         {/* Gallery */}
         <section className="flex w-full flex-col gap-4 lg:w-1/2">
           <div className="overflow-hidden rounded-3xl bg-pink-50/70 shadow-sm ring-1 ring-pink-100/50">
@@ -502,25 +514,7 @@ export default function ProductDetailPage({ category, product, variants }) {
                 </p>
               </div>
 
-          {product.tags.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-pink-400">
-                Tags
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {product.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-pink-500 ring-1 ring-pink-100/70"
-                  >
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {product.careInstructions && (
+              {product.careInstructions && (
             <div className="space-y-2 rounded-3xl bg-white/70 p-6 ring-1 ring-pink-100/70">
               <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-pink-400">
                 Care instructions

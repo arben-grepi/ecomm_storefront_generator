@@ -70,6 +70,14 @@ const seededProductSlugs = [
   'organic-cotton-robe',
   'seamless-high-rise-brief',
   'travel-jewelry-case',
+  // New products
+  'lace-teddy-bodysuit',
+  'sports-bra-high-support',
+  'midi-floral-dress',
+  'cotton-boy-short',
+  'delicate-gold-bracelet',
+  'silk-cami-top',
+  'yoga-shorts',
 ];
 
 const seededPromotionCodes = ['WELCOME15', 'SPRINGSET25'];

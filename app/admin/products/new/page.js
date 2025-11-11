@@ -19,7 +19,6 @@ const initialFormState = {
   basePrice: '',
   description: '',
   careInstructions: '',
-  tags: '',
   active: true,
   images: [],
   stock: '',
@@ -163,10 +162,6 @@ export default function NewProductPage() {
         basePrice,
         description: form.description.trim(),
         careInstructions: form.careInstructions.trim(),
-        tags: form.tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter(Boolean),
         images: form.images || [],
         active: form.active,
         // Only include stock if no variant is being created
@@ -357,20 +352,6 @@ export default function NewProductPage() {
               rows={3}
               className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-400 focus:outline-none"
               placeholder="Hand wash cold. Lay flat to dry."
-            />
-          </label>
-
-          <label className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-zinc-600">Tags (comma separated)</span>
-              <InfoIcon tooltip="Keywords to help customers find this product. Separate multiple tags with commas (e.g., 'new, satin, bridal'). Used for search and filtering." />
-            </div>
-            <input
-              type="text"
-              value={form.tags}
-              onChange={handleChange('tags')}
-              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-400 focus:outline-none"
-              placeholder="new, satin, bridal"
             />
           </label>
 

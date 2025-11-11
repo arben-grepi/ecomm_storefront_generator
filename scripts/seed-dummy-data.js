@@ -104,7 +104,6 @@ const productCatalog = [
       'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
       'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['lace', 'best seller', 'bridal'],
     variants: [
       {
         size: 'S',
@@ -150,36 +149,48 @@ const productCatalog = [
     careInstructions: 'Machine wash cold. Tumble dry low.',
     images: [
       'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['modal', 'essentials'],
     variants: [
       {
         size: 'S',
         color: 'Fog',
         stock: 25,
         sku: 'MODALBRIEF-S-FOG',
-        image: 'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M',
         color: 'Fog',
         stock: 33,
         sku: 'MODALBRIEF-M-FOG',
-        image: 'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M',
         color: 'Midnight',
         stock: 18,
         sku: 'MODALBRIEF-M-MID',
-        image: 'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3757045/pexels-photo-3757045.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'L',
         color: 'Petal',
         stock: 14,
         sku: 'MODALBRIEF-L-PET',
-        image: 'https://images.pexels.com/photos/3757045/pexels-photo-3757045.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/3757045/pexels-photo-3757045.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
     ],
   },
@@ -195,19 +206,26 @@ const productCatalog = [
       'https://images.pexels.com/photos/3738395/pexels-photo-3738395.jpeg?auto=compress&cs=tinysrgb&w=900',
       'https://images.pexels.com/photos/3756042/pexels-photo-3756042.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['loungewear', 'soft'],
     variants: [
       {
         size: 'XS',
         color: 'Charcoal',
         stock: 9,
         sku: 'JERBRA-XS-CHAR',
+        images: [
+          'https://images.pexels.com/photos/3738298/pexels-photo-3738298.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3738395/pexels-photo-3738395.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'S',
         color: 'Charcoal',
         stock: 15,
         sku: 'JERBRA-S-CHAR',
+        images: [
+          'https://images.pexels.com/photos/3738298/pexels-photo-3738298.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3756042/pexels-photo-3756042.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M',
@@ -216,6 +234,16 @@ const productCatalog = [
         sku: 'JERBRA-M-MAUV',
         images: [
           'https://images.pexels.com/photos/3738298/pexels-photo-3738298.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3738395/pexels-photo-3738395.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3756042/pexels-photo-3756042.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Mauve',
+        stock: 8,
+        sku: 'JERBRA-L-MAUV',
+        images: [
           'https://images.pexels.com/photos/3738395/pexels-photo-3738395.jpeg?auto=compress&cs=tinysrgb&w=900',
           'https://images.pexels.com/photos/3756042/pexels-photo-3756042.jpeg?auto=compress&cs=tinysrgb&w=900',
         ],
@@ -234,25 +262,36 @@ const productCatalog = [
       'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
       'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['active', 'best seller'],
     variants: [
       {
         size: 'XS',
         color: 'Nightfall',
         stock: 8,
         sku: 'LEGGINGS-XS-NIGHT',
+        images: [
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'S',
         color: 'Nightfall',
         stock: 14,
         sku: 'LEGGINGS-S-NIGHT',
+        images: [
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M',
         color: 'Nightfall',
         stock: 22,
         sku: 'LEGGINGS-M-NIGHT',
+        images: [
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M',
@@ -289,19 +328,26 @@ const productCatalog = [
       'https://images.pexels.com/photos/949670/pexels-photo-949670.jpeg?auto=compress&cs=tinysrgb&w=900',
       'https://images.pexels.com/photos/1027130/pexels-photo-1027130.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['evening', 'silk'],
     variants: [
       {
         size: 'XS',
         color: 'Champagne',
         stock: 6,
         sku: 'SATINSLIP-XS-CHAMP',
+        images: [
+          'https://images.pexels.com/photos/949670/pexels-photo-949670.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1027130/pexels-photo-1027130.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'S',
         color: 'Champagne',
         stock: 10,
         sku: 'SATINSLIP-S-CHAMP',
+        images: [
+          'https://images.pexels.com/photos/949670/pexels-photo-949670.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1027130/pexels-photo-1027130.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M',
@@ -336,16 +382,38 @@ const productCatalog = [
     careInstructions: 'Machine wash gentle. Line dry.',
     images: [
       'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['event', 'wrap'],
     variants: [
-      { size: 'S', color: 'Rose', stock: 7, sku: 'WRAPDRESS-S-ROSE' },
-      { size: 'M', color: 'Rose', stock: 12, sku: 'WRAPDRESS-M-ROSE' },
+      {
+        size: 'S',
+        color: 'Rose',
+        stock: 7,
+        sku: 'WRAPDRESS-S-ROSE',
+        images: [
+          'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Rose',
+        stock: 12,
+        sku: 'WRAPDRESS-M-ROSE',
+        images: [
+          'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
       {
         size: 'M',
         color: 'Slate',
         stock: 11,
         sku: 'WRAPDRESS-M-SLATE',
+        images: [
+          'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'L',
@@ -353,6 +421,10 @@ const productCatalog = [
         stock: 8,
         priceOverride: 172,
         sku: 'WRAPDRESS-L-SLATE',
+        images: [
+          'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
     ],
   },
@@ -368,7 +440,6 @@ const productCatalog = [
       'https://images.pexels.com/photos/1454172/pexels-photo-1454172.jpeg?auto=compress&cs=tinysrgb&w=900',
       'https://images.pexels.com/photos/1454171/pexels-photo-1454171.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['jewelry', 'handmade'],
     variants: [
       {
         size: null,
@@ -412,15 +483,18 @@ const productCatalog = [
     careInstructions: 'Wipe clean with a soft cloth.',
     images: [
       'https://images.pexels.com/photos/1454173/pexels-photo-1454173.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/1454174/pexels-photo-1454174.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['jewelry', 'layering'],
     variants: [
       {
         size: null,
         color: 'Gold',
         stock: 30,
         sku: 'NECKLACE-LAYER-GOLD',
-        image: 'https://images.pexels.com/photos/1454173/pexels-photo-1454173.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/1454173/pexels-photo-1454173.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1454174/pexels-photo-1454174.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: null,
@@ -428,7 +502,10 @@ const productCatalog = [
         stock: 18,
         priceOverride: 76,
         sku: 'NECKLACE-LAYER-ROSE',
-        image: 'https://images.pexels.com/photos/1454174/pexels-photo-1454174.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/1454174/pexels-photo-1454174.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1454173/pexels-photo-1454173.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
     ],
   },
@@ -444,25 +521,42 @@ const productCatalog = [
       'https://images.pexels.com/photos/6311666/pexels-photo-6311666.jpeg?auto=compress&cs=tinysrgb&w=900',
       'https://images.pexels.com/photos/6311657/pexels-photo-6311657.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['luxe', 'loungewear'],
     variants: [
       {
         size: 'XS',
         color: 'Oatmeal',
         stock: 4,
         sku: 'CASHSET-XS-OAT',
+        images: [
+          'https://images.pexels.com/photos/6311666/pexels-photo-6311666.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6311657/pexels-photo-6311657.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'S',
         color: 'Oatmeal',
         stock: 9,
         sku: 'CASHSET-S-OAT',
+        images: [
+          'https://images.pexels.com/photos/6311666/pexels-photo-6311666.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6311657/pexels-photo-6311657.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M',
         color: 'Gray',
         stock: 7,
         sku: 'CASHSET-M-GRAY',
+        images: [
+          'https://images.pexels.com/photos/6311657/pexels-photo-6311657.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6311666/pexels-photo-6311666.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Gray',
+        stock: 5,
+        sku: 'CASHSET-L-GRAY',
         images: [
           'https://images.pexels.com/photos/6311657/pexels-photo-6311657.jpeg?auto=compress&cs=tinysrgb&w=900',
           'https://images.pexels.com/photos/6311666/pexels-photo-6311666.jpeg?auto=compress&cs=tinysrgb&w=900',
@@ -480,29 +574,38 @@ const productCatalog = [
     careInstructions: 'Hand wash cold. Lay flat to dry.',
     images: [
       'https://images.pexels.com/photos/4492040/pexels-photo-4492040.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/4492041/pexels-photo-4492041.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['sleep', 'silk'],
     variants: [
       {
         size: null,
         color: 'Ivory',
         stock: 25,
         sku: 'EYEMASK-IVORY',
-        image: 'https://images.pexels.com/photos/4492040/pexels-photo-4492040.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/4492040/pexels-photo-4492040.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/4492041/pexels-photo-4492041.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: null,
         color: 'Midnight',
         stock: 20,
         sku: 'EYEMASK-MID',
-        image: 'https://images.pexels.com/photos/4492041/pexels-photo-4492041.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/4492041/pexels-photo-4492041.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/4492040/pexels-photo-4492040.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: null,
         color: 'Rose',
         stock: 18,
         sku: 'EYEMASK-ROSE',
-        image: 'https://images.pexels.com/photos/4492040/pexels-photo-4492040.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/4492040/pexels-photo-4492040.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/4492041/pexels-photo-4492041.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
     ],
   },
@@ -516,20 +619,28 @@ const productCatalog = [
     careInstructions: 'Machine wash cold. Tumble dry low.',
     images: [
       'https://images.pexels.com/photos/6311658/pexels-photo-6311658.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/6311659/pexels-photo-6311659.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['robe', 'organic'],
     variants: [
       {
         size: 'S/M',
         color: 'Cloud',
         stock: 16,
         sku: 'ROBE-SM-CLOUD',
+        images: [
+          'https://images.pexels.com/photos/6311658/pexels-photo-6311658.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6311659/pexels-photo-6311659.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M/L',
         color: 'Cloud',
         stock: 14,
         sku: 'ROBE-ML-CLOUD',
+        images: [
+          'https://images.pexels.com/photos/6311658/pexels-photo-6311658.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6311659/pexels-photo-6311659.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: 'M/L',
@@ -537,6 +648,10 @@ const productCatalog = [
         stock: 12,
         sku: 'ROBE-ML-SEA',
         priceOverride: 104,
+        images: [
+          'https://images.pexels.com/photos/6311659/pexels-photo-6311659.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6311658/pexels-photo-6311658.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
     ],
   },
@@ -550,13 +665,49 @@ const productCatalog = [
     careInstructions: 'Machine wash cold. Tumble dry low.',
     images: [
       'https://images.pexels.com/photos/6476006/pexels-photo-6476006.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/6476007/pexels-photo-6476007.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['seamless', 'smoothing'],
     variants: [
-      { size: 'S', color: 'Sand', stock: 30, sku: 'SEAMBRIEF-S-SAND' },
-      { size: 'M', color: 'Sand', stock: 34, sku: 'SEAMBRIEF-M-SAND' },
-      { size: 'L', color: 'Cocoa', stock: 28, sku: 'SEAMBRIEF-L-COCOA' },
-      { size: 'XL', color: 'Cocoa', stock: 19, sku: 'SEAMBRIEF-XL-COCOA' },
+      {
+        size: 'S',
+        color: 'Sand',
+        stock: 30,
+        sku: 'SEAMBRIEF-S-SAND',
+        images: [
+          'https://images.pexels.com/photos/6476006/pexels-photo-6476006.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6476007/pexels-photo-6476007.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Sand',
+        stock: 34,
+        sku: 'SEAMBRIEF-M-SAND',
+        images: [
+          'https://images.pexels.com/photos/6476006/pexels-photo-6476006.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6476007/pexels-photo-6476007.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Cocoa',
+        stock: 28,
+        sku: 'SEAMBRIEF-L-COCOA',
+        images: [
+          'https://images.pexels.com/photos/6476007/pexels-photo-6476007.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6476006/pexels-photo-6476006.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'XL',
+        color: 'Cocoa',
+        stock: 19,
+        sku: 'SEAMBRIEF-XL-COCOA',
+        images: [
+          'https://images.pexels.com/photos/6476007/pexels-photo-6476007.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6476006/pexels-photo-6476006.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
     ],
   },
   {
@@ -569,22 +720,408 @@ const productCatalog = [
     careInstructions: 'Wipe clean with a damp cloth.',
     images: [
       'https://images.pexels.com/photos/1454174/pexels-photo-1454174.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/1454175/pexels-photo-1454175.jpeg?auto=compress&cs=tinysrgb&w=900',
     ],
-    tags: ['travel', 'organization'],
     variants: [
       {
         size: null,
         color: 'Blush',
         stock: 22,
         sku: 'JEWELCASE-BLUSH',
-        image: 'https://images.pexels.com/photos/1454174/pexels-photo-1454174.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/1454174/pexels-photo-1454174.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1454175/pexels-photo-1454175.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
       {
         size: null,
         color: 'Ivory',
         stock: 18,
         sku: 'JEWELCASE-IVORY',
-        image: 'https://images.pexels.com/photos/1454175/pexels-photo-1454175.jpeg?auto=compress&cs=tinysrgb&w=900',
+        images: [
+          'https://images.pexels.com/photos/1454175/pexels-photo-1454175.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1454174/pexels-photo-1454174.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+    ],
+  },
+  // New products with multiple variants and images
+  {
+    slug: 'lace-teddy-bodysuit',
+    name: 'Lace Teddy Bodysuit',
+    category: 'Lingerie',
+    basePrice: 88,
+    description:
+      'Romantic lace teddy with adjustable straps and snap closure. Delicate floral pattern with comfortable fit.',
+    careInstructions: 'Hand wash cold. Lay flat to dry.',
+    images: [
+      'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/774860/pexels-photo-774860.jpeg?auto=compress&cs=tinysrgb&w=900',
+    ],
+    variants: [
+      {
+        size: 'S',
+        color: 'Black',
+        stock: 15,
+        sku: 'TEDDY-S-BLK',
+        images: [
+          'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Black',
+        stock: 20,
+        sku: 'TEDDY-M-BLK',
+        images: [
+          'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Ivory',
+        stock: 12,
+        sku: 'TEDDY-M-IVORY',
+        images: [
+          'https://images.pexels.com/photos/774860/pexels-photo-774860.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Ivory',
+        stock: 10,
+        sku: 'TEDDY-L-IVORY',
+        priceOverride: 92,
+        images: [
+          'https://images.pexels.com/photos/774860/pexels-photo-774860.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'sports-bra-high-support',
+    name: 'High-Support Sports Bra',
+    category: 'Activewear',
+    basePrice: 68,
+    description:
+      'Maximum support sports bra with wide straps and racerback design. Moisture-wicking fabric for intense workouts.',
+    careInstructions: 'Machine wash cold. Air dry.',
+    images: [
+      'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+    ],
+    variants: [
+      {
+        size: 'XS',
+        color: 'Black',
+        stock: 12,
+        sku: 'SPORTSBRA-XS-BLK',
+        images: [
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'S',
+        color: 'Black',
+        stock: 18,
+        sku: 'SPORTSBRA-S-BLK',
+        images: [
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Navy',
+        stock: 16,
+        sku: 'SPORTSBRA-M-NAVY',
+        images: [
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Navy',
+        stock: 14,
+        sku: 'SPORTSBRA-L-NAVY',
+        images: [
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'midi-floral-dress',
+    name: 'Midi Floral Print Dress',
+    category: 'Dresses',
+    basePrice: 128,
+    description:
+      'Flowing midi dress with delicate floral print and wrap-style front. Perfect for brunch or garden parties.',
+    careInstructions: 'Machine wash gentle. Line dry.',
+    images: [
+      'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+    ],
+    variants: [
+      {
+        size: 'S',
+        color: 'Rose Print',
+        stock: 10,
+        sku: 'FLORAL-S-ROSE',
+        images: [
+          'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Rose Print',
+        stock: 15,
+        sku: 'FLORAL-M-ROSE',
+        images: [
+          'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Lavender Print',
+        stock: 12,
+        sku: 'FLORAL-M-LAV',
+        images: [
+          'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Lavender Print',
+        stock: 8,
+        sku: 'FLORAL-L-LAV',
+        priceOverride: 135,
+        images: [
+          'https://images.pexels.com/photos/2065201/pexels-photo-2065201.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/2065200/pexels-photo-2065200.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'cotton-boy-short',
+    name: 'Cotton Boy Short',
+    category: 'Underwear',
+    basePrice: 22,
+    description:
+      'Comfortable cotton boy short with wide elastic waistband. Perfect for everyday wear.',
+    careInstructions: 'Machine wash cold. Tumble dry low.',
+    images: [
+      'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+    ],
+    variants: [
+      {
+        size: 'S',
+        color: 'Nude',
+        stock: 28,
+        sku: 'BOYSHORT-S-NUDE',
+        images: [
+          'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Nude',
+        stock: 32,
+        sku: 'BOYSHORT-M-NUDE',
+        images: [
+          'https://images.pexels.com/photos/3757043/pexels-photo-3757043.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Charcoal',
+        stock: 20,
+        sku: 'BOYSHORT-M-CHAR',
+        images: [
+          'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3757045/pexels-photo-3757045.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Charcoal',
+        stock: 16,
+        sku: 'BOYSHORT-L-CHAR',
+        images: [
+          'https://images.pexels.com/photos/3757044/pexels-photo-3757044.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/3757045/pexels-photo-3757045.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'delicate-gold-bracelet',
+    name: 'Delicate Gold Chain Bracelet',
+    category: 'Accessories',
+    basePrice: 48,
+    description:
+      'Fine gold-plated chain bracelet with adjustable clasp. Minimalist design for everyday elegance.',
+    careInstructions: 'Store in pouch. Avoid water and chemicals.',
+    images: [
+      'https://images.pexels.com/photos/1454172/pexels-photo-1454172.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/1454171/pexels-photo-1454171.jpeg?auto=compress&cs=tinysrgb&w=900',
+    ],
+    variants: [
+      {
+        size: null,
+        color: 'Gold',
+        stock: 35,
+        sku: 'BRACELET-GOLD',
+        images: [
+          'https://images.pexels.com/photos/1454172/pexels-photo-1454172.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1454171/pexels-photo-1454171.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: null,
+        color: 'Rose Gold',
+        stock: 28,
+        sku: 'BRACELET-ROSE',
+        images: [
+          'https://images.pexels.com/photos/1454171/pexels-photo-1454171.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1454172/pexels-photo-1454172.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: null,
+        color: 'Silver',
+        stock: 30,
+        sku: 'BRACELET-SILVER',
+        priceOverride: 52,
+        images: [
+          'https://images.pexels.com/photos/1454172/pexels-photo-1454172.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/1454171/pexels-photo-1454171.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'silk-cami-top',
+    name: 'Silk Cami Top',
+    category: 'Lingerie',
+    basePrice: 65,
+    description:
+      'Luxurious silk-blend cami top with adjustable straps and delicate lace trim. Perfect for layering or sleep.',
+    careInstructions: 'Hand wash cold. Lay flat to dry.',
+    images: [
+      'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
+    ],
+    variants: [
+      {
+        size: 'S',
+        color: 'Ivory',
+        stock: 14,
+        sku: 'CAMITOP-S-IVORY',
+        images: [
+          'https://images.pexels.com/photos/774860/pexels-photo-774860.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Ivory',
+        stock: 18,
+        sku: 'CAMITOP-M-IVORY',
+        images: [
+          'https://images.pexels.com/photos/774860/pexels-photo-774860.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Black',
+        stock: 16,
+        sku: 'CAMITOP-M-BLK',
+        images: [
+          'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Black',
+        stock: 12,
+        sku: 'CAMITOP-L-BLK',
+        images: [
+          'https://images.pexels.com/photos/7679688/pexels-photo-7679688.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+    ],
+  },
+  {
+    slug: 'yoga-shorts',
+    name: 'High-Waist Yoga Shorts',
+    category: 'Activewear',
+    basePrice: 52,
+    description:
+      'Comfortable high-waist yoga shorts with built-in brief. Perfect for yoga, pilates, or lounging.',
+    careInstructions: 'Machine wash cold. Air dry.',
+    images: [
+      'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+      'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+    ],
+    variants: [
+      {
+        size: 'XS',
+        color: 'Black',
+        stock: 10,
+        sku: 'YOGASHORT-XS-BLK',
+        images: [
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'S',
+        color: 'Black',
+        stock: 15,
+        sku: 'YOGASHORT-S-BLK',
+        images: [
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'M',
+        color: 'Sage',
+        stock: 13,
+        sku: 'YOGASHORT-M-SAGE',
+        images: [
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
+      },
+      {
+        size: 'L',
+        color: 'Sage',
+        stock: 11,
+        sku: 'YOGASHORT-L-SAGE',
+        images: [
+          'https://images.pexels.com/photos/6453404/pexels-photo-6453404.jpeg?auto=compress&cs=tinysrgb&w=900',
+          'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=900',
+        ],
       },
     ],
   },
@@ -663,7 +1200,6 @@ async function seedProducts() {
         basePrice: product.basePrice,
         description: product.description,
         careInstructions: product.careInstructions,
-        tags: product.tags,
         images: product.images,
         active: true,
         metrics: {

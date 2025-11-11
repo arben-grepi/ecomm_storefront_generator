@@ -92,8 +92,7 @@ export default function ProductsListPage() {
         const matchesSearch =
           product.name?.toLowerCase().includes(query) ||
           product.slug?.toLowerCase().includes(query) ||
-          product.description?.toLowerCase().includes(query) ||
-          product.tags?.some((tag) => tag.toLowerCase().includes(query));
+          product.description?.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
 
@@ -181,7 +180,7 @@ export default function ProductsListPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, slug, or tags..."
+              placeholder="Search by name, slug, or description..."
               className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-400 focus:outline-none"
             />
           </div>
