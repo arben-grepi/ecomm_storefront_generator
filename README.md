@@ -25,7 +25,17 @@ A Next.js multi-storefront e-commerce platform for managing dropshipping product
 
 3. **Configure Firebase:**
    - Create a `.env.local` file in the root directory
-   - Add your Firebase configuration variables (see `.env.local.example`)
+   - Add your Firebase configuration variables:
+     ```env
+     NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
+     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=ecommerce-2f366.firebaseapp.com
+     NEXT_PUBLIC_FIREBASE_PROJECT_ID=ecommerce-2f366
+     NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=ecommerce-2f366.firebasestorage.app
+     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here
+     NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id_here
+     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id_here
+     ```
+   - **Important:** Never commit `.env.local` to the repository (it's already in `.gitignore`)
 
 4. **Run the development server:**
    ```bash
