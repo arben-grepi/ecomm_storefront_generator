@@ -292,7 +292,7 @@ export default function EditProductPage() {
       />
       <header className="space-y-2">
         <button
-          onClick={() => handleNavigation('/admin/categories')}
+          onClick={() => handleNavigation('/LUNERA/admin/categories')}
           className="text-sm font-medium text-emerald-600 transition hover:text-emerald-500"
         >
           ← Back to categories
@@ -527,7 +527,7 @@ export default function EditProductPage() {
           </button>
           <button
             type="button"
-            onClick={() => handleNavigation('/admin/categories')}
+            onClick={() => handleNavigation('/LUNERA/admin/categories')}
             className="text-sm font-medium text-zinc-500 underline-offset-4 transition hover:text-zinc-700"
           >
             Cancel

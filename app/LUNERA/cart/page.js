@@ -36,7 +36,7 @@ export default function CartPage() {
       <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
         <header className="sticky top-0 z-40 border-b border-secondary/70 bg-white/90 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-            <Link href="/" className="text-sm font-medium text-primary transition hover:text-primary">
+            <Link href="/LUNERA" className="text-sm font-medium text-primary transition hover:text-primary">
               ← Back to shop
             </Link>
             <h1 className="text-xl font-light text-slate-800">Shopping Cart</h1>
@@ -62,7 +62,7 @@ export default function CartPage() {
             <h2 className="mt-4 text-2xl font-light text-slate-800">Your cart is empty</h2>
             <p className="mt-2 text-slate-600">Start shopping to add items to your cart.</p>
             <Link
-              href="/"
+              href="/LUNERA"
               className="mt-6 inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-lg transition hover:bg-primary/90"
             >
               Continue shopping
@@ -78,7 +78,7 @@ export default function CartPage() {
       <SignInNewsletterModal />
       <header className="sticky top-0 z-40 border-b border-secondary/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/" className="flex items-center gap-2 text-sm font-medium text-primary transition hover:text-primary">
+          <Link href="/LUNERA" className="flex items-center gap-2 text-sm font-medium text-primary transition hover:text-primary">
             <svg
               className="h-5 w-5"
               fill="none"

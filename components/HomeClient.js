@@ -106,7 +106,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               <div className="flex w-full items-center justify-end gap-3 sm:w-auto sm:gap-4">
                 <AuthButton />
                 <Link
-                  href="/cart"
+                  href="/LUNERA/cart"
                   className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2.5 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
                   aria-label="Shopping cart"
                 >

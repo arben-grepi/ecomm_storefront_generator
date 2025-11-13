@@ -17,9 +17,9 @@ export default function CategoryCarousel({ align = 'center' }) {
     );
 
     return [
-      { href: '/', value: 'all', label: 'All Categories' },
+      { href: '/LUNERA', value: 'all', label: 'All Categories' },
       ...categoriesWithProducts.map((category) => ({
-        href: `/${category.slug}`,
+        href: `/LUNERA/${category.slug}`,
         value: category.slug,
         label: category.label,
       })),
@@ -27,7 +27,7 @@ export default function CategoryCarousel({ align = 'center' }) {
   }, [categories, products]);
 
   const isActive = (item) =>
-    (item.value === 'all' && pathname === '/') || pathname === item.href;
+    (item.value === 'all' && pathname === '/LUNERA') || pathname === item.href;
 
   const containerAlignment =
     align === 'start' ? 'justify-start' : 'justify-center sm:justify-start';

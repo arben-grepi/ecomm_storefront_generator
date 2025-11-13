@@ -108,7 +108,7 @@ export default function PromotionsListPage() {
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-16">
       <header className="space-y-2">
         <button
-          onClick={() => router.push('/admin/overview')}
+          onClick={() => router.push('/LUNERA/admin/overview')}
           className="text-sm font-medium text-emerald-600 transition hover:text-emerald-500"
         >
           ← Back to admin
@@ -121,7 +121,7 @@ export default function PromotionsListPage() {
             </p>
           </div>
           <Link
-            href="/admin/promotions/new"
+            href="/LUNERA/admin/promotions/new"
             className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
           >
             + New promotion
@@ -240,7 +240,7 @@ export default function PromotionsListPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
-                        href={`/admin/promotions/${promo.id}/edit`}
+                        href={`/LUNERA/admin/promotions/${promo.id}/edit`}
                         className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-emerald-200 hover:bg-emerald-50/50"
                       >
                         Edit

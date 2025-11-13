@@ -6,11 +6,14 @@ import Link from 'next/link';
 import { collection, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import Toast from '@/components/admin/Toast';
+import ProductModal from '@/components/admin/ProductModal';
 import { getStoreCollectionPath, getStoreDocPath } from '@/lib/store-collections';
+import { useWebsite } from '@/lib/website-context';
 
 export default function ProductsListPage() {
   const router = useRouter();
   const db = getFirebaseDb();
+  const { selectedWebsite } = useWebsite();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +22,7 @@ export default function ProductsListPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [lowStockThreshold, setLowStockThreshold] = useState(10);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   // Fetch categories
   useEffect(() => {
@@ -28,7 +32,7 @@ export default function ProductsListPage() {
     }
 
     const categoriesQuery = query(
-      collection(db, ...getStoreCollectionPath('categories')),
+      collection(db, ...getStoreCollectionPath('categories', selectedWebsite)),
       orderBy('name', 'asc')
     );
     const unsubscribeCategories = onSnapshot(
@@ -53,7 +57,7 @@ export default function ProductsListPage() {
     }
 
     const productsQuery = query(
-      collection(db, ...getStoreCollectionPath('products')),
+      collection(db, ...getStoreCollectionPath('products', selectedWebsite)),
       orderBy('createdAt', 'desc')
     );
     const unsubscribeProducts = onSnapshot(
@@ -66,7 +70,7 @@ export default function ProductsListPage() {
           productsData.map(async (product) => {
             try {
               const variantsSnapshot = await getDocs(
-                collection(db, ...getStoreDocPath('products', product.id), 'variants')
+                collection(db, ...getStoreDocPath('products', product.id, selectedWebsite), 'variants')
               );
               const variants = variantsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
               const totalStock = variants.reduce((sum, variant) => sum + (variant.stock || 0), 0);
@@ -90,7 +94,7 @@ export default function ProductsListPage() {
     );
 
     return () => unsubscribeProducts();
-  }, [db, lowStockThreshold]);
+  }, [db, lowStockThreshold, selectedWebsite]);
 
   // Filter and search products
   const filteredProducts = useMemo(() => {
@@ -128,7 +132,7 @@ export default function ProductsListPage() {
     }
 
     try {
-      await updateDoc(doc(db, ...getStoreDocPath('products', product.id)), {
+      await updateDoc(doc(db, ...getStoreDocPath('products', product.id, selectedWebsite)), {
         active: product.active === false ? true : false,
         updatedAt: serverTimestamp(),
       });
@@ -148,7 +152,7 @@ export default function ProductsListPage() {
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-16">
       <header className="space-y-2">
         <button
-          onClick={() => router.push('/admin/overview')}
+          onClick={() => router.push('/LUNERA/admin/overview')}
           className="text-sm font-medium text-emerald-600 transition hover:text-emerald-500"
         >
           ← Back to admin
@@ -162,13 +166,13 @@ export default function ProductsListPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link
-              href="/admin/plans/products"
+              href="/LUNERA/admin/plans/products"
               className="rounded-full border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:border-emerald-200 hover:bg-emerald-50/50"
             >
               View plan
             </Link>
             <Link
-              href="/admin/products/new"
+              href="/LUNERA/admin/products/new"
               className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
             >
               + New product
@@ -299,7 +303,7 @@ export default function ProductsListPage() {
                         </div>
                         <div className="flex flex-col">
                           <Link
-                            href={`/admin/products/${product.id}/edit`}
+                            href={`/LUNERA/admin/products/${product.id}/edit`}
                             className="font-medium text-zinc-800 hover:text-emerald-600 transition"
                           >
                             {product.name}
@@ -340,12 +344,13 @@ export default function ProductsListPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Link
-                          href={`/admin/products/${product.id}/edit`}
+                        <button
+                          type="button"
+                          onClick={() => setEditingProduct(product)}
                           className="rounded-full border border-zinc-200 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:border-emerald-200 hover:bg-emerald-50/50"
                         >
                           Edit
-                        </Link>
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleToggleActive(product)}
@@ -362,6 +367,19 @@ export default function ProductsListPage() {
           </table>
         )}
       </section>
+
+      {/* Product Edit Modal */}
+      {editingProduct && (
+        <ProductModal
+          mode="edit"
+          existingProduct={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSaved={() => {
+            setEditingProduct(null);
+            setMessage({ type: 'success', text: 'Product updated successfully!' });
+          }}
+        />
+      )}
     </div>
   );
 }

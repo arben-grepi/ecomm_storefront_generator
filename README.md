@@ -6,8 +6,17 @@ A Next.js e-commerce application featuring a minimalist lingerie boutique with a
 
 - **E-commerce Homepage**: Beautiful, minimalist design showcasing 15 lingerie products
 - **Google Authentication**: Sign in with Google to access the admin dashboard
-- **Admin Dashboard**: Analytics and product overview (accessible only to `arbengrepi@gmail.com`)
+- **Admin Dashboard**: Analytics and product overview (accessible only to admin accounts: `arbengrepi@gmail.com`, `andreas.konga@gmail.com`, `muliqiblerine@gmail.com`)
 - **Protected Routes**: Admin routes are protected and redirect unauthorized users
+
+## Collaborator Quick Start
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/<your-org>/ecommerce-admin.git
+   cd ecommerce-admin
+   ```
+2. Follow the setup steps below to configure your environment.
 
 ## Getting Started
 
@@ -35,7 +44,7 @@ A Next.js e-commerce application featuring a minimalist lingerie boutique with a
      NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id_here
      ```
 
-3. **Enable Google Authentication in Firebase:**
+3. **Enable Google Authentication in Firebase (optional for non-admin tasks):**
    - Go to Firebase Console → Authentication → Sign-in method
    - Enable Google as a sign-in provider
 
@@ -45,6 +54,10 @@ A Next.js e-commerce application featuring a minimalist lingerie boutique with a
    ```
 
 5. **Open [http://localhost:3000](http://localhost:3000)** in your browser
+
+## Documentation
+
+- [AI Text Generation Task](docs/ai-text-generation.md)
 
 ## Project Structure
 
@@ -66,7 +79,7 @@ A Next.js e-commerce application featuring a minimalist lingerie boutique with a
 ## Authentication Flow
 
 - **Regular Users**: Can browse the e-commerce site and sign in with Google
-- **Admin Users** (`arbengrepi@gmail.com`): Automatically redirected to `/admin/overview` after sign-in
+- **Admin Users** (`arbengrepi@gmail.com`, `andreas.konga@gmail.com`, `muliqiblerine@gmail.com`): Automatically redirected to `/admin/overview` after sign-in
 - **Unauthorized Access**: Attempts to access admin routes redirect to the homepage
 
 ## Technologies Used

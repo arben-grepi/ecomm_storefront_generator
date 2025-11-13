@@ -214,7 +214,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Link
-              href={`/${category.slug}`}
+              href={`/LUNERA/${category.slug}`}
               className="flex items-center text-primary transition hover:text-primary"
               aria-label={`Back to ${category.label}`}
             >
@@ -233,11 +233,11 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 {siteInfo.companyName}
               </h1>
               <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] text-primary sm:flex">
-                <Link href="/" className="transition hover:text-primary">
+                <Link href="/LUNERA" className="transition hover:text-primary">
                   Home
                 </Link>
                 <span>•</span>
-                <Link href={`/${category.slug}`} className="transition hover:text-primary">
+                <Link href={`/LUNERA/${category.slug}`} className="transition hover:text-primary">
                   {category.label}
                 </Link>
                 <span>•</span>
@@ -248,7 +248,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
           <div className="flex items-center gap-3 sm:gap-4">
             <AuthButton />
             <Link
-              href="/cart"
+              href="/LUNERA/cart"
               className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
               aria-label="Shopping cart"
             >

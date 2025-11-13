@@ -10,7 +10,7 @@ export default function AdminRedirect() {
   useEffect(() => {
     const unsubscribe = subscribeToAuth((user) => {
       if (user && isAdmin(user.email)) {
-        router.push('/admin/overview');
+        router.push('/LUNERA/admin/overview');
       }
     });
 

@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import CategoryModalButton from './CreateCategoryButton';
 import ProductItem from './ProductItem';
@@ -81,8 +82,8 @@ export default function CategoryTable({
           const currentPreviewIds = category.previewProductIds || [];
 
           return (
-            <>
-              <tr key={category.id} className="hover:bg-zinc-50/80">
+            <React.Fragment key={category.id}>
+              <tr className="hover:bg-zinc-50/80">
                 <td className="px-4 py-3">
                   <button
                     type="button"
@@ -153,7 +154,7 @@ export default function CategoryTable({
                           Products ({categoryProducts.length})
                         </h3>
                         <Link
-                          href={`/admin/products/new?categoryId=${category.id}`}
+                          href={`/LUNERA/admin/products/new?categoryId=${category.id}`}
                           className="rounded-full border border-emerald-200 bg-emerald-50/50 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:border-emerald-300 hover:bg-emerald-50"
                         >
                           + Add product
@@ -163,7 +164,7 @@ export default function CategoryTable({
                         <div className="flex items-center justify-between">
                           <p className="text-sm text-zinc-400">No products in this category.</p>
                           <Link
-                            href={`/admin/products/new?categoryId=${category.id}`}
+                            href={`/LUNERA/admin/products/new?categoryId=${category.id}`}
                             className="rounded-full border border-emerald-200 bg-emerald-50/50 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:border-emerald-300 hover:bg-emerald-50"
                           >
                             + Add product
@@ -209,7 +210,7 @@ export default function CategoryTable({
                   </td>
                 </tr>
               )}
-            </>
+            </React.Fragment>
           );
         })}
       </tbody>

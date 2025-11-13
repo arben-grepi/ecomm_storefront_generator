@@ -1,44 +1,83 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { addDoc, collection, getDocs, query, serverTimestamp, Timestamp, where } from 'firebase/firestore';
+import { useRouter, useParams } from 'next/navigation';
+import { doc, getDoc, collection, getDocs, query, updateDoc, Timestamp, where } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
-import { getStoreCollectionPath } from '@/lib/store-collections';
+import { getStoreCollectionPath, getStoreDocPath } from '@/lib/store-collections';
 import Toast from '@/components/admin/Toast';
 import InfoIcon from '@/components/admin/InfoIcon';
 
-const initialFormState = {
-  code: '',
-  description: '',
-  type: 'percentage',
-  value: '',
-  appliesTo: {
-    categories: [],
-    products: [],
-  },
-  startDate: '',
-  endDate: '',
-  maxRedemptions: '',
-};
-
-export default function NewPromotionPage() {
+export default function EditPromotionPage() {
   const router = useRouter();
+  const params = useParams();
+  const promotionId = params?.id;
   const db = getFirebaseDb();
-  const [form, setForm] = useState(initialFormState);
+  const [form, setForm] = useState({
+    code: '',
+    description: '',
+    type: 'percentage',
+    value: '',
+    appliesTo: {
+      categories: [],
+      products: [],
+    },
+    startDate: '',
+    endDate: '',
+    maxRedemptions: '',
+  });
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // Fetch categories and products for targeting
+  // Load promotion and available categories/products
   useEffect(() => {
-    if (!db) return;
+    if (!db || !promotionId) {
+      setLoading(false);
+      return;
+    }
+
+    const loadPromotion = async () => {
+      try {
+        const promoDoc = await getDoc(doc(db, ...getStoreDocPath('promotions', promotionId)));
+        if (!promoDoc.exists()) {
+          setMessage({ type: 'error', text: 'Promotion not found.' });
+          setLoading(false);
+          return;
+        }
+
+        const promoData = promoDoc.data();
+        const startDate = promoData.startDate?.toDate?.();
+        const endDate = promoData.endDate?.toDate?.();
+
+        setForm({
+          code: promoData.code || '',
+          description: promoData.description || '',
+          type: promoData.type || 'percentage',
+          value: promoData.value?.toString() || '',
+          appliesTo: {
+            categories: promoData.appliesTo?.categories || [],
+            products: promoData.appliesTo?.products || [],
+          },
+          startDate: startDate ? startDate.toISOString().slice(0, 16) : '',
+          endDate: endDate ? endDate.toISOString().slice(0, 16) : '',
+          maxRedemptions: promoData.maxRedemptions?.toString() || '',
+        });
+      } catch (error) {
+        console.error('Error loading promotion', error);
+        setMessage({ type: 'error', text: 'Failed to load promotion.' });
+      } finally {
+        setLoading(false);
+      }
+    };
 
     const categoriesQuery = query(collection(db, ...getStoreCollectionPath('categories')));
     const productsQuery = query(collection(db, ...getStoreCollectionPath('products')));
 
     Promise.all([
+      loadPromotion(),
       getDocs(categoriesQuery).then((snapshot) =>
         snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
       ),
@@ -46,14 +85,14 @@ export default function NewPromotionPage() {
         snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
       ),
     ])
-      .then(([categoriesData, productsData]) => {
+      .then(([, categoriesData, productsData]) => {
         setCategories(categoriesData.filter((cat) => cat.active !== false));
         setProducts(productsData.filter((prod) => prod.active !== false));
       })
       .catch((error) => {
         console.error('Failed to load categories/products', error);
       });
-  }, [db]);
+  }, [db, promotionId]);
 
   const handleChange = (field) => (event) => {
     const value = event.target.value;
@@ -96,7 +135,7 @@ export default function NewPromotionPage() {
       return;
     }
 
-    // Check for duplicate code
+    // Check for duplicate code (excluding current promotion)
     if (db) {
       try {
         const codeQuery = query(
@@ -104,7 +143,8 @@ export default function NewPromotionPage() {
           where('code', '==', form.code.trim().toUpperCase())
         );
         const codeSnapshot = await getDocs(codeQuery);
-        if (!codeSnapshot.empty) {
+        const duplicate = codeSnapshot.docs.find((doc) => doc.id !== promotionId);
+        if (duplicate) {
           setMessage({ type: 'error', text: `A promotion with code "${form.code.trim().toUpperCase()}" already exists.` });
           return;
         }
@@ -128,18 +168,16 @@ export default function NewPromotionPage() {
         startDate: form.startDate ? Timestamp.fromDate(new Date(form.startDate)) : null,
         endDate: form.endDate ? Timestamp.fromDate(new Date(form.endDate)) : null,
         maxRedemptions: form.maxRedemptions ? parseInt(form.maxRedemptions, 10) : null,
-        currentRedemptions: 0,
-        createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, ...getStoreCollectionPath('promotions')), payload);
-      setMessage({ type: 'success', text: 'Promotion created successfully.' });
+      await updateDoc(doc(db, ...getStoreDocPath('promotions', promotionId)), payload);
+      setMessage({ type: 'success', text: 'Promotion updated successfully.' });
       setTimeout(() => {
-        router.push('/admin/promotions');
+        router.push('/LUNERA/admin/promotions');
       }, 1500);
     } catch (error) {
-      console.error('Error creating promotion', error);
-      setMessage({ type: 'error', text: 'Failed to create promotion. Check console for details.' });
+      console.error('Error updating promotion', error);
+      setMessage({ type: 'error', text: 'Failed to update promotion. Check console for details.' });
       setSubmitting(false);
     }
   };
@@ -149,8 +187,18 @@ export default function NewPromotionPage() {
       <div className="mx-auto flex min-h-screen w-full max-w-2xl flex-col gap-6 px-6 py-16">
         <h1 className="text-2xl font-semibold text-rose-500">Firebase is not configured</h1>
         <p className="text-zinc-600">
-          The admin app could not reach Firestore. Verify configuration before attempting to add promotions.
+          The admin app could not reach Firestore. Verify configuration before attempting to edit promotions.
         </p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 px-6 py-16">
+        <div className="h-8 w-48 animate-pulse rounded-full bg-zinc-200" />
+        <div className="h-6 w-64 animate-pulse rounded-lg bg-zinc-100" />
+        <div className="h-96 w-full animate-pulse rounded-3xl bg-zinc-100" />
       </div>
     );
   }
@@ -159,14 +207,14 @@ export default function NewPromotionPage() {
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-8 px-6 py-16">
       <header className="space-y-2">
         <button
-          onClick={() => router.push('/admin/promotions')}
+          onClick={() => router.push('/LUNERA/admin/promotions')}
           className="text-sm font-medium text-emerald-600 transition hover:text-emerald-500"
         >
           ← Back to promotions
         </button>
-        <h1 className="text-3xl font-semibold text-zinc-900">Create promotion</h1>
+        <h1 className="text-3xl font-semibold text-zinc-900">Edit promotion</h1>
         <p className="text-base text-zinc-500">
-          Create a new discount code or promotional campaign.
+          Update promotion details and targeting.
         </p>
       </header>
 
@@ -186,7 +234,6 @@ export default function NewPromotionPage() {
                 placeholder="SUMMER20"
                 required
               />
-              <p className="text-xs text-zinc-400">Will be converted to uppercase automatically</p>
             </label>
             <label className="flex flex-col gap-2">
               <span className="text-sm font-medium text-zinc-600">Type *</span>
@@ -321,11 +368,11 @@ export default function NewPromotionPage() {
             disabled={submitting}
             className="rounded-full bg-emerald-600 px-6 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {submitting ? 'Creating…' : 'Create promotion'}
+            {submitting ? 'Saving…' : 'Save changes'}
           </button>
           <button
             type="button"
-            onClick={() => router.push('/admin/promotions')}
+            onClick={() => router.push('/LUNERA/admin/promotions')}
             className="text-sm font-medium text-zinc-500 underline-offset-4 transition hover:text-zinc-700"
           >
             Cancel

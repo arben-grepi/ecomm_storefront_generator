@@ -95,7 +95,7 @@ export default function AnalyticsPage() {
     <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-6 py-16">
       <header className="space-y-2">
         <button
-          onClick={() => router.push('/admin/overview')}
+          onClick={() => router.push('/LUNERA/admin/overview')}
           className="text-sm font-medium text-emerald-600 transition hover:text-emerald-500"
         >
           ← Back to admin

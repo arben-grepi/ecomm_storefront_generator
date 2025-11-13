@@ -15,7 +15,7 @@ export default function AuthButton() {
       setLoading(false);
 
       if (currentUser && isAdmin(currentUser.email)) {
-        router.push('/admin/overview');
+        router.push('/LUNERA/admin/overview');
       }
     });
 
@@ -30,7 +30,7 @@ export default function AuthButton() {
     try {
       const user = await signInWithGoogle();
       if (isAdmin(user.email)) {
-        router.push('/admin/overview');
+        router.push('/LUNERA/admin/overview');
       }
     } catch (error) {
       console.error('Sign in error:', error);
@@ -40,7 +40,7 @@ export default function AuthButton() {
   const handleSignOut = async () => {
     try {
       await signOutUser();
-      router.push('/');
+      router.push('/LUNERA');
     } catch (error) {
       console.error('Sign out error:', error);
     }
