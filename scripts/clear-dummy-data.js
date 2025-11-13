@@ -47,6 +47,9 @@ function initializeAdmin() {
 }
 
 const db = initializeAdmin().firestore();
+const STORE_ROOT = 'LUNERA';
+const STORE_ITEMS_COLLECTION = 'items';
+const storeCollection = (name) => db.collection(STORE_ROOT).doc(name).collection(STORE_ITEMS_COLLECTION);
 
 const seededCategoryIds = [
   'Lingerie',
@@ -100,7 +103,7 @@ async function deleteDocumentAndSubcollection(docRef, subcollectionName) {
 async function clearCategories() {
   console.log('Removing seeded categories…');
   for (const id of seededCategoryIds) {
-    const docRef = db.collection('categories').doc(id);
+    const docRef = storeCollection('categories').doc(id);
     const docSnap = await docRef.get();
     if (docSnap.exists) {
       await docRef.delete();
@@ -112,7 +115,7 @@ async function clearCategories() {
 async function clearProducts() {
   console.log('Removing seeded products and variant subcollections…');
   for (const slug of seededProductSlugs) {
-    const productRef = db.collection('products').doc(slug);
+    const productRef = storeCollection('products').doc(slug);
     const productSnap = await productRef.get();
     if (!productSnap.exists) continue;
 
@@ -123,7 +126,7 @@ async function clearProducts() {
 async function clearPromotions() {
   console.log('Removing seeded promotions…');
   for (const code of seededPromotionCodes) {
-    const promoRef = db.collection('promotions').doc(code);
+    const promoRef = storeCollection('promotions').doc(code);
     const promoSnap = await promoRef.get();
     if (promoSnap.exists) {
       await promoRef.delete();

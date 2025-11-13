@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
+import { getStoreCollectionPath } from '@/lib/store-collections';
 import CategoryModalButton from '@/components/admin/CreateCategoryButton';
 
 export default function CategorySelector({ value, onChange }) {
@@ -16,7 +17,10 @@ export default function CategorySelector({ value, onChange }) {
       return undefined;
     }
 
-    const categoriesQuery = query(collection(db, 'categories'), orderBy('name', 'asc'));
+    const categoriesQuery = query(
+      collection(db, ...getStoreCollectionPath('categories')),
+      orderBy('name', 'asc')
+    );
     const unsubscribe = onSnapshot(
       categoriesQuery,
       (snapshot) => {
@@ -54,7 +58,7 @@ export default function CategorySelector({ value, onChange }) {
       <select
         value={value || ''}
         onChange={(event) => onChange && onChange(event.target.value)}
-        className="w-full rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+        className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm text-zinc-800 focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 disabled:text-zinc-400 dark:disabled:text-zinc-500"
         disabled={loading || !db}
         required
       >

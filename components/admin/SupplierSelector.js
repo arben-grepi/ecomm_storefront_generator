@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
+import { getStoreCollectionPath } from '@/lib/store-collections';
 import SupplierModalButton from '@/components/admin/SupplierModalButton';
 
 export default function SupplierSelector({ value, onChange, label = 'Supplier' }) {
@@ -16,7 +17,10 @@ export default function SupplierSelector({ value, onChange, label = 'Supplier' }
       return undefined;
     }
 
-    const suppliersQuery = query(collection(db, 'suppliers'), orderBy('name', 'asc'));
+    const suppliersQuery = query(
+      collection(db, ...getStoreCollectionPath('suppliers')),
+      orderBy('name', 'asc')
+    );
     const unsubscribe = onSnapshot(
       suppliersQuery,
       (snapshot) => {

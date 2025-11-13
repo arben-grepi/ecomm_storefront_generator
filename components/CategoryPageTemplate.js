@@ -13,7 +13,7 @@ const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
   ssr: false,
 });
 
-export default function CategoryPageTemplate({ categoryId, category: categoryProp, products: productsProp }) {
+export default function CategoryPageTemplate({ categoryId, category: categoryProp, products: productsProp, info = null }) {
   const { categories } = useCategories();
   const { products: fetchedProducts, loading: productsLoading } = useProductsByCategory(categoryId);
   const { getCartItemCount } = useCart();
@@ -29,6 +29,13 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
     : categoryProp;
   const products = categoryId ? fetchedProducts : productsProp;
   const loading = categoryId ? productsLoading : false;
+
+  // Use info from server (for SEO), with empty strings as fallback
+  const siteInfo = info || {
+    companyName: '',
+    companyTagline: '',
+    footerText: '',
+  };
 
   // (Analytics removed)
 
@@ -75,10 +82,10 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
             {/* Mobile: Company name, Desktop: Full branding */}
             <div className="flex flex-col sm:flex-col">
               <h1 className="whitespace-nowrap text-xl font-light text-primary tracking-wide sm:text-2xl">
-                Lingerie Boutique
+                {siteInfo.companyName}
               </h1>
               <p className="hidden text-sm text-slate-500 sm:block">
-                Effortless softness for every day and night in.
+                {siteInfo.companyTagline}
               </p>
             </div>
           </div>
@@ -176,7 +183,7 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
       {/* Footer */}
       <footer className="border-t border-secondary/70 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-slate-500 sm:px-6 lg:px-8">
-          © 2024 Lingerie Boutique. All rights reserved.
+          {siteInfo.footerText}
         </div>
       </footer>
     </div>

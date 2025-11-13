@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { doc, getDoc, collection, getDocs, query, updateDoc, Timestamp, where } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
+import { getStoreCollectionPath, getStoreDocPath } from '@/lib/store-collections';
 import Toast from '@/components/admin/Toast';
 import InfoIcon from '@/components/admin/InfoIcon';
 
@@ -40,7 +41,7 @@ export default function EditPromotionPage() {
 
     const loadPromotion = async () => {
       try {
-        const promoDoc = await getDoc(doc(db, 'promotions', promotionId));
+        const promoDoc = await getDoc(doc(db, ...getStoreDocPath('promotions', promotionId)));
         if (!promoDoc.exists()) {
           setMessage({ type: 'error', text: 'Promotion not found.' });
           setLoading(false);
@@ -72,8 +73,8 @@ export default function EditPromotionPage() {
       }
     };
 
-    const categoriesQuery = query(collection(db, 'categories'));
-    const productsQuery = query(collection(db, 'products'));
+    const categoriesQuery = query(collection(db, ...getStoreCollectionPath('categories')));
+    const productsQuery = query(collection(db, ...getStoreCollectionPath('products')));
 
     Promise.all([
       loadPromotion(),
@@ -137,7 +138,10 @@ export default function EditPromotionPage() {
     // Check for duplicate code (excluding current promotion)
     if (db) {
       try {
-        const codeQuery = query(collection(db, 'promotions'), where('code', '==', form.code.trim().toUpperCase()));
+        const codeQuery = query(
+          collection(db, ...getStoreCollectionPath('promotions')),
+          where('code', '==', form.code.trim().toUpperCase())
+        );
         const codeSnapshot = await getDocs(codeQuery);
         const duplicate = codeSnapshot.docs.find((doc) => doc.id !== promotionId);
         if (duplicate) {
@@ -166,7 +170,7 @@ export default function EditPromotionPage() {
         maxRedemptions: form.maxRedemptions ? parseInt(form.maxRedemptions, 10) : null,
       };
 
-      await updateDoc(doc(db, 'promotions', promotionId), payload);
+      await updateDoc(doc(db, ...getStoreDocPath('promotions', promotionId)), payload);
       setMessage({ type: 'success', text: 'Promotion updated successfully.' });
       setTimeout(() => {
         router.push('/admin/promotions');

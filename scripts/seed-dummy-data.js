@@ -48,6 +48,10 @@ function initializeAdmin() {
 const db = initializeAdmin().firestore();
 const FieldValue = admin.firestore.FieldValue;
 
+const STORE_ROOT = 'LUNERA';
+const STORE_ITEMS_COLLECTION = 'items';
+const storeCollection = (name) => db.collection(STORE_ROOT).doc(name).collection(STORE_ITEMS_COLLECTION);
+
 const categories = [
   {
     slug: 'lingerie',
@@ -1157,7 +1161,7 @@ const promotions = [
 async function seedCategories() {
   console.log('Seeding categories…');
   for (const category of categories) {
-    const ref = db.collection('categories').doc(category.name);
+    const ref = storeCollection('categories').doc(category.name);
     await ref.set(
       {
         name: category.name,
@@ -1181,7 +1185,7 @@ async function seedCategories() {
 async function seedProducts() {
   console.log('Seeding products and variants…');
   for (const product of productCatalog) {
-    const productRef = db.collection('products').doc(product.slug);
+    const productRef = storeCollection('products').doc(product.slug);
     const existing = await productRef.get();
 
     const timestamps = existing.exists
@@ -1305,7 +1309,7 @@ async function seedProducts() {
 async function seedPromotions() {
   console.log('Seeding promotions…');
   for (const promo of promotions) {
-    const promoRef = db.collection('promotions').doc(promo.code);
+    const promoRef = storeCollection('promotions').doc(promo.code);
     await promoRef.set(
       {
         code: promo.code,
@@ -1329,7 +1333,7 @@ async function seedPromotions() {
 
 async function updateCategoryPreviews() {
   console.log('Updating category preview product IDs…');
-  const productsSnapshot = await db.collection('products').get();
+  const productsSnapshot = await storeCollection('products').get();
 
   const categoryMap = new Map();
   for (const doc of productsSnapshot.docs) {

@@ -1,4 +1,4 @@
-import { getServerSideCategories, getServerSideProducts } from '@/lib/firestore-server';
+import { getServerSideCategories, getServerSideProducts, getServerSideInfo } from '@/lib/firestore-server';
 import HomeClient from '@/components/HomeClient';
 
 // This is now a Server Component - it fetches data on the server
@@ -11,11 +11,13 @@ export default async function Home() {
   // to client-side fetching (the app still works, just without SSR benefits).
   let categories = [];
   let products = [];
+  let info = null;
 
   try {
-    [categories, products] = await Promise.all([
+    [categories, products, info] = await Promise.all([
       getServerSideCategories(),
       getServerSideProducts(),
+      getServerSideInfo(),
     ]);
   } catch (error) {
     // Only fallback in development - in production (Firebase Hosting), credentials should always be available
@@ -34,8 +36,13 @@ export default async function Home() {
     }
   }
 
+  // Ensure info has defaults if fetch failed
+  if (!info) {
+    info = await getServerSideInfo();
+  }
+
   // Pass server-rendered data to client component
   // The client component will hydrate with this data and then add real-time updates
   // If server data is empty, client component will fetch everything client-side
-  return <HomeClient initialCategories={categories} initialProducts={products} />;
+  return <HomeClient initialCategories={categories} initialProducts={products} info={info} />;
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { doc, addDoc, updateDoc, deleteDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { getStoreDocPath } from '@/lib/store-collections';
 
 const VariantRow = forwardRef(function VariantRow({ variant, productId, basePrice, onUpdate, onDelete, db, setMessage, suppressMessages }, ref) {
   const [editing, setEditing] = useState(variant.isNew || false);
@@ -67,14 +68,14 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
           totalAddedToCart: 0,
           totalPurchases: 0,
         };
-        const docRef = await addDoc(collection(db, 'products', productId, 'variants'), payload);
+        const docRef = await addDoc(collection(db, ...getStoreDocPath('products', productId), 'variants'), payload);
         onUpdate({ id: docRef.id, ...payload });
         if (!suppressMsg && !suppressMessages && setMessage) {
           setMessage({ type: 'success', text: 'Variant created successfully.' });
         }
       } else {
         // Update existing variant
-        await updateDoc(doc(db, 'products', productId, 'variants', variant.id), payload);
+        await updateDoc(doc(db, ...getStoreDocPath('products', productId), 'variants', variant.id), payload);
         onUpdate({ ...variant, ...payload });
         if (!suppressMsg && !suppressMessages && setMessage) {
           setMessage({ type: 'success', text: 'Variant updated successfully.' });
@@ -106,7 +107,7 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
     }
 
     try {
-      await deleteDoc(doc(db, 'products', productId, 'variants', variant.id));
+      await deleteDoc(doc(db, ...getStoreDocPath('products', productId), 'variants', variant.id));
       onDelete();
       setMessage({ type: 'success', text: 'Variant deleted successfully.' });
     } catch (error) {

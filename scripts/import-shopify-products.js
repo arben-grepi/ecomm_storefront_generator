@@ -85,6 +85,56 @@ function initializeAdmin() {
 const db = initializeAdmin().firestore();
 const FieldValue = admin.firestore.FieldValue;
 
+const STORE_ROOT = 'LUNERA';
+const STORE_ITEMS_COLLECTION = 'items';
+const storeCollection = (name) => db.collection(STORE_ROOT).doc(name).collection(STORE_ITEMS_COLLECTION);
+
+const slugify = (value) =>
+  value
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const generateDocumentId = (product) => {
+  if (product.handle) {
+    return slugify(product.handle);
+  }
+  if (product.title) {
+    const slug = slugify(product.title);
+    if (slug) return slug;
+  }
+  return `shopify-product-${product.id}`;
+};
+
+const extractImageUrls = (product) =>
+  (product.images || [])
+    .map((img) => (typeof img === 'object' ? img.src : img))
+    .filter(Boolean);
+
+const buildShopifyDocument = (product, matchedCategorySlug) => {
+  const tags = product.tags
+    ? product.tags
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+    : [];
+
+  return {
+    shopifyId: product.id,
+    title: product.title,
+    handle: product.handle || null,
+    status: product.status || null,
+    vendor: product.vendor || null,
+    productType: product.product_type || null,
+    tags,
+    matchedCategorySlug: matchedCategorySlug || null,
+    imageUrls: extractImageUrls(product),
+    rawProduct: product,
+  };
+};
+
 /**
  * Match a Shopify product to a category using multiple strategies
  */
@@ -191,132 +241,6 @@ async function fetchAllShopifyProducts(storeUrl, accessToken) {
 }
 
 /**
- * Convert Shopify product to Firestore format
- */
-function transformShopifyProduct(shopifyProduct, categoryId) {
-  // Generate slug from title
-  const slug = shopifyProduct.title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  
-  // Extract images
-  const images = (shopifyProduct.images || []).map(img => img.src).filter(Boolean);
-  
-  // Get base price from first variant
-  const firstVariant = shopifyProduct.variants && shopifyProduct.variants[0];
-  const basePrice = firstVariant ? parseFloat(firstVariant.price) : 0;
-  
-  return {
-    name: shopifyProduct.title,
-    slug,
-    categoryId,
-    supplierId: null, // Can be set later if you have supplier info
-    basePrice,
-    description: shopifyProduct.body_html || shopifyProduct.body || '',
-    images: images.length > 0 ? images : null,
-    tags: shopifyProduct.tags ? shopifyProduct.tags.split(',').map(t => t.trim()) : [],
-    active: shopifyProduct.status === 'active',
-    metrics: {
-      totalViews: 0,
-      totalPurchases: 0,
-      lastViewedAt: null,
-    },
-    createdAt: FieldValue.serverTimestamp(),
-    updatedAt: FieldValue.serverTimestamp(),
-  };
-}
-
-/**
- * Convert Shopify variants to Firestore format
- */
-function transformShopifyVariants(shopifyProduct) {
-  if (!shopifyProduct.variants || shopifyProduct.variants.length === 0) {
-    return [];
-  }
-  
-  return shopifyProduct.variants.map(variant => {
-    // Extract variant images (if variant has image_id, find matching image)
-    let variantImages = [];
-    if (variant.image_id && shopifyProduct.images) {
-      const variantImage = shopifyProduct.images.find(img => img.id === variant.image_id);
-      if (variantImage) {
-        variantImages = [variantImage.src];
-      }
-    }
-    
-    // If no variant-specific image, use product images
-    if (variantImages.length === 0 && shopifyProduct.images && shopifyProduct.images.length > 0) {
-      variantImages = [shopifyProduct.images[0].src];
-    }
-    
-    return {
-      size: variant.option1 || null,
-      color: variant.option2 || variant.option1 || null,
-      sku: variant.sku || null,
-      stock: variant.inventory_quantity || 0,
-      priceOverride: parseFloat(variant.price) !== parseFloat(shopifyProduct.variants[0].price) 
-        ? parseFloat(variant.price) 
-        : null,
-      images: variantImages.length > 0 ? variantImages : null,
-      metrics: {
-        totalViews: 0,
-        totalAddedToCart: 0,
-        totalPurchases: 0,
-      },
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    };
-  });
-}
-
-/**
- * Ensure category exists in Firestore
- */
-async function ensureCategory(categorySlug, categoryName) {
-  const categoryRef = db.collection('categories').doc(categoryName);
-  const categoryDoc = await categoryRef.get();
-  
-  if (!categoryDoc.exists) {
-    // Default category images (you can customize these)
-    const categoryImages = {
-      lingerie: 'https://images.pexels.com/photos/7679657/pexels-photo-7679657.jpeg?auto=compress&cs=tinysrgb&w=800',
-      underwear: 'https://images.pexels.com/photos/1030895/pexels-photo-1030895.jpeg?auto=compress&cs=tinysrgb&w=800',
-      sports: 'https://images.pexels.com/photos/6453399/pexels-photo-6453399.jpeg?auto=compress&cs=tinysrgb&w=800',
-      dresses: 'https://images.unsplash.com/photo-1524502397800-2eeaad7c3fe5?auto=format&fit=crop&w=800&q=80',
-      clothes: 'https://images.pexels.com/photos/9963294/pexels-photo-9963294.jpeg?auto=compress&cs=tinysrgb&w=800',
-    };
-    
-    const categoryDescriptions = {
-      lingerie: 'Romantic lace, effortless silhouettes, and everyday comfort.',
-      underwear: 'Soft essentials designed for daily wear.',
-      sports: 'Performance fabrics with studio-to-street styling.',
-      dresses: 'Elevated silhouettes for events, evenings, and weekends.',
-      clothes: 'Relaxed tailoring and cozy knits for effortless style.',
-    };
-    
-    await categoryRef.set({
-      name: categoryName,
-      slug: categorySlug,
-      description: categoryDescriptions[categorySlug] || '',
-      imageUrl: categoryImages[categorySlug] || '',
-      active: true,
-      previewProductIds: [],
-      metrics: {
-        totalViews: 0,
-        lastViewedAt: null,
-      },
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    
-    console.log(`  • Created category: ${categoryName}`);
-  }
-  
-  return categoryName;
-}
-
-/**
  * Import products from Shopify
  */
 async function importProducts() {
@@ -334,98 +258,64 @@ async function importProducts() {
   const shopifyProducts = await fetchAllShopifyProducts(storeUrl, accessToken);
   console.log(`\n✅ Fetched ${shopifyProducts.length} products from Shopify\n`);
   
-  // Match products to categories
-  const matchedProducts = [];
+  const shopifyCollection = storeCollection('shopify');
+  let totalUpserted = 0;
+  let matchedCount = 0;
   const unmatchedProducts = [];
   
   for (const product of shopifyProducts) {
+    console.log(`\n🧾 Shopify product payload (${product.title} | ID: ${product.id})`);
+    console.dir(product, { depth: null });
+    
     const categorySlug = matchProductToCategory(product);
     if (categorySlug) {
-      const categoryName = categorySlug.charAt(0).toUpperCase() + categorySlug.slice(1);
-      matchedProducts.push({ product, categorySlug, categoryName });
+      matchedCount += 1;
     } else {
       unmatchedProducts.push(product);
     }
+    
+    const documentId = generateDocumentId(product);
+    const docRef = shopifyCollection.doc(documentId);
+    const payload = buildShopifyDocument(product, categorySlug);
+    
+    const existingDoc = await docRef.get();
+    const timestamps = existingDoc.exists
+      ? { updatedAt: FieldValue.serverTimestamp() }
+      : {
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        };
+    
+    await docRef.set(
+      {
+        ...payload,
+        slug: documentId,
+        fetchedAt: FieldValue.serverTimestamp(),
+        ...timestamps,
+      },
+      { merge: true }
+    );
+    
+    console.log(`  • Stored at LUNERA/shopify/items/${documentId}`);
+    totalUpserted += 1;
   }
   
-  console.log(`📊 Matching Results:`);
-  console.log(`  • Matched: ${matchedProducts.length} products`);
-  console.log(`  • Unmatched: ${unmatchedProducts.length} products\n`);
+  console.log(`\n📊 Matching summary:`);
+  console.log(`  • Category guess available: ${matchedCount} products`);
+  console.log(`  • No category guess: ${unmatchedProducts.length} products`);
   
   if (unmatchedProducts.length > 0) {
     console.log('Unmatched products (first 10):');
-    unmatchedProducts.slice(0, 10).forEach(p => {
+    unmatchedProducts.slice(0, 10).forEach((p) => {
       console.log(`  - ${p.title} (Type: ${p.product_type || 'N/A'}, Tags: ${p.tags || 'N/A'})`);
     });
     if (unmatchedProducts.length > 10) {
       console.log(`  ... and ${unmatchedProducts.length - 10} more`);
     }
-    console.log('');
   }
   
-  // Group by category
-  const productsByCategory = {};
-  for (const { product, categorySlug, categoryName } of matchedProducts) {
-    if (!productsByCategory[categorySlug]) {
-      productsByCategory[categorySlug] = [];
-    }
-    productsByCategory[categorySlug].push({ product, categoryName });
-  }
-  
-  // Import products
-  let totalImported = 0;
-  let totalSkipped = 0;
-  
-  for (const [categorySlug, products] of Object.entries(productsByCategory)) {
-    const categoryName = products[0].categoryName;
-    console.log(`\n📦 Importing ${products.length} products to category: ${categoryName}`);
-    
-    // Ensure category exists
-    await ensureCategory(categorySlug, categoryName);
-    
-    for (const { product } of products) {
-      try {
-        const firestoreProduct = transformShopifyProduct(product, categoryName);
-        const productRef = db.collection('products').doc(firestoreProduct.slug);
-        
-        // Check if product already exists
-        const existing = await productRef.get();
-        if (existing.exists) {
-          console.log(`  ⏭️  Skipped (exists): ${firestoreProduct.name}`);
-          totalSkipped++;
-          continue;
-        }
-        
-        // Save product
-        await productRef.set(firestoreProduct);
-        
-        // Save variants
-        const variants = transformShopifyVariants(product);
-        if (variants.length > 0) {
-          const variantsCollection = productRef.collection('variants');
-          for (const variant of variants) {
-            const variantId = variant.sku || 
-              [
-                variant.size ? variant.size.toLowerCase().replace(/\s+/g, '-') : 'onesize',
-                variant.color ? variant.color.toLowerCase().replace(/\s+/g, '-') : 'standard',
-              ].join('-');
-            
-            await variantsCollection.doc(variantId).set(variant);
-          }
-        }
-        
-        console.log(`  ✅ Imported: ${firestoreProduct.name} (${variants.length} variants)`);
-        totalImported++;
-      } catch (error) {
-        console.error(`  ❌ Failed to import ${product.title}:`, error.message);
-      }
-    }
-  }
-  
-  console.log(`\n✅ Import complete!`);
-  console.log(`  • Imported: ${totalImported} products`);
-  console.log(`  • Skipped: ${totalSkipped} products (already exist)`);
-  console.log(`  • Unmatched: ${unmatchedProducts.length} products`);
+  console.log(`\n✅ Shopify sync complete!`);
+  console.log(`  • Upserted: ${totalUpserted} products into LUNERA/shopify/items`);
 }
 
 async function main() {

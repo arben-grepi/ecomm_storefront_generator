@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import EditSiteInfoButton from '@/components/admin/EditSiteInfoButton';
 
 export default function EcommerceOverview() {
   const stats = [
@@ -39,6 +40,7 @@ export default function EcommerceOverview() {
     { href: '/admin/promotions', label: 'Manage promotions' },
     { href: '/admin/analytics', label: 'View analytics' },
     { href: '/admin/plans/orders', label: 'Order operations plan' },
+    { href: '/admin/overview/shopifyItems', label: 'Process Shopify Items' },
   ];
 
   return (
@@ -126,6 +128,7 @@ export default function EcommerceOverview() {
                   {link.label}
                 </Link>
               ))}
+              <EditSiteInfoButton className="w-full" />
             </nav>
 
             <div className="rounded-2xl bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">

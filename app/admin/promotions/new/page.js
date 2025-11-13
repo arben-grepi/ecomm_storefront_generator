@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { addDoc, collection, getDocs, query, serverTimestamp, Timestamp, where } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
+import { getStoreCollectionPath } from '@/lib/store-collections';
 import Toast from '@/components/admin/Toast';
 import InfoIcon from '@/components/admin/InfoIcon';
 
@@ -34,8 +35,8 @@ export default function NewPromotionPage() {
   useEffect(() => {
     if (!db) return;
 
-    const categoriesQuery = query(collection(db, 'categories'));
-    const productsQuery = query(collection(db, 'products'));
+    const categoriesQuery = query(collection(db, ...getStoreCollectionPath('categories')));
+    const productsQuery = query(collection(db, ...getStoreCollectionPath('products')));
 
     Promise.all([
       getDocs(categoriesQuery).then((snapshot) =>
@@ -98,7 +99,10 @@ export default function NewPromotionPage() {
     // Check for duplicate code
     if (db) {
       try {
-        const codeQuery = query(collection(db, 'promotions'), where('code', '==', form.code.trim().toUpperCase()));
+        const codeQuery = query(
+          collection(db, ...getStoreCollectionPath('promotions')),
+          where('code', '==', form.code.trim().toUpperCase())
+        );
         const codeSnapshot = await getDocs(codeQuery);
         if (!codeSnapshot.empty) {
           setMessage({ type: 'error', text: `A promotion with code "${form.code.trim().toUpperCase()}" already exists.` });
@@ -128,7 +132,7 @@ export default function NewPromotionPage() {
         createdAt: serverTimestamp(),
       };
 
-      await addDoc(collection(db, 'promotions'), payload);
+      await addDoc(collection(db, ...getStoreCollectionPath('promotions')), payload);
       setMessage({ type: 'success', text: 'Promotion created successfully.' });
       setTimeout(() => {
         router.push('/admin/promotions');

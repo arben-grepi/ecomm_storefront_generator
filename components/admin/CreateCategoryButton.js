@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addDoc, collection, doc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
+import { getStoreCollectionPath, getStoreDocPath } from '@/lib/store-collections';
 
 const slugify = (value) =>
   value
@@ -66,7 +67,10 @@ export default function CategoryModalButton({
 
       if (mode === 'edit' && category) {
         // When editing, check if the new name conflicts with another category
-        const nameQuery = query(collection(db, 'categories'), where('name', '==', trimmedName));
+        const nameQuery = query(
+          collection(db, ...getStoreCollectionPath('categories')),
+          where('name', '==', trimmedName)
+        );
         const nameSnapshot = await getDocs(nameQuery);
         const conflictingName = nameSnapshot.docs.find((doc) => doc.id !== category.id);
 
@@ -84,15 +88,21 @@ export default function CategoryModalButton({
           updatedAt: serverTimestamp(),
         };
 
-        await updateDoc(doc(db, 'categories', category.id), payload);
+        await updateDoc(doc(db, ...getStoreDocPath('categories', category.id)), payload);
 
         if (onCompleted) {
           onCompleted({ id: category.id, ...category, ...payload });
         }
       } else {
         // When creating, check if category with same name or slug already exists
-        const nameQuery = query(collection(db, 'categories'), where('name', '==', trimmedName));
-        const slugQuery = query(collection(db, 'categories'), where('slug', '==', newSlug));
+        const nameQuery = query(
+          collection(db, ...getStoreCollectionPath('categories')),
+          where('name', '==', trimmedName)
+        );
+        const slugQuery = query(
+          collection(db, ...getStoreCollectionPath('categories')),
+          where('slug', '==', newSlug)
+        );
 
         const [nameSnapshot, slugSnapshot] = await Promise.all([
           getDocs(nameQuery),
@@ -125,7 +135,7 @@ export default function CategoryModalButton({
           updatedAt: serverTimestamp(),
         };
 
-        const docRef = await addDoc(collection(db, 'categories'), payload);
+        const docRef = await addDoc(collection(db, ...getStoreCollectionPath('categories')), payload);
         const createdCategory = { id: docRef.id, ...payload };
         if (onCompleted) {
           onCompleted(createdCategory);

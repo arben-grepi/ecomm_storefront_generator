@@ -13,7 +13,7 @@ const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
   ssr: false,
 });
 
-export default function HomeClient({ initialCategories = [], initialProducts = [] }) {
+export default function HomeClient({ initialCategories = [], initialProducts = [], info = null }) {
   // Use real-time updates from Firebase, but start with server-rendered data
   const { categories: realtimeCategories, loading: categoriesLoading } = useCategories();
   const { products: realtimeProducts, loading: productsLoading } = useAllProducts();
@@ -30,6 +30,17 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
 
   // Only show loading if we don't have initial data AND we're still loading
   const loading = (categoriesLoading || productsLoading) && initialCategories.length === 0 && initialProducts.length === 0;
+
+  // Use info from server (for SEO), with empty strings as fallback
+  const siteInfo = info || {
+    companyName: '',
+    companyTagline: '',
+    heroMainHeading: 'Something went wrong. Please refresh the page.',
+    heroDescription: '',
+    categorySectionHeading: '',
+    categorySectionDescription: '',
+    footerText: '',
+  };
 
   const categoryPreviews = useMemo(() => {
     const filtered = categories
@@ -84,10 +95,10 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               {/* Mobile: Company name, Desktop: Full branding */}
               <div className="flex flex-col sm:flex-col">
                 <h1 className="whitespace-nowrap text-xl font-light text-primary tracking-wide sm:text-2xl">
-                  Lingerie Boutique
+                  {siteInfo.companyName}
                 </h1>
                 <p className="hidden text-sm text-slate-500 sm:block">
-                  Effortless softness for every day and night in.
+                  {siteInfo.companyTagline}
                 </p>
               </div>
               {/* Spacer for mobile to push buttons to right */}
@@ -134,11 +145,10 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             Explore the Edit
           </span>
           <h2 className="text-3xl font-light text-primary sm:text-5xl">
-            Curated collections for every mood and moment.
+            {siteInfo.heroMainHeading}
           </h2>
           <p className="text-base text-slate-600 sm:text-lg">
-            From delicate lace to active-ready comfort. Discover the pieces that make you feel
-            confident, effortless, and beautifully yourself.
+            {siteInfo.heroDescription}
           </p>
         </div>
       </section>
@@ -146,9 +156,9 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       {/* Category Cards */}
       <main id="collection" className="mx-auto max-w-7xl px-3 pb-16 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-2 text-center sm:mb-12 sm:text-left">
-          <h3 className="text-xl font-medium text-primary sm:text-2xl">Shop by category</h3>
+          <h3 className="text-xl font-medium text-primary sm:text-2xl">{siteInfo.categorySectionHeading}</h3>
           <p className="text-sm text-slate-600 sm:text-base">
-            Choose a category to explore this week's top four bestsellers, refreshed daily.
+            {siteInfo.categorySectionDescription}
           </p>
         </div>
         {loading ? (
@@ -169,7 +179,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       {/* Footer */}
       <footer className="border-t border-secondary/70 bg-white">
         <div className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-slate-500 sm:px-6 lg:px-8">
-          © 2024 Lingerie Boutique. All rights reserved.
+          {siteInfo.footerText}
         </div>
       </footer>
     </div>

@@ -20,6 +20,14 @@ This document captures the initial Firestore data model for the ecommerce platfo
 
 ## Collections
 
+All application data lives under the root collection `LUNERA`. Each logical collection (categories, products, promotions, etc.) is stored as a subcollection at the path:
+
+```
+LUNERA/{collectionName}/items/{documentId}
+```
+
+For example, categories are stored at `LUNERA/categories/items/{categoryId}` and products at `LUNERA/products/items/{productId}`. Product variants remain subcollections of the product document (`.../items/{productId}/variants/{variantId}`).
+
 ### categories
 Stores merchandising metadata for each category.
 
@@ -43,10 +51,13 @@ Top-level product metadata. Per-variant data lives in the `variants` subcollecti
 | `categoryId`     | reference | Reference to `categories/{id}`                                           |
 | `supplierId`     | reference | Reference to `suppliers/{id}`                                            |
 | `basePrice`      | number    | Default price when no override on variant                                |
-| `description`    | string    | Supports rich text/HTML                                                   |
-| `images`         | array     | Array of image URLs                                                       |
+| `description`    | string    | Plain-text summary shown in cards                                         |
+| `descriptionHtml`| string    | Sanitized rich text rendered on detail pages                              |
+| `images`         | array     | Array of primary image URLs                                               |
+| `extraImages`    | array     | Additional images parsed from rich content                                |
 | `careInstructions` | string  | Optional long-form field                                                  |
 | `tags`           | array     | Search/filter tags                                                        |
+| `specs`          | map       | Structured specs parsed from product description                          |
 | `active`         | boolean   | Whether product is visible                                                |
 | `metrics`        | map       | `{ totalViews, lastViewedAt, totalPurchases }`                            |
 | `createdAt`      | timestamp |                                                                            |

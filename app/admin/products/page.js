@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { collection, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import Toast from '@/components/admin/Toast';
+import { getStoreCollectionPath, getStoreDocPath } from '@/lib/store-collections';
 
 export default function ProductsListPage() {
   const router = useRouter();
@@ -26,7 +27,10 @@ export default function ProductsListPage() {
       return undefined;
     }
 
-    const categoriesQuery = query(collection(db, 'categories'), orderBy('name', 'asc'));
+    const categoriesQuery = query(
+      collection(db, ...getStoreCollectionPath('categories')),
+      orderBy('name', 'asc')
+    );
     const unsubscribeCategories = onSnapshot(
       categoriesQuery,
       (snapshot) => {
@@ -48,7 +52,10 @@ export default function ProductsListPage() {
       return undefined;
     }
 
-    const productsQuery = query(collection(db, 'products'), orderBy('createdAt', 'desc'));
+    const productsQuery = query(
+      collection(db, ...getStoreCollectionPath('products')),
+      orderBy('createdAt', 'desc')
+    );
     const unsubscribeProducts = onSnapshot(
       productsQuery,
       async (snapshot) => {
@@ -58,7 +65,9 @@ export default function ProductsListPage() {
         const productsWithStock = await Promise.all(
           productsData.map(async (product) => {
             try {
-              const variantsSnapshot = await getDocs(collection(db, 'products', product.id, 'variants'));
+              const variantsSnapshot = await getDocs(
+                collection(db, ...getStoreDocPath('products', product.id), 'variants')
+              );
               const variants = variantsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
               const totalStock = variants.reduce((sum, variant) => sum + (variant.stock || 0), 0);
               const lowStockVariants = variants.filter((v) => (v.stock || 0) < lowStockThreshold).length;
@@ -119,7 +128,7 @@ export default function ProductsListPage() {
     }
 
     try {
-      await updateDoc(doc(db, 'products', product.id), {
+      await updateDoc(doc(db, ...getStoreDocPath('products', product.id)), {
         active: product.active === false ? true : false,
         updatedAt: serverTimestamp(),
       });

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
+import { getStoreCollectionPath } from '@/lib/store-collections';
 import Toast from '@/components/admin/Toast';
 
 export default function PromotionsListPage() {
@@ -23,7 +24,10 @@ export default function PromotionsListPage() {
       return undefined;
     }
 
-    const promotionsQuery = query(collection(db, 'promotions'), orderBy('createdAt', 'desc'));
+    const promotionsQuery = query(
+      collection(db, ...getStoreCollectionPath('promotions')),
+      orderBy('createdAt', 'desc')
+    );
     const unsubscribe = onSnapshot(
       promotionsQuery,
       (snapshot) => {

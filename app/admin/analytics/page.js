@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
+import { getStoreCollectionPath } from '@/lib/store-collections';
 import Toast from '@/components/admin/Toast';
 
 export default function AnalyticsPage() {
@@ -21,7 +22,7 @@ export default function AnalyticsPage() {
       return undefined;
     }
 
-    const categoriesQuery = query(collection(db, 'categories'));
+    const categoriesQuery = query(collection(db, ...getStoreCollectionPath('categories')));
     const unsubscribeCategories = onSnapshot(
       categoriesQuery,
       (snapshot) => {
@@ -52,7 +53,7 @@ export default function AnalyticsPage() {
   useEffect(() => {
     if (!db) return undefined;
 
-    const productsQuery = query(collection(db, 'products'));
+    const productsQuery = query(collection(db, ...getStoreCollectionPath('products')));
     const unsubscribeProducts = onSnapshot(
       productsQuery,
       (snapshot) => {

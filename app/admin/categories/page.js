@@ -7,6 +7,7 @@ import { getFirebaseDb } from '@/lib/firebase';
 import CategoryModalButton from '@/components/admin/CreateCategoryButton';
 import CategoryTable from '@/components/admin/CategoryTable';
 import Toast from '@/components/admin/Toast';
+import { getStoreCollectionPath, getStoreDocPath } from '@/lib/store-collections';
 
 export default function CategoriesAdminPage() {
   const router = useRouter();
@@ -26,7 +27,10 @@ export default function CategoriesAdminPage() {
       return undefined;
     }
 
-    const categoriesQuery = query(collection(db, 'categories'), orderBy('createdAt', 'desc'));
+    const categoriesQuery = query(
+      collection(db, ...getStoreCollectionPath('categories')),
+      orderBy('createdAt', 'desc')
+    );
     const unsubscribeCategories = onSnapshot(
       categoriesQuery,
       (snapshot) => {
@@ -43,7 +47,7 @@ export default function CategoriesAdminPage() {
 
     // Also fetch products to show in expandable sections
     // Filter active products client-side
-    const productsQuery = query(collection(db, 'products'));
+    const productsQuery = query(collection(db, ...getStoreCollectionPath('products')));
     const unsubscribeProducts = onSnapshot(
       productsQuery,
       async (snapshot) => {
@@ -55,7 +59,9 @@ export default function CategoriesAdminPage() {
         const productsWithStock = await Promise.all(
           productsData.map(async (product) => {
             try {
-              const variantsSnapshot = await getDocs(collection(db, 'products', product.id, 'variants'));
+              const variantsSnapshot = await getDocs(
+                collection(db, ...getStoreDocPath('products', product.id), 'variants')
+              );
               const variants = variantsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
               const totalStock = variants.reduce((sum, variant) => sum + (variant.stock || 0), 0);
               return { ...product, totalStock, variants };
@@ -102,7 +108,7 @@ export default function CategoriesAdminPage() {
     }
 
     try {
-      await updateDoc(doc(db, 'categories', category.id), {
+      await updateDoc(doc(db, ...getStoreDocPath('categories', category.id)), {
         active: category.active === false ? true : false,
         updatedAt: serverTimestamp(),
       });
@@ -119,7 +125,7 @@ export default function CategoriesAdminPage() {
     }
 
     try {
-      await updateDoc(doc(db, 'categories', categoryId), {
+      await updateDoc(doc(db, ...getStoreDocPath('categories', categoryId)), {
         previewProductIds: previewProductIds.slice(0, 4), // Max 4 products
         updatedAt: serverTimestamp(),
       });

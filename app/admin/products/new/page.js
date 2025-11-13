@@ -10,6 +10,7 @@ import InfoIcon from '@/components/admin/InfoIcon';
 import Toast from '@/components/admin/Toast';
 import ImageManager from '@/components/admin/ImageManager';
 import UnsavedChangesDialog from '@/components/admin/UnsavedChangesDialog';
+import { getStoreCollectionPath, getStoreDocPath } from '@/lib/store-collections';
 
 const initialFormState = {
   name: '',
@@ -175,7 +176,7 @@ export default function NewProductPage() {
         updatedAt: serverTimestamp(),
       };
 
-      const productRef = await addDoc(collection(db, 'products'), productPayload);
+      const productRef = await addDoc(collection(db, ...getStoreCollectionPath('products')), productPayload);
 
       const variantHasData =
         form.variant.size.trim() || form.variant.color.trim() || form.variant.stock || form.variant.priceOverride;
@@ -184,7 +185,7 @@ export default function NewProductPage() {
         const stock = parseInt(form.variant.stock, 10);
         const priceOverride = form.variant.priceOverride ? parseFloat(form.variant.priceOverride) : null;
 
-        await addDoc(collection(db, 'products', productRef.id, 'variants'), {
+        await addDoc(collection(db, ...getStoreDocPath('products', productRef.id), 'variants'), {
           size: form.variant.size.trim() || null,
           color: form.variant.color.trim() || null,
           stock: Number.isNaN(stock) ? 0 : stock,

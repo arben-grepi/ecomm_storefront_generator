@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react';
 
-export default function Toast({ message, onDismiss, duration = 3000 }) {
+export default function Toast({
+  message,
+  onDismiss,
+  duration = 3000,
+  position = 'fixed',
+  offsetClass = 'top-4 left-1/2 -translate-x-1/2',
+  className = '',
+}) {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -27,12 +34,12 @@ export default function Toast({ message, onDismiss, duration = 3000 }) {
 
   return (
     <div
-      className={`fixed top-4 left-1/2 z-50 -translate-x-1/2 transition-all duration-300 ${
-        show ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2 pointer-events-none'
-      }`}
+      className={`${position} ${offsetClass} z-[9999] transition-all duration-300 pointer-events-none ${
+        show ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
+      } ${className}`}
     >
       <div
-        className={`rounded-xl border px-6 py-4 text-base font-medium shadow-lg min-w-[300px] max-w-md ${
+        className={`pointer-events-auto rounded-xl border px-6 py-4 text-base font-medium shadow-lg min-w-[300px] max-w-md ${
           message.type === 'success'
             ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
             : 'border-rose-200 bg-rose-50 text-rose-700'

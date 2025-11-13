@@ -11,6 +11,7 @@ import Toast from '@/components/admin/Toast';
 import VariantRow from '@/components/admin/VariantRow';
 import ImageManager from '@/components/admin/ImageManager';
 import UnsavedChangesDialog from '@/components/admin/UnsavedChangesDialog';
+import { getStoreDocPath } from '@/lib/store-collections';
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function EditProductPage() {
 
     const loadProduct = async () => {
       try {
-        const productDoc = await getDoc(doc(db, 'products', productId));
+        const productDoc = await getDoc(doc(db, ...getStoreDocPath('products', productId)));
         if (!productDoc.exists()) {
           setMessage({ type: 'error', text: 'Product not found.' });
           setLoading(false);
@@ -72,7 +73,7 @@ export default function EditProductPage() {
         setOriginalForm(JSON.parse(JSON.stringify(initialForm)));
 
         // Load variants
-        const variantsSnapshot = await getDocs(collection(db, 'products', productId, 'variants'));
+        const variantsSnapshot = await getDocs(collection(db, ...getStoreDocPath('products', productId), 'variants'));
         const variantsData = variantsSnapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
@@ -261,7 +262,7 @@ export default function EditProductPage() {
         updatedAt: serverTimestamp(),
       };
 
-      await updateDoc(doc(db, 'products', productId), productPayload);
+      await updateDoc(doc(db, ...getStoreDocPath('products', productId)), productPayload);
       
       // Update original form after successful save
       const updatedForm = { ...form };

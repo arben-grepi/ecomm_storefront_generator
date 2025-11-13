@@ -2,8 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // LUNERA collection structure
     // Public reads for storefront collections
-    match /categories/{categoryId} {
+    match /LUNERA/categories/items/{categoryId} {
       allow read: if true;
       allow write: if request.auth != null
                    && request.auth.token.email == "arbengrepi@gmail.com";
@@ -12,7 +13,7 @@ service cloud.firestore {
                     && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'slug', 'description', 'imageUrl', 'active', 'previewProductIds', 'createdAt']));
     }
 
-    match /products/{productId} {
+    match /LUNERA/products/items/{productId} {
       allow read: if true;
       allow write: if request.auth != null
                    && request.auth.token.email == "arbengrepi@gmail.com";
@@ -21,18 +22,18 @@ service cloud.firestore {
                     && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name', 'slug', 'categoryId', 'supplierId', 'basePrice', 'description', 'images', 'careInstructions', 'tags', 'active', 'createdAt']));
     }
 
-    match /products/{productId}/variants/{variantId} {
+    match /LUNERA/products/items/{productId}/variants/{variantId} {
       allow read: if true;
       allow write: if request.auth != null
                    && request.auth.token.email == "arbengrepi@gmail.com";
     }
 
-    match /suppliers/{supplierId} {
+    match /LUNERA/suppliers/items/{supplierId} {
       allow read, write: if request.auth != null
                          && request.auth.token.email == "arbengrepi@gmail.com";
     }
 
-    match /orders/{orderId} {
+    match /LUNERA/orders/items/{orderId} {
       // Allow users to create their own orders
       allow create: if request.auth != null
                      && (request.resource.data.userId == request.auth.uid || request.resource.data.userId == null);
@@ -44,9 +45,15 @@ service cloud.firestore {
                              && request.auth.token.email == "arbengrepi@gmail.com";
     }
 
-    match /promotions/{promoId} {
+    match /LUNERA/promotions/items/{promoId} {
       allow read: if true;
       allow write: if request.auth != null
+                   && request.auth.token.email == "arbengrepi@gmail.com";
+    }
+
+    match /LUNERA/userEvents/items/{eventId} {
+      allow write: if request.auth != null;
+      allow read: if request.auth != null
                    && request.auth.token.email == "arbengrepi@gmail.com";
     }
 
@@ -71,10 +78,17 @@ service cloud.firestore {
                      && (!resource.exists || request.auth.uid == resource.data.userId);
     }
 
-    match /userEvents/{eventId} {
-      allow write: if request.auth != null;
-      allow read: if request.auth != null
+    // Site info - public read (for SSR), admin write
+    match /LUNERA/Info {
+      allow read: if true;
+      allow write: if request.auth != null
                    && request.auth.token.email == "arbengrepi@gmail.com";
+    }
+
+    // Shopify items - admin read/write only
+    match /LUNERA/shopify/items/{itemId} {
+      allow read, write: if request.auth != null
+                         && request.auth.token.email == "arbengrepi@gmail.com";
     }
 
     // Deny everything else by default

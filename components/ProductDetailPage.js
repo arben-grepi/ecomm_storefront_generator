@@ -12,121 +12,151 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 const formatPrice = (value) => currencyFormatter.format(value ?? 0);
 
-export default function ProductDetailPage({ category, product, variants }) {
+export default function ProductDetailPage({ category, product, variants, info = null }) {
   const { addToCart, getCartItemCount, cart } = useCart();
   const [addingToCart, setAddingToCart] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const hasVariants = Array.isArray(variants) && variants.length > 0;
   
-  // Group variants by color
-  const variantsByColor = useMemo(() => {
+  // Use info from server (for SEO), with empty strings as fallback
+  const siteInfo = info || {
+    companyName: '',
+    footerText: '',
+  };
+  
+  // Check if variants have colors or types
+  const hasColors = useMemo(() => {
+    return variants.some((v) => v.color && v.color !== 'default');
+  }, [variants]);
+  
+  const hasTypes = useMemo(() => {
+    return variants.some((v) => v.type);
+  }, [variants]);
+
+  // Group variants by color or type
+  const variantsByGroup = useMemo(() => {
     if (!hasVariants) return new Map();
     const grouped = new Map();
     variants.forEach((variant) => {
-      const colorKey = variant.color || 'default';
-      if (!grouped.has(colorKey)) {
-        grouped.set(colorKey, []);
+      // Use color if available, otherwise type, otherwise 'default'
+      const groupKey = hasColors 
+        ? (variant.color || 'default')
+        : hasTypes 
+        ? (variant.type || 'default')
+        : 'default';
+      if (!grouped.has(groupKey)) {
+        grouped.set(groupKey, []);
       }
-      grouped.get(colorKey).push(variant);
+      grouped.get(groupKey).push(variant);
     });
     return grouped;
-  }, [hasVariants, variants]);
+  }, [hasVariants, variants, hasColors, hasTypes]);
 
-  // Get available colors
-  const availableColors = useMemo(() => {
-    return Array.from(variantsByColor.keys());
-  }, [variantsByColor]);
+  // Get available groups (colors or types)
+  const availableGroups = useMemo(() => {
+    return Array.from(variantsByGroup.keys()).filter((key) => key !== 'default' || variantsByGroup.size === 1);
+  }, [variantsByGroup]);
 
-  // State: selected color first, then size within that color
-  const [selectedColor, setSelectedColor] = useState(
-    availableColors.length > 0 ? availableColors[0] : null
+  // State: selected group (color or type) first, then size within that group
+  const [selectedGroup, setSelectedGroup] = useState(
+    availableGroups.length > 0 ? availableGroups[0] : null
   );
   const [selectedSize, setSelectedSize] = useState(null);
 
-  // Get variants for selected color
-  const colorVariants = useMemo(() => {
-    if (!selectedColor) return [];
-    return variantsByColor.get(selectedColor) || [];
-  }, [selectedColor, variantsByColor]);
+  // Get variants for selected group
+  const groupVariants = useMemo(() => {
+    if (!selectedGroup) return [];
+    return variantsByGroup.get(selectedGroup) || [];
+  }, [selectedGroup, variantsByGroup]);
 
-  // Get available sizes for selected color
+  // Get available sizes for selected group
   const availableSizes = useMemo(() => {
-    return colorVariants
+    return groupVariants
       .map((v) => v.size)
       .filter(Boolean)
       .filter((size, index, arr) => arr.indexOf(size) === index)
       .sort();
-  }, [colorVariants]);
+  }, [groupVariants]);
 
-  // Auto-select first size when color changes
+  // Auto-select first size when group changes
   useEffect(() => {
     if (availableSizes.length > 0) {
-      // Reset to first available size when color changes
+      // Reset to first available size when group changes
       setSelectedSize(availableSizes[0]);
     } else {
       setSelectedSize(null);
     }
-  }, [selectedColor, availableSizes]);
+  }, [selectedGroup, availableSizes]);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
-  // Find selected variant based on color + size
+  // Find selected variant based on group (color/type) + size
   const selectedVariant = useMemo(() => {
-    if (!selectedColor || !selectedSize) {
-      // If no size selected, return first variant of selected color
-      return colorVariants[0] || null;
+    if (!selectedGroup || !selectedSize) {
+      // If no size selected, return first variant of selected group
+      return groupVariants[0] || null;
     }
     return (
-      colorVariants.find(
-        (v) => v.size === selectedSize && v.color === selectedColor
-      ) || colorVariants[0] || null
+      groupVariants.find((v) => {
+        if (hasColors) {
+          return v.size === selectedSize && v.color === selectedGroup;
+        } else if (hasTypes) {
+          return v.size === selectedSize && v.type === selectedGroup;
+        }
+        return v.size === selectedSize;
+      }) || groupVariants[0] || null
     );
-  }, [selectedColor, selectedSize, colorVariants]);
+  }, [selectedGroup, selectedSize, groupVariants, hasColors, hasTypes]);
 
   const displayedPrice = selectedVariant?.priceOverride ?? product.basePrice ?? 0;
 
-  // Gallery images: collect all images from variants of the selected color
+  // Gallery images: variant photos first, then main product photos
   const galleryImages = useMemo(() => {
-    if (!selectedColor || !hasVariants) {
-      return Array.isArray(product.images) ? product.images.filter(Boolean) : [];
+    const mainProductImages = Array.isArray(product.images) ? product.images.filter(Boolean) : [];
+    
+    if (!selectedGroup || !hasVariants) {
+      return mainProductImages;
     }
 
-    // Collect all images from variants of the selected color
+    // Collect all images from variants of the selected group
     // Support both `images` (array) and `image` (string) for backward compatibility
-    const allColorVariantImages = [];
-    for (const variant of colorVariants) {
+    const allGroupVariantImages = [];
+    for (const variant of groupVariants) {
       if (Array.isArray(variant.images) && variant.images.length > 0) {
         // Use images array if available
-        allColorVariantImages.push(...variant.images.filter(Boolean));
+        allGroupVariantImages.push(...variant.images.filter(Boolean));
       } else if (variant.image) {
         // Backward compatibility: single image field
-        allColorVariantImages.push(variant.image);
+        allGroupVariantImages.push(variant.image);
       }
     }
 
-    // Remove duplicates while preserving order
-    const uniqueImages = allColorVariantImages.filter(
+    // Remove duplicates from variant images while preserving order
+    const uniqueVariantImages = allGroupVariantImages.filter(
       (img, index, arr) => arr.indexOf(img) === index
     );
 
-    // If we have color-specific images, use those; otherwise fall back to product images
-    if (uniqueImages.length > 0) {
-      return uniqueImages;
-    }
+    // Combine: variant images first, then product images (excluding duplicates)
+    const combined = [...uniqueVariantImages];
+    mainProductImages.forEach((img) => {
+      if (!combined.includes(img)) {
+        combined.push(img);
+      }
+    });
 
-    return Array.isArray(product.images) ? product.images.filter(Boolean) : [];
-  }, [selectedColor, colorVariants, product.images, hasVariants]);
+    return combined.length > 0 ? combined : mainProductImages;
+  }, [selectedGroup, groupVariants, product.images, hasVariants]);
 
   const [activeImage, setActiveImage] = useState(null);
 
-  // Update active image when color changes or gallery changes
+  // Update active image when group changes or gallery changes
   useEffect(() => {
     const primaryImage = galleryImages[0] || product.images?.[0] || null;
     setActiveImage(primaryImage);
-  }, [selectedColor, galleryImages, product.images]);
+  }, [selectedGroup, galleryImages, product.images]);
 
   // Check if current variant is already in cart
   const currentCartItem = useMemo(() => {
@@ -143,7 +173,13 @@ export default function ProductDetailPage({ category, product, variants }) {
     try {
       const variantId = selectedVariant?.id || null;
       const variantName = selectedVariant
-        ? `${selectedVariant.size || ''} ${selectedVariant.color || ''}`.trim() || 'One size'
+        ? (() => {
+            const parts = [];
+            if (selectedVariant.size) parts.push(selectedVariant.size);
+            if (selectedVariant.color) parts.push(selectedVariant.color);
+            if (selectedVariant.type) parts.push(selectedVariant.type);
+            return parts.length > 0 ? parts.join(' ') : 'One size';
+          })()
         : 'One size';
       
       const image = selectedVariant?.images?.[0] || selectedVariant?.image || product.images?.[0] || null;
@@ -194,7 +230,7 @@ export default function ProductDetailPage({ category, product, variants }) {
             </Link>
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
               <h1 className="whitespace-nowrap text-xl font-light text-primary tracking-wide sm:hidden">
-                Lingerie Boutique
+                {siteInfo.companyName}
               </h1>
               <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] text-primary sm:flex">
                 <Link href="/" className="transition hover:text-primary">
@@ -293,6 +329,20 @@ export default function ProductDetailPage({ category, product, variants }) {
               {product.name}
             </h1>
             <p className="text-lg text-slate-600 sm:text-xl">{product.description}</p>
+            {Array.isArray(product.bulletPoints) && product.bulletPoints.length > 0 && (
+              <div className="space-y-2">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+                  Details
+                </h2>
+                <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
+                  {product.bulletPoints
+                    .filter((point) => typeof point === 'string' && point.trim().length > 0)
+                    .map((point, index) => (
+                      <li key={`${product.id}-bullet-${index}`}>{point.trim()}</li>
+                    ))}
+                </ul>
+              </div>
+            )}
           </div>
 
               <div className="flex items-baseline gap-4">
@@ -309,18 +359,18 @@ export default function ProductDetailPage({ category, product, variants }) {
 
           {hasVariants && (
             <div className="space-y-6">
-              {/* Color Selector */}
-              {availableColors.length > 1 && (
+              {/* Color/Type Selector */}
+              {availableGroups.length > 1 && (
                 <div className="space-y-3">
                   <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
-                    Color: {selectedColor}
+                    {hasColors ? 'Color' : hasTypes ? 'Type' : 'Variant'}: {selectedGroup}
                   </h2>
                   <div className="flex flex-wrap gap-3">
-                    {availableColors.map((color) => {
-                      const isSelected = selectedColor === color;
-                      const colorVariantsForColor = variantsByColor.get(color) || [];
+                    {availableGroups.map((group) => {
+                      const isSelected = selectedGroup === group;
+                      const groupVariantsForGroup = variantsByGroup.get(group) || [];
                       // Get first image from variant (support both images array and image string)
-                      const firstVariantWithImage = colorVariantsForColor.find(
+                      const firstVariantWithImage = groupVariantsForGroup.find(
                         (v) => (Array.isArray(v.images) && v.images.length > 0) || v.image
                       );
                       const firstVariantImage = firstVariantWithImage
@@ -330,11 +380,11 @@ export default function ProductDetailPage({ category, product, variants }) {
                         : null;
                       return (
                         <button
-                          key={color}
+                          key={group}
                           type="button"
                           onClick={() => {
-                            setSelectedColor(color);
-                            setSelectedSize(null); // Reset size when color changes
+                            setSelectedGroup(group);
+                            setSelectedSize(null); // Reset size when group changes
                           }}
                           className={`relative flex items-center gap-2 rounded-xl border-2 px-4 py-2 transition ${
                             isSelected
@@ -342,14 +392,14 @@ export default function ProductDetailPage({ category, product, variants }) {
                               : 'border-secondary/70 bg-white/60 hover:border-primary/30'
                           }`}
                         >
-                          {firstVariantImage && (
+                          {firstVariantImage && hasColors && (
                             <img
                               src={firstVariantImage}
-                              alt={color}
+                              alt={group}
                               className="h-8 w-8 rounded-full object-cover ring-1 ring-secondary/50"
                             />
                           )}
-                          <span className="text-sm font-semibold text-slate-800">{color}</span>
+                          <span className="text-sm font-semibold text-slate-800">{group}</span>
                         </button>
                       );
                     })}
@@ -357,7 +407,7 @@ export default function ProductDetailPage({ category, product, variants }) {
                 </div>
               )}
 
-              {/* Size Selector (only show if there are multiple sizes for selected color) */}
+              {/* Size Selector (only show if there are multiple sizes for selected group) */}
               {availableSizes.length > 1 && (
                 <div className="space-y-3">
                   <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
@@ -366,9 +416,14 @@ export default function ProductDetailPage({ category, product, variants }) {
                   <div className="grid grid-cols-4 gap-3">
                     {availableSizes.map((size) => {
                       const isSelected = selectedSize === size;
-                      const sizeVariant = colorVariants.find(
-                        (v) => v.size === size && v.color === selectedColor
-                      );
+                      const sizeVariant = groupVariants.find((v) => {
+                        if (hasColors) {
+                          return v.size === size && v.color === selectedGroup;
+                        } else if (hasTypes) {
+                          return v.size === size && v.type === selectedGroup;
+                        }
+                        return v.size === size;
+                      });
                       const isOutOfStock = !sizeVariant || (sizeVariant.stock ?? 0) === 0;
                       return (
                         <button
@@ -397,9 +452,13 @@ export default function ProductDetailPage({ category, product, variants }) {
                 <div className="rounded-xl border border-secondary/70 bg-white/60 px-4 py-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-800">
-                      {selectedVariant.size && selectedVariant.color
-                        ? `${selectedVariant.size} • ${selectedVariant.color}`
-                        : selectedVariant.color || selectedVariant.size || 'One size'}
+                      {(() => {
+                        const parts = [];
+                        if (selectedVariant.size) parts.push(selectedVariant.size);
+                        if (selectedVariant.color) parts.push(selectedVariant.color);
+                        if (selectedVariant.type) parts.push(selectedVariant.type);
+                        return parts.length > 0 ? parts.join(' • ') : 'One size';
+                      })()}
                     </span>
                     {selectedVariant.priceOverride && (
                       <span className="text-xs font-medium text-primary">
