@@ -9,6 +9,7 @@
     "lint": "eslint",
     "seed:dummy": "node scripts/seed-dummy-data.js",
     "seed:clear": "node scripts/clear-dummy-data.js",
+    "seed:content": "node scripts/create-editable-content.js",
     "data:clear-all": "node scripts/clear-all-data.js",
     "shopify:import": "node scripts/import-shopify-products.js"
   },
