@@ -61,7 +61,7 @@ async function fetchInventoryLevels(inventoryItemId) {
 
   try {
     const response = await fetch(
-      `https://${storeUrl}/admin/api/2025-01/inventory_levels.json?inventory_item_ids=${inventoryItemId}`,
+      `https://${storeUrl}/admin/api/2025-10/inventory_levels.json?inventory_item_ids=${inventoryItemId}`,
       {
         method: 'GET',
         headers: {
@@ -92,58 +92,180 @@ async function fetchInventoryLevels(inventoryItemId) {
   }
 }
 
-async function findVariantRefsForInventoryItem(db, inventoryItemId) {
-  const variantsToUpdate = [];
+/**
+ * Get list of storefronts by checking root-level collections
+ */
+async function getStorefronts(db) {
+  const storefronts = [];
+  try {
+    const collections = await db.listCollections();
+    for (const coll of collections) {
+      const id = coll.id;
+      // Storefronts are root folders that have a 'products' subcollection
+      // Skip known root collections like 'shopifyItems', 'orders', etc.
+      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents') {
+        try {
+          const itemsSnapshot = await coll.doc('products').collection('items').limit(1).get();
+          if (!itemsSnapshot.empty || id === 'LUNERA') {
+            storefronts.push(id);
+          }
+        } catch (e) {
+          // Not a storefront, skip
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting storefronts:', error);
+    return ['LUNERA'];
+  }
+  return storefronts.length > 0 ? storefronts : ['LUNERA'];
+}
+
+/**
+ * Update variants in shopifyItems collection
+ * Stores location-specific inventory levels (not totals) for multi-market fulfillment
+ */
+/**
+ * Calculate product-level stock status from variants
+ */
+function calculateProductStockStatus(variants) {
+  if (!variants || variants.length === 0) {
+    return {
+      hasInStockVariants: false,
+      inStockVariantCount: 0,
+      totalVariantCount: 0,
+    };
+  }
+
+  const inStockVariants = variants.filter(variant => {
+    const hasStock = (variant.inventory_quantity || 0) > 0;
+    const allowsBackorder = variant.inventory_policy === 'continue';
+    return hasStock || allowsBackorder;
+  });
+
+  return {
+    hasInStockVariants: inStockVariants.length > 0,
+    inStockVariantCount: inStockVariants.length,
+    totalVariantCount: variants.length,
+  };
+}
+
+async function updateShopifyItemsVariants(db, inventoryItemId, inventoryLevels) {
+  const updates = [];
   const shopifyCollection = db.collection('shopifyItems');
   const shopifyItemsSnapshot = await shopifyCollection.get();
+
+  // Convert inventory levels to location-specific format
+  const locationInventoryLevels = (inventoryLevels.levels || []).map(level => ({
+    location_id: level.location_id?.toString() || level.location_id,
+    location_name: level.location?.name || level.location_name || null,
+    available: level.available ?? 0,
+    updated_at: level.updated_at || new Date().toISOString(),
+  }));
+
+  const totalAvailable = inventoryLevels.totalAvailable;
 
   for (const shopifyDoc of shopifyItemsSnapshot.docs) {
     const shopifyData = shopifyDoc.data();
     const rawProduct = shopifyData.rawProduct;
 
     if (rawProduct && rawProduct.variants) {
-      for (const variant of rawProduct.variants) {
-        if (variant.inventory_item_id === inventoryItemId) {
-          const productsCollection = db.collection('products');
-          const productSnapshot = await productsCollection
-            .where('sourceShopifyId', '==', rawProduct.id.toString())
-            .limit(1)
-            .get();
-
-          if (!productSnapshot.empty) {
-            const productDoc = productSnapshot.docs[0];
-            const variantsCollection = productDoc.ref.collection('variants');
-            const variantsSnapshot = await variantsCollection.get();
-
-            for (const variantDoc of variantsSnapshot.docs) {
-              const variantData = variantDoc.data();
-
-              if (variantData.shopifyInventoryItemId === inventoryItemId) {
-                variantsToUpdate.push(variantDoc.ref);
-                continue;
-              }
-
-              if (variant.sku && variantData.sku === variant.sku) {
-                variantsToUpdate.push(variantDoc.ref);
-                continue;
-              }
-
-              const shopifySize = variant.option1 || variant.option2 || variant.option3;
-              if (
-                shopifySize &&
-                variantData.size &&
-                variantData.size.toLowerCase().trim() === shopifySize.toLowerCase().trim()
-              ) {
-                variantsToUpdate.push(variantDoc.ref);
-              }
-            }
-          }
+      let hasUpdates = false;
+      const updatedVariants = rawProduct.variants.map((variant) => {
+        if (variant.inventory_item_id === inventoryItemId || variant.inventory_item_id?.toString() === inventoryItemId.toString()) {
+          hasUpdates = true;
+          return {
+            ...variant,
+            inventory_levels: locationInventoryLevels, // Store location-specific inventory
+            inventory_quantity: totalAvailable, // Keep for backward compatibility
+            inventoryQuantity: totalAvailable, // Keep for backward compatibility
+            inventory_quantity_total: totalAvailable, // Explicit total field
+            available: totalAvailable > 0 || variant.inventory_policy === 'continue',
+            inventory_updated_at: new Date().toISOString(),
+          };
         }
+        return variant;
+      });
+
+      if (hasUpdates) {
+        // Recalculate product-level stock status after variant update
+        const stockStatus = calculateProductStockStatus(updatedVariants);
+        
+        updates.push(
+          shopifyDoc.ref.update({
+            'rawProduct.variants': updatedVariants,
+            hasInStockVariants: stockStatus.hasInStockVariants,
+            inStockVariantCount: stockStatus.inStockVariantCount,
+            totalVariantCount: stockStatus.totalVariantCount,
+            updatedAt: FieldValue.serverTimestamp(),
+          })
+        );
       }
     }
   }
 
-  return variantsToUpdate;
+  return Promise.all(updates);
+}
+
+/**
+ * Find and update variants in storefront products
+ * Stores location-specific inventory levels for market-based availability checks
+ */
+async function updateStorefrontVariants(db, inventoryItemId, inventoryLevels) {
+  const storefronts = await getStorefronts(db);
+  const variantUpdates = [];
+
+  // Convert inventory levels to location-specific format
+  const locationInventoryLevels = (inventoryLevels.levels || []).map(level => ({
+    location_id: level.location_id?.toString() || level.location_id,
+    location_name: level.location?.name || level.location_name || null,
+    available: level.available ?? 0,
+    updated_at: level.updated_at || new Date().toISOString(),
+  }));
+
+  const totalAvailable = inventoryLevels.totalAvailable;
+
+  for (const storefront of storefronts) {
+    try {
+      const productsCollection = db.collection(storefront).doc('products').collection('items');
+      const allProductsSnapshot = await productsCollection.get();
+
+      for (const productDoc of allProductsSnapshot.docs) {
+        const productData = productDoc.data();
+        
+        // Skip if not a Shopify product
+        if (!productData.sourceShopifyId) {
+          continue;
+        }
+
+        const variantsCollection = productDoc.ref.collection('variants');
+        const variantsSnapshot = await variantsCollection.get();
+
+        for (const variantDoc of variantsSnapshot.docs) {
+          const variantData = variantDoc.data();
+
+          // Match by shopifyInventoryItemId
+          if (
+            variantData.shopifyInventoryItemId?.toString() === inventoryItemId.toString() ||
+            variantData.shopifyInventoryItemId === inventoryItemId
+          ) {
+            // Update variant with location-specific inventory
+            variantUpdates.push(
+              variantDoc.ref.update({
+                inventory_levels: locationInventoryLevels, // Store location-specific inventory
+                stock: totalAvailable, // Keep for backward compatibility
+                updatedAt: FieldValue.serverTimestamp(),
+              })
+            );
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error updating variants in storefront ${storefront}:`, error);
+    }
+  }
+
+  return Promise.all(variantUpdates);
 }
 
 export async function POST(request) {
@@ -182,9 +304,19 @@ export async function POST(request) {
       });
     }
 
-    const variantRefs = await findVariantRefsForInventoryItem(db, inventoryItemId);
+    console.log(`Updating inventory for item ${inventoryItemId}: ${inventoryLevels.totalAvailable} available`);
 
-    if (variantRefs.length === 0) {
+    // Update shopifyItems collection
+    const shopifyItemsUpdated = await updateShopifyItemsVariants(db, inventoryItemId, inventoryLevels);
+    console.log(`Updated ${shopifyItemsUpdated.length} products in shopifyItems collection`);
+
+    // Update storefront products
+    const storefrontVariantsUpdated = await updateStorefrontVariants(db, inventoryItemId, inventoryLevels);
+    console.log(`Updated ${storefrontVariantsUpdated.length} variants in storefront products`);
+
+    const totalUpdated = shopifyItemsUpdated.length + storefrontVariantsUpdated.length;
+
+    if (totalUpdated === 0) {
       console.log(`No variants mapped to inventory item ${inventoryItemId}`);
       return NextResponse.json({
         ok: true,
@@ -194,23 +326,12 @@ export async function POST(request) {
       });
     }
 
-    await Promise.all(
-      variantRefs.map((variantRef) =>
-        variantRef.update({
-          stock: inventoryLevels.totalAvailable,
-          updatedAt: FieldValue.serverTimestamp(),
-        })
-      )
-    );
-
-    console.log(
-      `Updated ${variantRefs.length} variants for inventory item ${inventoryItemId} with total available ${inventoryLevels.totalAvailable}`
-    );
-
     return NextResponse.json({
       ok: true,
       inventory_item_id: inventoryItemId,
-      updatedVariants: variantRefs.length,
+      updatedShopifyItems: shopifyItemsUpdated.length,
+      updatedStorefrontVariants: storefrontVariantsUpdated.length,
+      totalUpdated,
       totalAvailable: inventoryLevels.totalAvailable,
     });
   } catch (error) {

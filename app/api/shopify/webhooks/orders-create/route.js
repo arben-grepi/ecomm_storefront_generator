@@ -76,6 +76,22 @@ function transformShopifyOrder(shopifyOrder) {
                       statusMap[shopifyOrder.fulfillment_status] || 
                       'pending';
 
+  // Extract storefront from note_attributes (set via customAttributes in checkoutCreate)
+  // Support both old format (storefront) and new format (_storefront)
+  const storefront = shopifyOrder.note_attributes?.find(
+    (attr) => attr.name === '_storefront' || attr.name === 'storefront'
+  )?.value || 'LUNERA'; // Default to LUNERA if not found
+
+  // Extract market from note_attributes (set via customAttributes in checkoutCreate)
+  // Support both old format (storefront_market) and new format (_market)
+  const marketFromAttributes = shopifyOrder.note_attributes?.find(
+    (attr) => attr.name === '_market' || attr.name === 'storefront_market'
+  )?.value;
+  const marketFromCountry = shopifyOrder.shipping_address?.country_code?.toUpperCase();
+  const market = marketFromAttributes || marketFromCountry || 'FI'; // Default to FI if not found
+  
+  console.log(`[Order Webhook] Order ${shopifyOrder.id} (${shopifyOrder.order_number || shopifyOrder.name}) - Storefront: ${storefront}, Market: ${market} (from attributes: ${marketFromAttributes || 'none'}, from country: ${marketFromCountry || 'none'})`);
+
   // Transform line items
   const items = (shopifyOrder.line_items || []).map((item) => ({
     productId: item.product_id ? item.product_id.toString() : null,
@@ -128,6 +144,8 @@ function transformShopifyOrder(shopifyOrder) {
     orderNumber: shopifyOrder.order_number?.toString() || shopifyOrder.name || null,
     userId: null, // Shopify orders don't have Firebase user IDs - would need to match by email
     email: shopifyOrder.email || null,
+    storefront: storefront, // Extract from note_attributes
+    market: market, // Extract from note_attributes or shipping address country
     status: orderStatus,
     items,
     totals: {
@@ -153,7 +171,14 @@ function transformShopifyOrder(shopifyOrder) {
  * Create or update order in Firestore
  */
 async function syncOrderToFirestore(db, shopifyOrder) {
-  const ordersCollection = db.collection('orders');
+  // Extract storefront from note_attributes
+  const storefront = shopifyOrder.note_attributes?.find(
+    (attr) => attr.name === 'storefront'
+  )?.value || 'LUNERA';
+  
+  // Save to storefront-specific orders collection
+  // Path: {storefront}/orders/items/{orderId}
+  const ordersCollection = db.collection(storefront).collection('orders').collection('items');
   
   // Check if order already exists (by Shopify order ID)
   const existingOrderSnapshot = await ordersCollection
@@ -177,7 +202,7 @@ async function syncOrderToFirestore(db, shopifyOrder) {
   } else {
     // Create new order
     const orderRef = await ordersCollection.add(orderData);
-    console.log(`Created order: ${orderRef.id} (Shopify order ${shopifyOrder.id})`);
+    console.log(`Created order in Firestore: ${orderRef.id} (Shopify order ${shopifyOrder.id}) for storefront: ${storefront}`);
     return orderRef.id;
   }
 }

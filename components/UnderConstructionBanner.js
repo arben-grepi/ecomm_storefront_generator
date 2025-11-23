@@ -45,15 +45,15 @@ export default function UnderConstructionBanner() {
   }
 
   return (
-    <div className="relative z-50 border-b border-amber-200 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 px-4 py-3 shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="relative z-50 border-b-2 border-amber-300 bg-gradient-to-r from-amber-50 via-yellow-50 to-amber-50 px-6 py-5 shadow-md">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
           <div className="flex-shrink-0">
             <svg
-              className="h-5 w-5 text-amber-600"
+              className="h-8 w-8 text-amber-600"
               fill="none"
               viewBox="0 0 24 24"
-              strokeWidth="2"
+              strokeWidth="2.5"
               stroke="currentColor"
             >
               <path
@@ -64,10 +64,10 @@ export default function UnderConstructionBanner() {
             </svg>
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-800">
-              <span className="font-semibold">Site Under Construction:</span> We're building something amazing! 
+            <p className="text-base font-medium text-amber-900 leading-relaxed">
+              <span className="font-bold text-lg">Site Under Construction:</span> We're building something amazing! 
               Orders are currently disabled while we finalize our setup. 
-              <span className="block mt-1 text-xs text-amber-700">
+              <span className="block mt-2 text-sm text-amber-800">
                 Note: Product photos shown are placeholders and do not represent actual products. All data is for demonstration purposes only.
               </span>
             </p>
@@ -75,14 +75,14 @@ export default function UnderConstructionBanner() {
         </div>
         <button
           onClick={handleDismiss}
-          className="flex-shrink-0 rounded-lg p-1 text-amber-600 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
+          className="flex-shrink-0 rounded-lg p-2 text-amber-600 transition hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2"
           aria-label="Dismiss banner"
         >
           <svg
-            className="h-5 w-5"
+            className="h-6 w-6"
             fill="none"
             viewBox="0 0 24 24"
-            strokeWidth="2"
+            strokeWidth="2.5"
             stroke="currentColor"
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

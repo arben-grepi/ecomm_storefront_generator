@@ -1,16 +1,72 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/lib/cart';
-import AuthButton from '@/components/AuthButton';
+import SettingsMenu from '@/components/SettingsMenu';
+import { getMarket } from '@/lib/get-market';
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
+// Format price based on market (EUR for EU markets)
+const formatPrice = (value, market = 'FI') => {
+  const isEUMarket = market === 'FI' || market === 'DE';
+  const currencyFormatter = new Intl.NumberFormat(isEUMarket ? 'fi-FI' : 'en-US', {
+    style: 'currency',
+    currency: isEUMarket ? 'EUR' : 'USD',
+  });
+  return currencyFormatter.format(value ?? 0);
+};
 
-const formatPrice = (value) => currencyFormatter.format(value ?? 0);
+// Known color names (case-insensitive matching)
+const KNOWN_COLORS = [
+  'black', 'white', 'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown',
+  'gray', 'grey', 'silver', 'gold', 'beige', 'tan', 'navy', 'maroon', 'olive', 'teal',
+  'cyan', 'magenta', 'lime', 'indigo', 'violet', 'coral', 'salmon', 'khaki', 'ivory',
+  'cream', 'mint', 'lavender', 'peach', 'turquoise', 'burgundy', 'charcoal', 'crimson',
+  'emerald', 'amber', 'copper', 'bronze', 'plum', 'sage', 'rose', 'cobalt', 'azure',
+  'coral', 'pearl', 'champagne', 'mauve', 'taupe', 'slate', 'denim', 'forest', 'ocean',
+  'sunset', 'midnight', 'ivory', 'bone', 'sand', 'stone', 'ash', 'smoke', 'steel', 'pewter'
+];
+
+// Known country names (case-insensitive matching) - to filter out from variant displays
+const KNOWN_COUNTRIES = [
+  'china', 'usa', 'united states', 'uk', 'united kingdom', 'germany', 'france', 'italy',
+  'spain', 'japan', 'korea', 'south korea', 'india', 'brazil', 'canada', 'australia',
+  'mexico', 'russia', 'poland', 'netherlands', 'belgium', 'sweden', 'norway', 'denmark',
+  'finland', 'portugal', 'greece', 'turkey', 'thailand', 'vietnam', 'indonesia', 'philippines',
+  'taiwan', 'hong kong', 'singapore', 'malaysia', 'new zealand', 'south africa', 'egypt',
+  'argentina', 'chile', 'colombia', 'peru', 'venezuela', 'switzerland', 'austria', 'ireland'
+];
+
+// Check if a value is a known color
+const isKnownColor = (value) => {
+  if (!value || typeof value !== 'string') return false;
+  const normalized = value.toLowerCase().trim();
+  return KNOWN_COLORS.some(color => normalized === color || normalized.includes(color));
+};
+
+// Check if a value is a country name (to filter out)
+const isCountry = (value) => {
+  if (!value || typeof value !== 'string') return false;
+  const normalized = value.toLowerCase().trim();
+  return KNOWN_COUNTRIES.some(country => normalized === country || normalized.includes(country));
+};
+
+// Filter out countries from a value
+const filterOutCountries = (value) => {
+  if (!value || typeof value !== 'string') return value;
+  // Remove country names from the value
+  let filtered = value;
+  KNOWN_COUNTRIES.forEach(country => {
+    const regex = new RegExp(`\\b${country}\\b`, 'gi');
+    filtered = filtered.replace(regex, '').trim();
+  });
+  // Clean up extra spaces and separators
+  filtered = filtered.replace(/\s*•\s*/g, ' • ').replace(/\s+/g, ' ').trim();
+  // Remove leading/trailing separators
+  filtered = filtered.replace(/^[•\s]+|[•\s]+$/g, '').trim();
+  return filtered || null;
+};
 
 export default function ProductDetailPage({ category, product, variants, info = null }) {
   const { addToCart, getCartItemCount, cart } = useCart();
@@ -18,6 +74,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
   const [justAdded, setJustAdded] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const hasVariants = Array.isArray(variants) && variants.length > 0;
+  const market = getMarket();
+  const isEUMarket = market === 'FI' || market === 'DE';
   
   // Use info from server (for SEO), with empty strings as fallback
   const siteInfo = info || {
@@ -25,38 +83,59 @@ export default function ProductDetailPage({ category, product, variants, info = 
     footerText: '',
   };
   
-  // Check if variants have colors or types
+  // Check if variants have colors (only if they match known colors)
   const hasColors = useMemo(() => {
-    return variants.some((v) => v.color && v.color !== 'default');
+    return variants.some((v) => v.color && v.color !== 'default' && isKnownColor(v.color));
   }, [variants]);
   
   const hasTypes = useMemo(() => {
     return variants.some((v) => v.type);
   }, [variants]);
 
-  // Group variants by color or type
+  // Group variants by color or type (include all variants for grouping, filtering happens later)
   const variantsByGroup = useMemo(() => {
     if (!hasVariants) return new Map();
     const grouped = new Map();
     variants.forEach((variant) => {
-      // Use color if available, otherwise type, otherwise 'default'
-      const groupKey = hasColors 
-        ? (variant.color || 'default')
-        : hasTypes 
-        ? (variant.type || 'default')
-        : 'default';
+      // Use color if it's a known color, otherwise use type, otherwise 'default'
+      let groupKey = 'default';
+      if (variant.color && isKnownColor(variant.color) && !isCountry(variant.color)) {
+        groupKey = variant.color;
+      } else if (variant.type) {
+        // Filter out countries from type
+        const filteredType = filterOutCountries(variant.type);
+        groupKey = filteredType || 'default';
+      } else if (variant.color) {
+        // If color exists but isn't a known color, treat it as type (after filtering countries)
+        const filteredColor = filterOutCountries(variant.color);
+        if (filteredColor && !isCountry(variant.color)) {
+          groupKey = filteredColor;
+        }
+      }
       if (!grouped.has(groupKey)) {
         grouped.set(groupKey, []);
       }
       grouped.get(groupKey).push(variant);
     });
     return grouped;
-  }, [hasVariants, variants, hasColors, hasTypes]);
+  }, [hasVariants, variants]);
 
-  // Get available groups (colors or types)
+  // Filter groups to only show groups that have at least one in-stock variant
   const availableGroups = useMemo(() => {
-    return Array.from(variantsByGroup.keys()).filter((key) => key !== 'default' || variantsByGroup.size === 1);
+    return Array.from(variantsByGroup.keys()).filter((key) => {
+      const groupVariants = variantsByGroup.get(key) || [];
+      // Group is available if it has at least one in-stock variant
+      const hasInStockVariant = groupVariants.some((variant) => {
+        const stock = variant.stock ?? 0;
+        const allowsBackorder = variant.inventory_policy === 'continue';
+        return stock > 0 || allowsBackorder;
+      });
+      // Also include 'default' if it's the only group (for products without colors/types)
+      return hasInStockVariant || (key === 'default' && variantsByGroup.size === 1);
+    });
   }, [variantsByGroup]);
+
+  // availableGroups is now calculated above after filtering variants
 
   // Find default variant if set
   const defaultVariant = useMemo(() => {
@@ -67,10 +146,13 @@ export default function ProductDetailPage({ category, product, variants, info = 
   // Initialize selected group and size from default variant
   const getInitialGroup = () => {
     if (defaultVariant) {
-      if (hasColors && defaultVariant.color) {
+      if (defaultVariant.color && isKnownColor(defaultVariant.color)) {
         return defaultVariant.color;
-      } else if (hasTypes && defaultVariant.type) {
+      } else if (defaultVariant.type) {
         return defaultVariant.type;
+      } else if (defaultVariant.color) {
+        // If color exists but isn't a known color, use it as type
+        return defaultVariant.color;
       }
     }
     return availableGroups.length > 0 ? availableGroups[0] : null;
@@ -81,7 +163,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
       const groupVariants = variantsByGroup.get(group) || [];
       const defaultInGroup = groupVariants.find((v) => v.id === defaultVariant.id);
       if (defaultInGroup && defaultInGroup.size) {
-        return defaultInGroup.size;
+        const filteredSize = filterOutCountries(defaultInGroup.size);
+        return filteredSize || null;
       }
     }
     return null;
@@ -91,21 +174,30 @@ export default function ProductDetailPage({ category, product, variants, info = 
   const [selectedGroup, setSelectedGroup] = useState(getInitialGroup);
   const [selectedSize, setSelectedSize] = useState(() => getInitialSize(getInitialGroup()));
 
-  // Get variants for selected group
+  // Get variants for selected group - FILTER OUT OF STOCK VARIANTS
   const groupVariants = useMemo(() => {
     if (!selectedGroup) return [];
-    return variantsByGroup.get(selectedGroup) || [];
+    const allVariants = variantsByGroup.get(selectedGroup) || [];
+    // Filter to only show in-stock variants (stock > 0 OR inventory_policy === 'continue' for backorder)
+    return allVariants.filter((variant) => {
+      const stock = variant.stock ?? 0;
+      const allowsBackorder = variant.inventory_policy === 'continue';
+      return stock > 0 || allowsBackorder;
+    });
   }, [selectedGroup, variantsByGroup]);
 
   // Get available sizes for selected group - simple and straightforward
   const availableSizes = useMemo(() => {
     if (!selectedGroup) return [];
     
-    // Get unique sizes from variants in the selected group
+    // Get unique sizes from variants in the selected group (filter out countries)
     const sizeSet = new Set();
     groupVariants.forEach((v) => {
       if (v.size) {
-        sizeSet.add(v.size);
+        const filteredSize = filterOutCountries(v.size);
+        if (filteredSize) {
+          sizeSet.add(filteredSize);
+        }
       }
     });
     
@@ -139,7 +231,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
     });
   }, [selectedGroup, groupVariants]);
 
-  // Simple: when group changes, reset size to first available
+  // Simple: when group changes, reset size to first available (already filtered)
   useEffect(() => {
     if (!selectedGroup || availableSizes.length === 0) {
       setSelectedSize(null);
@@ -147,7 +239,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
     }
     
     // Always select first available size when group changes
-    // This is simpler and more predictable
+    // availableSizes are already filtered (countries removed)
     setSelectedSize(availableSizes[0]);
   }, [selectedGroup, availableSizes]);
 
@@ -159,9 +251,12 @@ export default function ProductDetailPage({ category, product, variants, info = 
   const selectedVariant = useMemo(() => {
     if (!selectedGroup) return null;
     
-    // If size is selected, find variant with that size
+    // If size is selected, find variant with that size (matching filtered size)
     if (selectedSize) {
-      const variant = groupVariants.find((v) => v.size === selectedSize);
+      const variant = groupVariants.find((v) => {
+        const filteredVariantSize = v.size ? filterOutCountries(v.size) : null;
+        return filteredVariantSize === selectedSize;
+      });
       return variant || groupVariants[0] || null;
     }
     
@@ -257,9 +352,26 @@ export default function ProductDetailPage({ category, product, variants, info = 
       const variantName = selectedVariant
         ? (() => {
             const parts = [];
-            if (selectedVariant.size) parts.push(selectedVariant.size);
-            if (selectedVariant.color) parts.push(selectedVariant.color);
-            if (selectedVariant.type) parts.push(selectedVariant.type);
+            // Filter out countries from size
+            const size = selectedVariant.size ? filterOutCountries(selectedVariant.size) : null;
+            if (size) parts.push(size);
+            
+            // Only include color if it's a known color and not a country
+            if (selectedVariant.color && isKnownColor(selectedVariant.color) && !isCountry(selectedVariant.color)) {
+              parts.push(selectedVariant.color);
+            }
+            
+            // Filter out countries from type
+            const type = selectedVariant.type ? filterOutCountries(selectedVariant.type) : null;
+            if (type) parts.push(type);
+            
+            // If color exists but isn't a known color and no type, use it as type (after filtering countries)
+            if (selectedVariant.color && !isKnownColor(selectedVariant.color) && !selectedVariant.type) {
+              const filteredColor = filterOutCountries(selectedVariant.color);
+              if (filteredColor && !isCountry(selectedVariant.color)) {
+                parts.push(filteredColor);
+              }
+            }
             return parts.length > 0 ? parts.join(' ') : 'One size';
           })()
         : 'One size';
@@ -268,7 +380,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
 
       await addToCart({
         productId: product.id,
-        variantId,
+        variantId, // Firestore variant document ID
+        shopifyVariantId: selectedVariant?.shopifyVariantId || null, // Shopify variant ID for checkout
         quantity: 1,
         priceAtAdd: displayedPrice,
         productName: product.name,
@@ -328,7 +441,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
             </div>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">
-            <AuthButton />
+            <SettingsMenu />
             <Link
               href="/LUNERA/cart"
               className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
@@ -360,12 +473,15 @@ export default function ProductDetailPage({ category, product, variants, info = 
           <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6 lg:flex-row lg:items-start lg:gap-16 lg:px-8">
         {/* Gallery */}
         <section className="flex w-full flex-col gap-4 lg:w-1/2">
-          <div className="overflow-hidden rounded-3xl bg-secondary/70 shadow-sm ring-1 ring-secondary/50">
+          <div className="overflow-hidden rounded-3xl bg-secondary/70 shadow-sm ring-1 ring-secondary/50 aspect-[3/4] relative">
             {activeImage ? (
-              <img
+              <Image
                 src={activeImage}
                 alt={product.name}
-                className="h-full w-full object-cover"
+                fill
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+                priority
               />
             ) : (
               <div className="flex aspect-[3/4] items-center justify-center text-secondary">
@@ -394,7 +510,9 @@ export default function ProductDetailPage({ category, product, variants, info = 
                       : 'border-secondary/70 hover:border-primary/30'
                   }`}
                 >
-                  <img src={image} alt="" className="aspect-square w-full object-cover" />
+                  <div className="aspect-square relative">
+                    <Image src={image} alt="" fill sizes="(max-width: 1024px) 25vw, 12.5vw" className="object-cover" />
+                  </div>
                 </button>
               ))}
             </div>
@@ -427,14 +545,21 @@ export default function ProductDetailPage({ category, product, variants, info = 
             )}
           </div>
 
-              <div className="flex items-baseline gap-4">
-                <p className="text-3xl font-semibold text-primary sm:text-4xl">
-                  {formatPrice(displayedPrice)}
-                </p>
-                {selectedVariant?.priceOverride && (
-                  <span className="rounded-full bg-secondary/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
-                    Variant price
-                  </span>
+              <div className="space-y-1">
+                <div className="flex items-baseline gap-4">
+                  <p className="text-3xl font-semibold text-primary sm:text-4xl">
+                    {formatPrice(displayedPrice, market)}
+                  </p>
+                  {selectedVariant?.priceOverride && (
+                    <span className="rounded-full bg-secondary/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+                      Variant price
+                    </span>
+                  )}
+                </div>
+                {isEUMarket && (
+                  <p className="text-sm text-slate-500">
+                    Includes VAT
+                  </p>
                 )}
               </div>
 
@@ -445,7 +570,16 @@ export default function ProductDetailPage({ category, product, variants, info = 
               {availableGroups.length > 1 && (
                 <div className="space-y-3">
                   <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
-                    {hasColors ? 'Color' : hasTypes ? 'Type' : 'Variant'}: {selectedGroup}
+                    {(() => {
+                      // Determine label based on whether selected group is a known color
+                      if (hasColors && isKnownColor(selectedGroup)) {
+                        return 'Color';
+                      } else if (hasTypes) {
+                        return 'Type';
+                      } else {
+                        return 'Variant';
+                      }
+                    })()}: {filterOutCountries(selectedGroup) || selectedGroup}
                   </h2>
                   <div className="flex flex-wrap gap-3">
                     {availableGroups.map((group) => {
@@ -460,6 +594,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                           ? firstVariantWithImage.images[0]
                           : firstVariantWithImage.image
                         : null;
+                      const isGroupAColor = isKnownColor(group);
                       return (
                         <button
                           key={group}
@@ -471,14 +606,18 @@ export default function ProductDetailPage({ category, product, variants, info = 
                               : 'border-secondary/70 bg-white/60 hover:border-primary/30'
                           }`}
                         >
-                          {firstVariantImage && hasColors && (
-                            <img
-                              src={firstVariantImage}
-                              alt={group}
-                              className="h-8 w-8 rounded-full object-cover ring-1 ring-secondary/50"
-                            />
+                          {firstVariantImage && hasColors && isGroupAColor && (
+                            <div className="relative h-8 w-8">
+                              <Image
+                                src={firstVariantImage}
+                                alt={group}
+                                fill
+                                sizes="32px"
+                                className="rounded-full object-cover ring-1 ring-secondary/50"
+                              />
+                            </div>
                           )}
-                          <span className="text-sm font-semibold text-slate-800">{group}</span>
+                          <span className="text-sm font-semibold text-slate-800">{filterOutCountries(group) || group}</span>
                         </button>
                       );
                     })}
@@ -495,7 +634,11 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   <div className="grid grid-cols-4 gap-3">
                     {availableSizes.map((size) => {
                         const isSelected = selectedSize === size;
-                        const sizeVariant = groupVariants.find((v) => v.size === size);
+                        // Find variant by matching filtered size (need to check original size field)
+                        const sizeVariant = groupVariants.find((v) => {
+                          const filteredVariantSize = v.size ? filterOutCountries(v.size) : null;
+                          return filteredVariantSize === size;
+                        });
                         const isOutOfStock = !sizeVariant || (sizeVariant.stock ?? 0) === 0;
                         return (
                           <button
@@ -521,23 +664,51 @@ export default function ProductDetailPage({ category, product, variants, info = 
 
               {/* Show selected variant details */}
               {selectedVariant && (
-                <div className="rounded-xl border border-secondary/70 bg-white/60 px-4 py-3">
+                <div className="rounded-xl border border-secondary/70 bg-white/60 px-4 py-3 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-slate-800">
                       {(() => {
                         const parts = [];
-                        if (selectedVariant.size) parts.push(selectedVariant.size);
-                        if (selectedVariant.color) parts.push(selectedVariant.color);
-                        if (selectedVariant.type) parts.push(selectedVariant.type);
+                        // Filter out countries from size
+                        const size = selectedVariant.size ? filterOutCountries(selectedVariant.size) : null;
+                        if (size) parts.push(size);
+                        
+                        // Only include color if it's a known color and not a country
+                        if (selectedVariant.color && isKnownColor(selectedVariant.color) && !isCountry(selectedVariant.color)) {
+                          parts.push(selectedVariant.color);
+                        }
+                        
+                        // Filter out countries from type
+                        const type = selectedVariant.type ? filterOutCountries(selectedVariant.type) : null;
+                        if (type) parts.push(type);
+                        
+                        // If color exists but isn't a known color and no type, use it as type (after filtering countries)
+                        if (selectedVariant.color && !isKnownColor(selectedVariant.color) && !selectedVariant.type) {
+                          const filteredColor = filterOutCountries(selectedVariant.color);
+                          if (filteredColor && !isCountry(selectedVariant.color)) {
+                            parts.push(filteredColor);
+                          }
+                        }
                         return parts.length > 0 ? parts.join(' • ') : 'One size';
                       })()}
                     </span>
                     {selectedVariant.priceOverride && (
                       <span className="text-xs font-medium text-primary">
-                        {formatPrice(selectedVariant.priceOverride)}
+                        {formatPrice(selectedVariant.priceOverride, market)}
                       </span>
                     )}
                   </div>
+                  {/* Display flexible attributes (Material, Model, Style, etc.) */}
+                  {selectedVariant.attributes && typeof selectedVariant.attributes === 'object' && Object.keys(selectedVariant.attributes).length > 0 && (
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                      {Object.entries(selectedVariant.attributes).map(([key, value]) => (
+                        <div key={key} className="flex items-center gap-1">
+                          <span className="font-medium">{key}:</span>
+                          <span>{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

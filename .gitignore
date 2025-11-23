@@ -27,6 +27,8 @@ firebase-service-account.json
 # But keep README.md
 !README.md
 
+# firebase service account
+firebase-service-account.json
 
 # production
 /build

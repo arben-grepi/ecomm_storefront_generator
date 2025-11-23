@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import AuthButton from '@/components/AuthButton';
+import SettingsMenu from '@/components/SettingsMenu';
 import CategoryCarousel from '@/components/CategoryCarousel';
 import ProductCard from '@/components/ProductCard';
+import SkeletonProductCard from '@/components/SkeletonProductCard';
 import { useCategories, useProductsByCategory } from '@/lib/firestore-data';
 import { useCart } from '@/lib/cart';
 import dynamic from 'next/dynamic';
@@ -92,7 +93,7 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
           {/* Spacer for mobile to push buttons to right */}
           <div className="flex-1 sm:hidden" />
           <div className="flex w-full items-center justify-end gap-3 sm:w-auto sm:gap-4">
-            <AuthButton />
+            <SettingsMenu />
             <Link
               href="/LUNERA/cart"
               className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2.5 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
@@ -154,9 +155,9 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-5">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div key={i} className="aspect-[3/4] animate-pulse rounded-3xl bg-secondary/50" />
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <SkeletonProductCard key={i} className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)] md:w-[calc(25%-0.938rem)] max-w-xs" />
             ))}
           </div>
         ) : !category ? (
@@ -168,13 +169,14 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
             Products will appear here soon. Check back shortly.
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 md:gap-5">
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
             {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                categorySlug={category.slug}
-              />
+              <div key={product.id} className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)] md:w-[calc(25%-0.938rem)] max-w-xs">
+                <ProductCard
+                  product={product}
+                  categorySlug={category.slug}
+                />
+              </div>
             ))}
           </div>
         )}

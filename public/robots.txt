@@ -1,0 +1,10 @@
+# robots.txt for blerinas.com
+# TEMPORARY: Site is under construction - blocking all search engines until site is finished
+# TODO: Remove this block and allow crawling once site is ready for production
+
+User-agent: *
+Disallow: /
+
+# Sitemap location (to be created when site is ready)
+# Sitemap: https://www.blerinas.com/sitemap.xml
+

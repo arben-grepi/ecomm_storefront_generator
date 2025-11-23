@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getProductMarkets, publishProductToOnlineStore } from '@/lib/shopify-admin-graphql';
+import { buildMarketsArray, getMarketConfig } from '@/lib/market-utils';
 
 // Initialize Firebase Admin SDK
 function getAdminDb() {
@@ -66,6 +68,211 @@ function extractImageUrls(product) {
 }
 
 /**
+ * Fetch shipping rates from Shopify Admin API
+ */
+async function fetchShippingRatesFromAdmin() {
+  try {
+    const { storeUrl, accessToken } = getAdminCredentials();
+    
+    const query = `
+      query {
+        deliveryProfiles(first: 10) {
+          edges {
+            node {
+              id
+              name
+              profileLocationGroups {
+                locationGroupZones(first: 20) {
+                  edges {
+                    node {
+                      zone {
+                        id
+                        name
+                        countries {
+                          code {
+                            countryCode
+                          }
+                        }
+                      }
+                      methodDefinitions(first: 10) {
+                        edges {
+                          node {
+                            id
+                            name
+                            description
+                            active
+                            rateProvider {
+                              ... on DeliveryRateDefinition {
+                                id
+                                price {
+                                  amount
+                                  currencyCode
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const url = `https://${storeUrl}/admin/api/2025-10/graphql.json`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
+      },
+      body: JSON.stringify({ query })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Shopify Admin API error: ${response.status} ${response.statusText}\n${errorText}`);
+    }
+
+    const { data, errors } = await response.json();
+    
+    if (errors) {
+      throw new Error(`Shopify Admin API GraphQL errors: ${JSON.stringify(errors)}`);
+    }
+
+    // Parse shipping rates by country code
+    const ratesByMarket = {};
+
+    if (data?.deliveryProfiles?.edges) {
+      data.deliveryProfiles.edges.forEach(profile => {
+        const locationGroups = profile.node.profileLocationGroups || [];
+        
+        locationGroups.forEach(group => {
+          const zones = group.locationGroupZones?.edges || [];
+          
+          zones.forEach(zoneEdge => {
+            const zone = zoneEdge.node;
+            const countries = zone.zone?.countries || [];
+            
+            countries.forEach(country => {
+              const countryCode = country.code?.countryCode;
+              
+              if (!countryCode) return;
+
+              // Get active shipping methods with prices
+              const methods = (zone.methodDefinitions?.edges || [])
+                .filter(m => m.node.active && m.node.rateProvider)
+                .map(m => ({
+                  name: m.node.name,
+                  price: parseFloat(m.node.rateProvider.price?.amount || 0),
+                  currency: m.node.rateProvider.price?.currencyCode || 'EUR'
+                }))
+                .filter(m => m.price >= 0) // Filter out invalid prices
+                .sort((a, b) => a.price - b.price); // Sort by price (lowest first)
+
+              if (methods.length > 0) {
+                // Store standard (lowest) and express (highest) rates
+                ratesByMarket[countryCode] = {
+                  standard: methods[0].price.toFixed(2), // Lowest rate
+                  express: methods[methods.length - 1]?.price.toFixed(2) || methods[0].price.toFixed(2), // Highest rate
+                  currency: methods[0].currency,
+                  allRates: methods // Store all rates for reference
+                };
+              }
+            });
+          });
+        });
+      });
+    }
+
+    return ratesByMarket;
+  } catch (error) {
+    console.warn(`[Webhook] Failed to fetch shipping rates from Admin API: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Get admin credentials for API calls
+ */
+function getAdminCredentials() {
+  const storeUrl = process.env.SHOPIFY_STORE_URL?.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const accessToken = process.env.SHOPIFY_ACCESS_TOKEN;
+  
+  if (!storeUrl || !accessToken) {
+    throw new Error('Missing Shopify Admin API credentials. Set SHOPIFY_STORE_URL and SHOPIFY_ACCESS_TOKEN.');
+  }
+  
+  return { storeUrl, accessToken };
+}
+
+/**
+ * Fetch product market data using Storefront API with @inContext
+ */
+async function fetchProductMarketData(productId, market) {
+  try {
+    const { fetchProductForMarket } = await import('@/lib/shopify-storefront-api');
+    const productGid = `gid://shopify/Product/${productId}`;
+    const productData = await fetchProductForMarket(productGid, market);
+    
+    if (!productData) {
+      return null;
+    }
+    
+    return {
+      available: productData.availableForSale || false,
+      price: productData.priceRange?.minVariantPrice?.amount || '0.00',
+      currency: productData.priceRange?.minVariantPrice?.currencyCode || 'EUR'
+    };
+  } catch (error) {
+    console.warn(`[Webhook] Failed to fetch market data for ${market}:`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Build marketsObject with market-specific data from Storefront API
+ */
+async function buildMarketsObjectForWebhook(productId, marketsArray, shippingRates = null) {
+  const marketsObject = {};
+  
+  // Fetch market-specific data for each market
+  for (const market of marketsArray) {
+    const marketData = await fetchProductMarketData(productId, market);
+    
+    // Get shipping estimate: prefer Admin API rates, fallback to market config
+    let shippingEstimate = '0.00';
+    if (shippingRates && shippingRates[market]) {
+      shippingEstimate = shippingRates[market].standard;
+    } else {
+      const marketConfig = getMarketConfig(market);
+      shippingEstimate = marketConfig.shippingEstimate || '0.00';
+    }
+    
+    if (marketData) {
+      marketsObject[market] = {
+        ...marketData,
+        shippingEstimate: shippingEstimate
+      };
+    } else {
+      // Fallback: assume available if we can't fetch data
+      marketsObject[market] = {
+        available: true,
+        price: '0.00',
+        currency: 'EUR',
+        shippingEstimate: shippingEstimate
+      };
+    }
+  }
+  
+  return marketsObject;
+}
+
+/**
  * Update Shopify items collection (raw data)
  */
 async function updateShopifyItem(db, shopifyProduct) {
@@ -82,6 +289,40 @@ async function updateShopifyItem(db, shopifyProduct) {
   const docRef = snapshot.docs[0].ref;
   const existingData = snapshot.docs[0].data();
   
+  // Query product markets and Online Store publication status from Shopify Admin GraphQL API
+  let markets = existingData.markets || []; // Keep existing if query fails
+  let publishedToOnlineStore = existingData.publishedToOnlineStore || false; // Keep existing if query fails
+  let marketsObject = existingData.marketsObject || null; // Keep existing if query fails
+  
+  try {
+    const productGid = `gid://shopify/Product/${shopifyProduct.id}`;
+    console.log(`[Product Webhook] Updating markets/publication status for product: ${shopifyProduct.id} (${shopifyProduct.title}), Existing Markets: [${markets.join(', ') || 'none'}], Online Store: ${publishedToOnlineStore ? '✅' : '❌'}`);
+    const marketInfo = await getProductMarkets(productGid);
+    markets = buildMarketsArray(marketInfo);
+    publishedToOnlineStore = marketInfo.publishedToOnlineStore || false;
+    console.log(`[Product Webhook] Product ${shopifyProduct.id} updated - Markets: [${markets.join(', ') || 'none'}], Online Store: ${publishedToOnlineStore ? '✅' : '❌'}`);
+    
+    if (!publishedToOnlineStore) {
+      console.warn(`[Product Webhook] ⚠️  Product ${shopifyProduct.id} (${shopifyProduct.title}) is NOT published to Online Store - will not be accessible via Storefront API`);
+    }
+    
+    // Fetch marketsObject with market-specific prices and shipping if product is published
+    if (publishedToOnlineStore && markets.length > 0) {
+      try {
+        console.log(`[Product Webhook] Fetching market-specific data (prices/shipping) for ${markets.length} market(s)...`);
+        const shippingRates = await fetchShippingRatesFromAdmin();
+        marketsObject = await buildMarketsObjectForWebhook(shopifyProduct.id, markets, shippingRates);
+        console.log(`[Product Webhook] ✅ Updated marketsObject with latest prices and shipping rates`);
+      } catch (error) {
+        console.warn(`[Product Webhook] ⚠️  Failed to fetch marketsObject: ${error.message}`);
+        // Keep existing marketsObject if fetch fails
+      }
+    }
+  } catch (error) {
+    console.error(`[Product Webhook] Failed to get markets/publication status for product ${shopifyProduct.id}:`, error.message || error);
+    // Keep existing markets/publication status if query fails
+  }
+  
   const updateData = {
     title: shopifyProduct.title,
     handle: shopifyProduct.handle || null,
@@ -91,6 +332,9 @@ async function updateShopifyItem(db, shopifyProduct) {
     tags: shopifyProduct.tags
       ? shopifyProduct.tags.split(',').map((t) => t.trim()).filter(Boolean)
       : [],
+    markets, // Update markets array
+    ...(marketsObject && Object.keys(marketsObject).length > 0 ? { marketsObject } : {}), // Update marketsObject if available
+    publishedToOnlineStore, // Update Online Store publication status
     imageUrls: extractImageUrls(shopifyProduct),
     rawProduct: shopifyProduct,
     updatedAt: FieldValue.serverTimestamp(),
@@ -98,6 +342,25 @@ async function updateShopifyItem(db, shopifyProduct) {
 
   await docRef.set(updateData, { merge: true });
   console.log(`Updated Shopify item: ${docRef.id}`);
+  
+  // Auto-publish product to Online Store if not already published
+  if (!publishedToOnlineStore) {
+    try {
+      const productGid = `gid://shopify/Product/${shopifyProduct.id}`;
+      console.log(`[Product Webhook] Auto-publishing product ${shopifyProduct.id} to Online Store...`);
+      await publishProductToOnlineStore(productGid);
+      
+      // Update Firestore with new publication status
+      await docRef.update({
+        publishedToOnlineStore: true,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      console.log(`[Product Webhook] ✅ Auto-published product ${shopifyProduct.id} to Online Store`);
+    } catch (error) {
+      console.error(`[Product Webhook] ⚠️  Failed to auto-publish product ${shopifyProduct.id} to Online Store:`, error.message || error);
+      // Don't throw - webhook should still succeed even if auto-publish fails
+    }
+  }
   
   return docRef.id;
 }
@@ -168,9 +431,36 @@ async function updateProcessedProduct(db, shopifyProduct) {
           ? basePriceFromShopify
           : (typeof productData.basePrice === 'number' ? productData.basePrice : 0);
 
+        // Get marketsObject from shopifyItems if available
+        let marketsObject = null;
+        let markets = productData.markets || [];
+        let publishedToOnlineStore = productData.publishedToOnlineStore;
+        
+        try {
+          const shopifyCollection = db.collection('shopifyItems');
+          const shopifySnapshot = await shopifyCollection
+            .where('shopifyId', '==', shopifyProduct.id.toString())
+            .limit(1)
+            .get();
+          
+          if (!shopifySnapshot.empty) {
+            const shopifyData = shopifySnapshot.docs[0].data();
+            marketsObject = shopifyData.marketsObject || null;
+            markets = shopifyData.markets || markets;
+            publishedToOnlineStore = shopifyData.publishedToOnlineStore !== undefined 
+              ? shopifyData.publishedToOnlineStore 
+              : publishedToOnlineStore;
+          }
+        } catch (error) {
+          console.warn(`[Webhook] Failed to fetch marketsObject from shopifyItems: ${error.message}`);
+        }
+
         const productUpdate = {
           basePrice: normalizedBasePrice,
           images: newImageUrls.length > 0 ? newImageUrls : productData.images || [],
+          ...(markets.length > 0 ? { markets } : {}),
+          ...(marketsObject && Object.keys(marketsObject).length > 0 ? { marketsObject } : {}),
+          ...(publishedToOnlineStore !== undefined ? { publishedToOnlineStore } : {}),
           updatedAt: FieldValue.serverTimestamp(),
         };
 
@@ -228,12 +518,14 @@ async function updateProcessedProduct(db, shopifyProduct) {
               const variantPrice = shopifyVariant.price != null ? parseFloat(shopifyVariant.price) : NaN;
               
               await variantRef.update({
+                shopifyVariantId: shopifyVariant.id.toString(), // Always preserve Shopify variant ID
+                shopifyInventoryItemId: shopifyVariant.inventory_item_id || undefined, // Preserve inventory item ID
                 stock: shopifyVariant.inventory_quantity || 0,
                 priceOverride: Number.isFinite(variantPrice) ? variantPrice : null,
                 images: allVariantImages.length > 0 ? allVariantImages : undefined,
                 updatedAt: FieldValue.serverTimestamp(),
               });
-              console.log(`Updated variant: ${variantRef.id} (stock: ${shopifyVariant.inventory_quantity || 0}, images: ${allVariantImages.length})`);
+              console.log(`Updated variant: ${variantRef.id} (shopifyVariantId: ${shopifyVariant.id}, stock: ${shopifyVariant.inventory_quantity || 0}, images: ${allVariantImages.length})`);
             } else {
               console.log(`Could not match Shopify variant ${shopifyVariant.id} to existing variant`);
             }

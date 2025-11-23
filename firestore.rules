@@ -63,17 +63,19 @@ service cloud.firestore {
     }
 
     match /carts/{cartId} {
+      // Allow authenticated users to read/write their own cart
+      // Cart document ID must match user's UID
       allow read: if request.auth != null && request.auth.uid == cartId;
       allow create: if request.auth != null
         && request.auth.uid == cartId
-        && request.auth.uid == request.resource.data.userId;
+        && request.resource.data.userId == request.auth.uid;
       allow update: if request.auth != null
         && request.auth.uid == cartId
-        && (!resource.exists || request.auth.uid == resource.data.userId)
-        && request.auth.uid == request.resource.data.userId;
+        && (!resource.exists || resource.data.userId == request.auth.uid)
+        && request.resource.data.userId == request.auth.uid;
       allow delete: if request.auth != null
         && request.auth.uid == cartId
-        && (!resource.exists || request.auth.uid == resource.data.userId);
+        && (!resource.exists || resource.data.userId == request.auth.uid);
     }
 
     match /shopifyItems/{itemId} {

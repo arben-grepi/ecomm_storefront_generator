@@ -1,16 +1,98 @@
-# E-commerce Admin Dashboard
+# Multi-Storefront E-commerce Platform
 
-A Next.js multi-storefront e-commerce platform for managing dropshipping products sourced from Shopify. Shopify products are sourced via DSers from Alibaba and Temu. The platform also supports creating custom products.
+A sophisticated Next.js e-commerce platform that uses Shopify as a headless backend for dropshipping products. The platform enables the creation and management of multiple independent storefronts, each selling different product catalogs imported from Shopify, with advanced customization capabilities before products go live.
 
-## Features
+## Project Overview
 
-- **Multiple Storefronts**: Create and manage multiple e-commerce storefronts
-- **Shopify Integration**: Import and process products from Shopify (sourced via DSers from Alibaba/Temu)
-- **Custom Products**: Create and manage your own products
-- **Admin Dashboard**: Analytics, product management, and storefront configuration
-- **Protected Routes**: Admin routes are protected and accessible only to authorized admin accounts
+This platform is designed for managing multiple e-commerce storefronts that source products from Shopify (via DSers from Alibaba and Temu). The Next.js application provides a powerful solution for creating and managing different storefronts that sell different items imported from Shopify. Users can customize products before launching them on one or multiple storefronts, manage different items for different markets, and display products to users based on their country/market accessed via URL path.
 
-## Collaborator Quick Start
+### Key Features
+
+- **Premium Design**: Tailwind-powered design system that gives the site a legitimate, high-quality online shop feel and look
+- **Multiple Storefronts**: Create unlimited independent storefronts, each with its own product catalog and branding
+- **Shopify Integration**: Import products from Shopify as a headless backend for dropshipping
+- **Product Customization**: Customize products (images, descriptions, pricing, variants) before launching to storefronts
+- **Market Management**: Manage different products for different markets (e.g., Finland, Germany) with market-specific pricing and availability
+- **Country-Based Routing**: Products are automatically filtered and displayed based on the user's country/market detected from their IP address
+- **Payment & Checkout**: Integrated with Shopify's checkout system, leveraging Shopify's outstanding payment processing and global order tracking services
+- **Editable Content**: Essential website text can be altered from the admin overview without code changes
+- **Real-Time Sync**: Webhooks synchronize Shopify backend information (shipping prices, stock levels, product updates) with the Next.js app in real-time
+
+## Architecture
+
+### Server-Side Rendering (SSR)
+
+The application uses server-side rendering for critical benefits:
+
+**SEO Optimization:**
+- Product names, descriptions, and metadata are rendered as HTML on the server, making them immediately accessible to search engine crawlers
+- Search engines can index product content without executing JavaScript, improving discoverability and search rankings
+
+**Performance Benefits:**
+- Faster initial page load as users receive fully rendered HTML with product data
+- Improved Core Web Vitals scores (better LCP, reduced time to interactive)
+- Better user experience, especially on slower connections
+
+### Performance Optimizations
+
+The application implements modern performance optimization techniques:
+
+**React Optimizations:**
+- **Memoization (`useMemo`)**: Prevents expensive recalculations on every render. For example, variant grouping and filtering in `ProductDetailPage` are memoized - they only recalculate when variants actually change, not on every state update. Market and storefront values are also memoized to avoid recalculating them on every Firestore snapshot update.
+- **Component Memoization (`React.memo`)**: `ProductCard` and `CategoryCard` are wrapped with `React.memo` to prevent unnecessary re-renders. When a parent component updates, these cards won't re-render unless their props actually change.
+- **Optimized Context**: Storefront context uses memoization to avoid recalculating storefront values unnecessarily.
+
+**Image Optimization:**
+- **Next.js Image Component**: Automatically converts images to modern formats (WebP/AVIF) which are 30-50% smaller than JPEG/PNG, reducing bandwidth and load times. Images are lazy-loaded (only load when scrolled into view) and use responsive sizing based on viewport.
+
+**Caching Strategies:**
+- **In-Memory Caching**: Storefront detection is cached in memory to avoid repeatedly parsing URLs or reading cookies. Once detected, it's reused throughout the session.
+- **localStorage Caching**: Stock levels are cached in the browser's localStorage with a 5-minute expiration, reducing API calls for frequently accessed product data.
+
+**Parallel Data Fetching:**
+- **Promise.all**: On server-side pages, we fetch categories, products, and site info simultaneously using `Promise.all` instead of waiting for each one sequentially. This reduces total page load time from ~300ms (100ms × 3) to ~100ms (all at once).
+
+**Code Splitting:**
+- **Dynamic Imports**: Admin-only components like `AdminRedirect` are loaded dynamically only when needed, reducing the initial JavaScript bundle size for regular customers.
+
+## Admin Dashboard
+
+The admin dashboard provides comprehensive management capabilities:
+
+- **Product Management**: Import products from Shopify queue and customize before launching to storefronts
+- **Category Management**: Create, edit, and organize product categories
+- **Order Tracking**: Monitor orders, fulfillment status, and customer information
+- **Stock Management**: Real-time stock level monitoring with low-stock alerts
+- **Content Editing**: Edit essential website text without code changes
+
+## Webhook Integration
+
+The platform uses Shopify webhooks to maintain real-time synchronization between Shopify and the Next.js application. Webhooks automatically update product data, inventory levels, prices, shipping rates, and order information whenever changes occur in Shopify, ensuring the storefronts always display current information without manual intervention.
+
+## Current Development
+
+We are currently working closely with **Andreas Konge** to optimize the application further:
+
+- **AI-Powered Content Generation**: Using AI to generate better product names and descriptions
+- **Multi-Language Support**: AI-powered translation to generate content in multiple languages
+- **IP-Based Localization**: Automatically translate websites into different European languages based on the user's IP address
+
+## Technologies
+
+- **Next.js 16** (App Router) with React 19
+- **Firebase** (Authentication, Firestore, Hosting)
+- **Shopify** (Headless backend, Storefront API, Admin API)
+- **Tailwind CSS 4** for styling
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- Firebase project with Firestore enabled
+- Shopify store with Storefront API access
+
+### Installation
 
 1. **Clone the repository:**
    ```bash
@@ -23,107 +105,35 @@ A Next.js multi-storefront e-commerce platform for managing dropshipping product
    npm install
    ```
 
-3. **Configure Firebase:**
-   - Create a `.env.local` file in the root directory
-   - Add your Firebase configuration variables:
-     ```env
-     NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key_here
-     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=ecommerce-2f366.firebaseapp.com
-     NEXT_PUBLIC_FIREBASE_PROJECT_ID=ecommerce-2f366
-     NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=ecommerce-2f366.firebasestorage.app
-     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id_here
-     NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id_here
-     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=your_measurement_id_here
-     ```
-   - **Important:** Never commit `.env.local` to the repository (it's already in `.gitignore`)
+3. **Configure environment variables:**
+   Create a `.env.local` file in the root directory with Firebase and Shopify credentials (see `.env.example` for reference)
 
 4. **Run the development server:**
    ```bash
    npm run dev
    ```
 
-5. **Open [http://localhost:3000](http://localhost:3000)** in your browser (redirects to `/LUNERA`)
-
-## Development Workflow
-
-**For collaborators (required):**
-
-1. **Pull the latest changes:**
-   ```bash
-   git checkout master
-   git pull origin master
-   ```
-
-2. **Create a new branch for your changes:**
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-   Use descriptive branch names like `feature/ai-text-generation` or `fix/category-bug`
-
-3. **Make your changes and commit:**
-   ```bash
-   git add .
-   git commit -m "Description of your changes"
-   ```
-
-4. **Push your branch to GitHub:**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-
-5. **Create a Pull Request:**
-   - Go to the repository on GitHub
-   - Click "New Pull Request"
-   - Select your branch and create the PR
-   - Wait for approval before merging
-
-**Note:** The `master` branch is protected. All changes must go through a Pull Request and require approval before merging.
-
-## Project Structure
-
-```
-├── app/
-│   ├── LUNERA/              # Main storefront (all routes under /LUNERA)
-│   │   ├── admin/           # Admin dashboard
-│   │   ├── (collections)/   # Category and product pages
-│   │   └── page.js          # Homepage
-│   └── page.js              # Root redirect to /LUNERA
-├── components/
-│   ├── admin/               # Admin components
-│   └── ...                  # Storefront components
-└── lib/                     # Utilities and Firebase config
-```
-
-## Tasks
-
-- [ ] **AI Text Generation** - [@AndyMcCode](https://github.com/AndyMcCode) - [Task Documentation](docs/ai-text-generation.md)
-
-## Admin Access
-
-Authorized admin accounts:
-- `arbengrepi@gmail.com`
-- `andreas.konga@gmail.com`
-- `muliqiblerine@gmail.com`
-
-## Technologies Used
-
-- Next.js 16 (App Router)
-- React 19
-- Firebase (Authentication, Firestore, Hosting)
-- Tailwind CSS 4
+5. **Open [http://localhost:3000](http://localhost:3000)** in your browser
 
 ## Deployment
 
-Deployment is handled automatically via GitHub Actions when pushing to the `master` branch. See `.github/workflows/` for deployment configuration.
+Deployment is handled via Firebase Hosting. The application is configured for automatic deployment when pushing to the `master` branch.
 
 ### Manual Deployment
 
 ```bash
 npm run build
-firebase deploy
+firebase deploy --only hosting
 ```
+
+## Admin Access
+
+Authorized admin accounts:
+- `arbengrepi@gmail.com`
+- `muliqiblerine@gmail.com`
 
 ## Learn More
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Firebase Documentation](https://firebase.google.com/docs)
+- [Shopify Storefront API](https://shopify.dev/docs/api/storefront)

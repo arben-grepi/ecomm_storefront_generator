@@ -117,11 +117,21 @@ function transformShopifyOrder(shopifyOrder) {
     trackingUrl: shopifyOrder.fulfillments[0].tracking_url || null,
   } : null;
 
+  // Extract market from note_attributes (set via customAttributes in checkoutCreate)
+  const marketFromAttributes = shopifyOrder.note_attributes?.find(
+    (attr) => attr.name === '_market' || attr.name === 'storefront_market'
+  )?.value;
+  const marketFromCountry = shopifyOrder.shipping_address?.country_code?.toUpperCase();
+  const market = marketFromAttributes || marketFromCountry || 'FI'; // Default to FI if not found
+  
+  console.log(`[Order Webhook] Updating order ${shopifyOrder.id} - Market: ${market} (from attributes: ${marketFromAttributes || 'none'}, from country: ${marketFromCountry || 'none'})`);
+
   return {
     shopifyOrderId: shopifyOrder.id.toString(),
     orderNumber: shopifyOrder.order_number?.toString() || shopifyOrder.name || null,
     userId: null,
     email: shopifyOrder.email || null,
+    market: market, // Extract from note_attributes or shipping address country
     status: orderStatus,
     items,
     totals: {
@@ -146,7 +156,20 @@ function transformShopifyOrder(shopifyOrder) {
  * Update order in Firestore
  */
 async function updateOrderInFirestore(db, shopifyOrder) {
-  const ordersCollection = db.collection('orders');
+  // Extract storefront from note_attributes
+  // Support both old format (storefront) and new format (_storefront)
+  const storefront = shopifyOrder.note_attributes?.find(
+    (attr) => attr.name === '_storefront' || attr.name === 'storefront'
+  )?.value || 'LUNERA';
+
+  // Extract market from note_attributes (set via customAttributes in checkoutCreate)
+  const market = shopifyOrder.note_attributes?.find(
+    (attr) => attr.name === '_market' || attr.name === 'storefront_market'
+  )?.value || shopifyOrder.shipping_address?.country_code?.toUpperCase() || 'FI'; // Default to FI if not found
+  
+  // Save to storefront-specific orders collection
+  // Path: {storefront}/orders/items/{orderId}
+  const ordersCollection = db.collection(storefront).collection('orders').collection('items');
   
   const existingOrderSnapshot = await ordersCollection
     .where('shopifyOrderId', '==', shopifyOrder.id.toString())
@@ -154,6 +177,10 @@ async function updateOrderInFirestore(db, shopifyOrder) {
     .get();
 
   const orderData = transformShopifyOrder(shopifyOrder);
+  
+  // Add market and storefront to order data
+  orderData.market = market;
+  orderData.storefront = storefront;
 
   if (!existingOrderSnapshot.empty) {
     const orderDoc = existingOrderSnapshot.docs[0];
@@ -170,6 +197,8 @@ async function updateOrderInFirestore(db, shopifyOrder) {
     // Order doesn't exist, create it (shouldn't happen, but handle gracefully)
     const orderRef = await ordersCollection.add({
       ...orderData,
+      market: market, // Ensure market is included
+      storefront: storefront, // Ensure storefront is included
       createdAt: FieldValue.serverTimestamp(),
     });
     console.log(`Created order: ${orderRef.id} (Shopify order ${shopifyOrder.id}) - was missing`);
