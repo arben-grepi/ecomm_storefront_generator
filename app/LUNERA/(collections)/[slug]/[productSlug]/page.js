@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
+import { headers } from 'next/headers';
 import { getServerSideProductDetail, getServerSideCategoryBySlug, getServerSideInfo } from '@/lib/firestore-server';
 import ProductDetailPage from '@/components/ProductDetailPage';
+import { getStorefrontFromHeaders } from '@/lib/get-storefront-server';
 
 export default async function ProductPage({ params }) {
   const resolved = await params;
@@ -13,7 +15,12 @@ export default async function ProductPage({ params }) {
     notFound();
   }
 
-  const storefront = 'LUNERA';
+  // Extract storefront from URL path (this page is in app/LUNERA/, so storefront is 'LUNERA')
+  const headersList = headers();
+  const storefront = await getStorefrontFromHeaders(headersList);
+
+  // Always use English - language functionality removed
+  const language = 'en';
 
   const category = await getServerSideCategoryBySlug(slug, storefront);
   if (!category) {
@@ -22,7 +29,7 @@ export default async function ProductPage({ params }) {
 
   const [detail, info] = await Promise.all([
     getServerSideProductDetail(productSlug, storefront),
-    getServerSideInfo(),
+    getServerSideInfo(language),
   ]);
 
   if (!detail?.product) {

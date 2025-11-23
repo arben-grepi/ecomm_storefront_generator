@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import AuthButton from '@/components/AuthButton';
+import SettingsMenu from '@/components/SettingsMenu';
 import CategoryCard from '@/components/CategoryCard';
 import CategoryCarousel from '@/components/CategoryCarousel';
+import SkeletonCard from '@/components/SkeletonCard';
 import { useCategories, useAllProducts } from '@/lib/firestore-data';
 import { useCart } from '@/lib/cart';
 import dynamic from 'next/dynamic';
@@ -19,17 +20,37 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   const { products: realtimeProducts, loading: productsLoading } = useAllProducts();
   const { getCartItemCount } = useCart();
   const [hasMounted, setHasMounted] = useState(false);
+  const [showSkeletons, setShowSkeletons] = useState(true);
+  const [minDisplayTimeElapsed, setMinDisplayTimeElapsed] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
+    // Ensure skeletons show for at least 500ms for better UX
+    const timer = setTimeout(() => {
+      setMinDisplayTimeElapsed(true);
+    }, 500);
+    return () => clearTimeout(timer);
   }, []);
 
   // Use real-time data if available (after hydration), otherwise use initial server data
   const categories = realtimeCategories.length > 0 ? realtimeCategories : initialCategories;
   const products = realtimeProducts.length > 0 ? realtimeProducts : initialProducts;
 
-  // Only show loading if we don't have initial data AND we're still loading
-  const loading = (categoriesLoading || productsLoading) && initialCategories.length === 0 && initialProducts.length === 0;
+  // Hide skeletons once we have categories AND hooks have finished loading AND minimum display time has elapsed
+  useEffect(() => {
+    if (categories.length > 0 && !categoriesLoading && !productsLoading && minDisplayTimeElapsed) {
+      // Small delay to ensure smooth transition
+      const timer = setTimeout(() => {
+        setShowSkeletons(false);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [categories.length, categoriesLoading, productsLoading, minDisplayTimeElapsed]);
+
+  // Show loading skeletons if:
+  // - We're still showing skeletons (initial load), OR
+  // - Hooks are loading (even if we have SSR data, show skeletons while real-time loads)
+  const loading = showSkeletons || categoriesLoading || productsLoading;
 
   // Use info from server (for SEO), with empty strings as fallback
   const siteInfo = info || {
@@ -43,6 +64,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   };
 
   const categoryPreviews = useMemo(() => {
+    // Don't compute previews if we're loading and have no data
+    if (loading && categories.length === 0) {
+      return [];
+    }
+
     const filtered = categories
       .map((category) => {
         // Use previewProductIds if set, otherwise fall back to top products
@@ -84,7 +110,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       .filter(({ hasAnyProducts }) => hasAnyProducts);
 
     return filtered;
-  }, [categories, products]);
+  }, [categories, products, loading]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
@@ -104,7 +130,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               {/* Spacer for mobile to push buttons to right */}
               <div className="flex-1 sm:hidden" />
               <div className="flex w-full items-center justify-end gap-3 sm:w-auto sm:gap-4">
-                <AuthButton />
+                <SettingsMenu />
                 <Link
                   href="/LUNERA/cart"
                   className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2.5 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
@@ -162,15 +188,17 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
           </p>
         </div>
         {loading ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-64 animate-pulse rounded-3xl bg-secondary/50" />
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <SkeletonCard key={i} className="w-full sm:w-[calc(50%-0.75rem)] xl:w-[calc(33.333%-1rem)] max-w-sm" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
             {categoryPreviews.map(({ category, products }) => (
-              <CategoryCard key={category.id} category={category} products={products} />
+              <div key={category.id} className="w-full sm:w-[calc(50%-0.75rem)] xl:w-[calc(33.333%-1rem)] max-w-sm">
+                <CategoryCard category={category} products={products} />
+              </div>
             ))}
           </div>
         )}

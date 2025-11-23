@@ -1,9 +1,19 @@
 import { getServerSideCategories, getServerSideProducts, getServerSideInfo } from '@/lib/firestore-server';
+import { headers } from 'next/headers';
+import { getStorefrontFromHeaders } from '@/lib/get-storefront-server';
 import HomeClient from '@/components/HomeClient';
 
 // This is now a Server Component - it fetches data on the server
 // and passes it to the client component for interactivity
 export default async function Home() {
+  // Always use English - language functionality removed
+  const language = 'en';
+  
+  // Extract storefront from URL path (this page is in app/LUNERA/, so storefront is 'LUNERA')
+  // For dynamic routes, this would come from params
+  const headersList = headers();
+  const storefront = await getStorefrontFromHeaders(headersList);
+
   // Fetch initial data on the server (for SEO and fast initial load)
   // 
   // Note: On Firebase Hosting/Cloud Functions, credentials are automatically available.
@@ -15,9 +25,9 @@ export default async function Home() {
 
   try {
     [categories, products, info] = await Promise.all([
-      getServerSideCategories('LUNERA'),
-      getServerSideProducts('LUNERA'),
-      getServerSideInfo(),
+      getServerSideCategories(storefront),
+      getServerSideProducts(storefront),
+      getServerSideInfo(language),
     ]);
   } catch (error) {
     // Only fallback in development - in production (Firebase Hosting), credentials should always be available
@@ -38,7 +48,7 @@ export default async function Home() {
 
   // Ensure info has defaults if fetch failed
   if (!info) {
-    info = await getServerSideInfo();
+    info = await getServerSideInfo(language);
   }
 
   // Pass server-rendered data to client component

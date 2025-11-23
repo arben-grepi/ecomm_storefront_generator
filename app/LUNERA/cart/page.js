@@ -1,32 +1,242 @@
 'use client';
 
-import { useCart } from '@/lib/cart';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import SignInNewsletterModal from '@/components/SignInNewsletterModal';
+import { useCart } from '@/lib/cart';
+import { getMarket } from '@/lib/get-market';
+import { getMarketConfig } from '@/lib/market-utils';
+import { useStorefront } from '@/lib/storefront-context';
+import { getFirebaseDb } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import AuthButton from '@/components/AuthButton';
 
-const currencyFormatter = new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD',
-});
+// Format price based on market currency
+const formatPrice = (value, market = 'FI') => {
+  const currency = market === 'FI' || market === 'DE' ? 'EUR' : 'USD';
+  const locale = market === 'FI' ? 'fi-FI' : market === 'DE' ? 'de-DE' : 'en-US';
+  const formatter = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: currency,
+  });
+  return formatter.format(value ?? 0);
+};
 
-const formatPrice = (value) => currencyFormatter.format(value ?? 0);
+// Country list (European countries for shipping)
+const countries = [
+  { code: 'FI', name: 'Finland' },
+  { code: 'SE', name: 'Sweden' },
+  { code: 'NO', name: 'Norway' },
+  { code: 'DK', name: 'Denmark' },
+  { code: 'DE', name: 'Germany' },
+  { code: 'FR', name: 'France' },
+  { code: 'IT', name: 'Italy' },
+  { code: 'ES', name: 'Spain' },
+  { code: 'PT', name: 'Portugal' },
+  { code: 'NL', name: 'Netherlands' },
+  { code: 'BE', name: 'Belgium' },
+  { code: 'AT', name: 'Austria' },
+  { code: 'CH', name: 'Switzerland' },
+  { code: 'PL', name: 'Poland' },
+  { code: 'CZ', name: 'Czech Republic' },
+  { code: 'IE', name: 'Ireland' },
+  { code: 'GB', name: 'United Kingdom' },
+];
 
 export default function CartPage() {
-  const { cart, loading, removeFromCart, updateQuantity, getCartTotal, getCartItemCount } = useCart();
+  const router = useRouter();
+  const { cart, updateQuantity, removeFromCart, getCartTotal, loading } = useCart();
+  const storefront = useStorefront(); // Get storefront from context (cached)
+  
+  // Get user's market from cookie (set by middleware)
+  const market = getMarket();
+  const marketConfig = getMarketConfig(market);
+  
+  // Address form state (minimal: Country, City - full address collected in Shopify checkout)
+  const [shippingAddress, setShippingAddress] = useState({
+    city: '',
+    country: marketConfig.name,
+    countryCode: market,
+  });
+  
+  // Checkout processing state
+  const [processing, setProcessing] = useState(false);
+  const [validatingShipping, setValidatingShipping] = useState(false);
+  const [validationError, setValidationError] = useState(null);
 
   const subtotal = getCartTotal();
-  const shipping = subtotal >= 150 ? 0 : 15; // Free shipping over $150
-  const total = subtotal + shipping;
+  
+  // Get current market from selected country
+  const currentMarket = shippingAddress.countryCode || market;
+  
+  // Fetch products to get shipping estimates from marketsObject
+  const [productsData, setProductsData] = useState({});
+  
+  // Get unique product IDs from cart (stable reference)
+  const productIds = useMemo(() => {
+    return [...new Set(cart.map(item => item.productId))].sort();
+  }, [cart]);
+  
+  // Fetch products once when cart or market changes
+  useEffect(() => {
+    const fetchProducts = async () => {
+      if (productIds.length === 0) {
+        setProductsData({});
+        return;
+      }
+      
+      const db = getFirebaseDb();
+      if (!db) {
+        setProductsData({});
+        return;
+      }
+      
+      const products = {};
+      
+      try {
+        for (const productId of productIds) {
+            try {
+              const productRef = doc(db, storefront, 'products', 'items', productId);
+              const productDoc = await getDoc(productRef);
+            
+            if (productDoc.exists()) {
+              products[productId] = productDoc.data();
+            }
+          } catch (error) {
+            console.error(`Failed to fetch product ${productId}:`, error);
+          }
+        }
+        
+        setProductsData(products);
+      } catch (error) {
+        console.error('Failed to fetch products for shipping estimate:', error);
+      }
+    };
+    
+    fetchProducts();
+  }, [productIds.join(',')]); // Only re-fetch if product IDs change
+  
+  // Calculate shipping estimate from products' marketsObject
+  const shippingEstimatePrice = useMemo(() => {
+    const currentMarketConfig = getMarketConfig(currentMarket);
+    let maxShipping = 0;
+    
+    // Get shipping estimate from each product's marketsObject
+    for (const item of cart) {
+      const product = productsData[item.productId];
+      if (product?.marketsObject && typeof product.marketsObject === 'object') {
+        const marketData = product.marketsObject[currentMarket];
+        if (marketData?.shippingEstimate) {
+          const shipping = parseFloat(marketData.shippingEstimate) || 0;
+          if (shipping > maxShipping) {
+            maxShipping = shipping;
+          }
+        }
+      }
+    }
+    
+    // Fallback to market config if no shipping found in products
+    if (maxShipping === 0) {
+      return parseFloat(currentMarketConfig.shippingEstimate || '7.00');
+    }
+    
+    return maxShipping;
+  }, [productsData, cart, currentMarket]);
+  
+  const tax = 0; // TODO: Calculate tax
+  const estimatedTotal = subtotal + shippingEstimatePrice + tax;
+
+  // Validation only happens when "Proceed to Checkout" is clicked
+  // No automatic validation on address change
+
+  const handleCheckout = async (e) => {
+    e.preventDefault();
+    if (cart.length === 0) return;
+    
+    setProcessing(true);
+    setValidationError(null);
+
+    try {
+      // Validate country and city are entered (full address will be collected in Shopify checkout)
+      if (!shippingAddress.city || !shippingAddress.countryCode) {
+        setValidationError('Please enter your country and city');
+        setProcessing(false);
+        return;
+      }
+
+      // Validate inventory and shipping (only when proceeding to checkout)
+      setValidatingShipping(true);
+      
+      const validationResponse = await fetch('/api/checkout/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cart,
+          shippingAddress,
+        }),
+      });
+
+      if (!validationResponse.ok) {
+        throw new Error('Pre-checkout validation failed');
+      }
+
+      const validation = await validationResponse.json();
+      setValidatingShipping(false);
+      
+      if (!validation.valid) {
+        setValidationError(validation.errors?.join(', ') || 'Validation failed');
+        setProcessing(false);
+        return;
+      }
+
+      if (!validation.inventory.valid) {
+        setValidationError(validation.inventory.error || 'Some items are no longer available in the requested quantity');
+        setProcessing(false);
+        return;
+      }
+
+      if (!validation.shipping.available) {
+        setValidationError(validation.shipping.error || 'We cannot ship to this address. Please check your address and try again.');
+        setProcessing(false);
+        return;
+      }
+
+      // Create Shopify checkout and redirect
+      const checkoutResponse = await fetch('/api/checkout/create-shopify-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cart,
+            shippingAddress,
+            storefront: storefront,
+          }),
+      });
+
+      if (!checkoutResponse.ok) {
+        const errorData = await checkoutResponse.json();
+        throw new Error(errorData.message || errorData.error || 'Failed to create checkout');
+      }
+
+      const checkoutData = await checkoutResponse.json();
+      const checkoutUrl = checkoutData.checkoutUrl;
+
+      if (!checkoutUrl) {
+        throw new Error('Failed to get checkout URL');
+      }
+
+      // Redirect to Shopify checkout
+      window.location.href = checkoutUrl;
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setValidationError(err.message || 'An error occurred during checkout. Please try again.');
+      setProcessing(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-center px-4 py-32">
-          <div className="text-center">
-            <div className="mb-4 inline-block h-8 w-8 animate-spin rounded-full border-4 border-secondary border-t-primary" />
-            <p className="text-slate-600">Loading cart...</p>
-          </div>
-        </div>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-slate-500">Loading cart...</div>
       </div>
     );
   }
@@ -34,40 +244,23 @@ export default function CartPage() {
   if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
-        <header className="sticky top-0 z-40 border-b border-secondary/70 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-            <Link href="/LUNERA" className="text-sm font-medium text-primary transition hover:text-primary">
-              ← Back to shop
+        <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
+            <Link href={`/${storefront}`} className="text-xl font-light text-primary tracking-wide">
+              {storefront}
             </Link>
-            <h1 className="text-xl font-light text-slate-800">Shopping Cart</h1>
-            <div className="w-20" /> {/* Spacer */}
+            <AuthButton />
           </div>
         </header>
-
-        <main className="mx-auto flex max-w-2xl flex-col items-center justify-center px-4 py-32">
-          <div className="text-center">
-            <svg
-              className="mx-auto h-16 w-16 text-secondary"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-              />
-            </svg>
-            <h2 className="mt-4 text-2xl font-light text-slate-800">Your cart is empty</h2>
-            <p className="mt-2 text-slate-600">Start shopping to add items to your cart.</p>
-            <Link
-              href="/LUNERA"
-              className="mt-6 inline-flex items-center justify-center rounded-full bg-primary px-8 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-lg transition hover:bg-primary/90"
-            >
-              Continue shopping
-            </Link>
-          </div>
+        <main className="mx-auto max-w-4xl px-4 py-16 text-center">
+          <h1 className="mb-4 text-2xl font-medium text-primary">Your cart is empty</h1>
+          <p className="mb-8 text-slate-600">Add some items to get started.</p>
+          <Link
+            href={`/${storefront}`}
+            className="inline-block rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90"
+          >
+            Continue Shopping
+          </Link>
         </main>
       </div>
     );
@@ -75,171 +268,205 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
-      <SignInNewsletterModal />
-      <header className="sticky top-0 z-40 border-b border-secondary/70 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <Link href="/LUNERA" className="flex items-center gap-2 text-sm font-medium text-primary transition hover:text-primary">
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="2"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-            <span>Continue shopping</span>
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
+          <Link href={`/${storefront}`} className="text-xl font-light text-primary tracking-wide">
+            {storefront}
           </Link>
-          <h1 className="text-xl font-light text-slate-800">Shopping Cart ({getCartItemCount()} items)</h1>
-          <div className="w-20" /> {/* Spacer */}
+          <AuthButton />
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-3">
-          {/* Cart Items */}
-          <div className="lg:col-span-2">
-            <div className="space-y-6">
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        <h1 className="mb-8 text-3xl font-light text-primary">Shopping Cart</h1>
+
+        {validationError && (
+          <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
+            {validationError}
+          </div>
+        )}
+
+        <form onSubmit={handleCheckout} className="grid gap-8 lg:grid-cols-3">
+          {/* Left column - Address Form + Cart Items */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Shipping Address Form - At the top */}
+            <section className="rounded-xl border border-secondary/70 bg-white/90 p-6">
+              <h2 className="mb-2 text-lg font-medium text-primary">Shipping Location</h2>
+              <p className="mb-4 text-sm text-slate-600">
+                Enter your country and city to check shipping availability. Full address will be collected on the checkout page.
+              </p>
+              <div className="space-y-4">
+                {/* Country - At the top */}
+                <div>
+                  <label htmlFor="country" className="mb-1 block text-sm font-medium text-slate-700">
+                    Country
+                  </label>
+                  <select
+                    id="country"
+                    name="country"
+                    required
+                    autoComplete="shipping country"
+                    value={shippingAddress.countryCode}
+                    onChange={(e) => {
+                      const selectedCountry = countries.find(c => c.code === e.target.value);
+                      setShippingAddress({
+                        ...shippingAddress,
+                        countryCode: e.target.value,
+                        country: selectedCountry?.name || '',
+                      });
+                    }}
+                    className="w-full rounded-lg border border-secondary/70 px-4 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    {countries.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* City */}
+                <div>
+                  <label htmlFor="city" className="mb-1 block text-sm font-medium text-slate-700">
+                    City
+                  </label>
+                  <input
+                    id="city"
+                    name="city"
+                    type="text"
+                    required
+                    autoComplete="shipping address-level2"
+                    value={shippingAddress.city}
+                    onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
+                    placeholder="Enter your city"
+                    className="w-full rounded-lg border border-secondary/70 px-4 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Cart Items */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-medium text-primary">Cart Items</h2>
               {cart.map((item) => (
                 <div
-                  key={`${item.productId}-${item.variantId || 'default'}`}
-                  className="flex gap-6 rounded-2xl border border-secondary/70 bg-white/90 p-6 shadow-sm"
+                  key={`${item.productId}-${item.variantId}`}
+                  className="flex gap-4 rounded-xl border border-secondary/70 bg-white/90 p-4"
                 >
                   {item.image && (
-                    <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-secondary/70">
-                      <img src={item.image} alt={item.productName} className="h-full w-full object-cover" />
-                    </div>
+                    <img
+                      src={item.image}
+                      alt={item.productName}
+                      className="h-24 w-24 rounded-lg object-cover"
+                    />
                   )}
-                  <div className="flex flex-1 flex-col gap-2">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-medium text-slate-800">{item.productName}</h3>
-                        {item.variantName && (
-                          <p className="text-sm text-slate-500">{item.variantName}</p>
-                        )}
-                      </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-primary">{item.productName}</h3>
+                    {item.variantName && (
+                      <p className="text-sm text-slate-600">{item.variantName}</p>
+                    )}
+                    <p className="mt-2 font-medium">{formatPrice(item.priceAtAdd * item.quantity, shippingAddress.countryCode || market)}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => removeFromCart(item.productId, item.variantId)}
-                        className="text-slate-400 transition hover:text-primary"
-                        aria-label="Remove item"
+                        onClick={() => updateQuantity(item.productId, item.variantId, item.quantity - 1)}
+                        className="rounded border border-secondary/70 px-2 py-1 text-sm hover:bg-secondary/50"
                       >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        −
+                      </button>
+                      <span className="w-8 text-center text-sm">{item.quantity}</span>
+                      <button
+                        type="button"
+                        onClick={() => updateQuantity(item.productId, item.variantId, item.quantity + 1)}
+                        className="rounded border border-secondary/70 px-2 py-1 text-sm hover:bg-secondary/50"
+                      >
+                        +
                       </button>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.productId, item.variantId, item.quantity - 1)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 text-primary transition hover:bg-secondary"
-                          aria-label="Decrease quantity"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
-                          </svg>
-                        </button>
-                        <span className="w-8 text-center text-sm font-medium text-slate-800">{item.quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.productId, item.variantId, item.quantity + 1)}
-                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-primary/30 text-primary transition hover:bg-secondary"
-                          aria-label="Increase quantity"
-                        >
-                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                          </svg>
-                        </button>
-                      </div>
-                      <p className="text-lg font-semibold text-primary">{formatPrice(item.priceAtAdd * item.quantity)}</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFromCart(item.productId, item.variantId)}
+                      className="text-xs text-red-600 hover:text-red-800"
+                    >
+                      Remove
+                    </button>
                   </div>
                 </div>
               ))}
-            </div>
+            </section>
           </div>
 
           {/* Order Summary */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24 rounded-2xl border border-secondary/70 bg-white/90 p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-semibold text-slate-800">Order Summary</h2>
-              <div className="space-y-4">
-                <div className="flex justify-between text-sm text-slate-600">
-                  <span>Subtotal</span>
-                  <span>{formatPrice(subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-sm text-slate-600">
-                  <span>Shipping</span>
-                  <span>{shipping === 0 ? <span className="text-green-600">Free</span> : formatPrice(shipping)}</span>
-                </div>
-                {subtotal < 150 && (
-                  <p className="text-xs text-slate-500">
-                    Add {formatPrice(150 - subtotal)} more for free shipping
-                  </p>
-                )}
-                <div className="border-t border-secondary pt-4">
-                  <div className="flex justify-between text-lg font-semibold text-slate-800">
-                    <span>Total</span>
-                    <span>{formatPrice(total)}</span>
-                  </div>
+            <div className="sticky top-24 rounded-xl border border-secondary/70 bg-white/90 p-6 shadow-sm">
+              <h2 className="mb-6 text-lg font-medium text-primary">Order Summary</h2>
+              
+              {/* Subtotal */}
+              <div className="mb-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Subtotal</span>
+                  <span className="font-medium">{formatPrice(subtotal, shippingAddress.countryCode || market)}</span>
                 </div>
               </div>
 
-              {/* Checkout - Under Development */}
-              <div className="mt-8">
-                <div className="rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/50 p-6 text-center">
-                  <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
-                    <svg
-                      className="h-6 w-6 text-amber-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="2"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="mb-2 text-lg font-semibold text-amber-900">Checkout Under Development</h3>
-                  <p className="mb-4 text-sm text-amber-700">
-                    We're currently finalizing our payment processing system. Checkout will be available soon!
-                  </p>
-                  <div className="rounded-lg bg-white/80 p-4 text-left">
-                    <p className="text-xs font-medium text-amber-800 mb-2">What's coming:</p>
-                    <ul className="space-y-1 text-xs text-amber-700">
-                      <li className="flex items-start gap-2">
-                        <svg className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                        <span>Secure card payments</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <svg className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                        <span>Multiple payment options</span>
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <svg className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                        </svg>
-                        <span>Order tracking</span>
-                      </li>
-                    </ul>
-                  </div>
+              {/* Shipping Estimate */}
+              <div className="mb-4 space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-600">Shipping</span>
+                  <span className="font-medium">
+                    {formatPrice(shippingEstimatePrice, currentMarket)}
+                  </span>
                 </div>
+                <p className="text-xs text-slate-500">
+                  Estimated shipping based on your selected country. Final shipping cost will be confirmed on checkout.
+                </p>
               </div>
+
+              {/* Estimated Total */}
+              <div className="border-t border-secondary/70 pt-4">
+                <div className="mb-2 flex justify-between">
+                  <span className="text-sm font-medium text-slate-700">Estimated Total</span>
+                  <span className="text-lg font-semibold text-primary">{formatPrice(estimatedTotal, shippingAddress.countryCode || market)}</span>
+                </div>
+                <p className="text-xs text-slate-500">
+                  Final total will be shown on checkout page
+                </p>
+              </div>
+
+              {/* Proceed to Checkout Button */}
+              <button
+                type="submit"
+                disabled={processing || validatingShipping}
+                className="mt-6 w-full rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {processing ? (
+                  'Processing...'
+                ) : validatingShipping ? (
+                  'Validating...'
+                ) : (
+                  'Proceed to Checkout'
+                )}
+              </button>
+
+              {/* Continue Shopping */}
+              <Link
+                href={`/${storefront}`}
+                className="mt-3 block w-full rounded-full border border-primary bg-white px-6 py-3 text-center font-semibold text-primary transition hover:bg-slate-50"
+              >
+                Continue Shopping
+              </Link>
+
+              {/* Info */}
+              <p className="mt-4 text-xs text-slate-500 text-center">
+                Secure checkout powered by Shopify
+              </p>
             </div>
           </div>
-        </div>
+        </form>
       </main>
     </div>
   );
 }
-
-

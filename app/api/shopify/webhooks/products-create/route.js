@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getProductMarkets, publishProductToOnlineStore } from '@/lib/shopify-admin-graphql';
+import { buildMarketsArray } from '@/lib/market-utils';
 
 // Initialize Firebase Admin SDK
 function getAdminDb() {
@@ -160,6 +162,25 @@ async function storeShopifyProduct(db, shopifyProduct) {
     ? shopifyProduct.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
     : [];
 
+  // Query product markets and Online Store publication status from Shopify Admin GraphQL API
+  let markets = [];
+  let publishedToOnlineStore = false;
+  try {
+    const productGid = `gid://shopify/Product/${shopifyProduct.id}`;
+    console.log(`[Product Webhook] Fetching markets and publication status for product: ${shopifyProduct.id} (${shopifyProduct.title})`);
+    const marketInfo = await getProductMarkets(productGid);
+    markets = buildMarketsArray(marketInfo);
+    publishedToOnlineStore = marketInfo.publishedToOnlineStore || false;
+    console.log(`[Product Webhook] Product ${shopifyProduct.id} (${shopifyProduct.title}) - Markets: [${markets.join(', ') || 'none'}], Online Store: ${publishedToOnlineStore ? '✅' : '❌'}`);
+    
+    if (!publishedToOnlineStore) {
+      console.warn(`[Product Webhook] ⚠️  Product ${shopifyProduct.id} (${shopifyProduct.title}) is NOT published to Online Store - will not be accessible via Storefront API`);
+    }
+  } catch (error) {
+    console.error(`[Product Webhook] Failed to get markets/publication status for product ${shopifyProduct.id}:`, error.message || error);
+    // Continue without markets/publication status - they'll be empty/false
+  }
+
   const payload = {
     shopifyId: shopifyProduct.id,
     title: shopifyProduct.title,
@@ -168,6 +189,8 @@ async function storeShopifyProduct(db, shopifyProduct) {
     vendor: shopifyProduct.vendor || null,
     productType: shopifyProduct.product_type || null,
     tags,
+    markets, // Add markets array
+    publishedToOnlineStore, // Store Online Store publication status
     matchedCategorySlug: categorySlug || null,
     imageUrls: extractImageUrls(shopifyProduct),
     rawProduct: shopifyProduct,
@@ -182,6 +205,25 @@ async function storeShopifyProduct(db, shopifyProduct) {
 
   await docRef.set(payload, { merge: true });
   console.log(`Stored new Shopify product: ${documentId} (Shopify ID: ${shopifyProduct.id})`);
+  
+  // Auto-publish product to Online Store if not already published
+  if (!publishedToOnlineStore) {
+    try {
+      const productGid = `gid://shopify/Product/${shopifyProduct.id}`;
+      console.log(`[Product Webhook] Auto-publishing product ${shopifyProduct.id} to Online Store...`);
+      await publishProductToOnlineStore(productGid);
+      
+      // Update Firestore with new publication status
+      await docRef.update({
+        publishedToOnlineStore: true,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      console.log(`[Product Webhook] ✅ Auto-published product ${shopifyProduct.id} to Online Store`);
+    } catch (error) {
+      console.error(`[Product Webhook] ⚠️  Failed to auto-publish product ${shopifyProduct.id} to Online Store:`, error.message || error);
+      // Don't throw - webhook should still succeed even if auto-publish fails
+    }
+  }
   
   return { documentId, matchedCategorySlug: categorySlug };
 }

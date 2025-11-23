@@ -2,6 +2,34 @@
 const nextConfig = {
   /* config options here */
   reactCompiler: true,
+  images: {
+    // Allow images from Shopify CDN and other common sources
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cdn.shopify.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.myshopify.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+      },
+      // Add your Shopify store domain if using custom CDN
+      // {
+      //   protocol: 'https',
+      //   hostname: 'your-store.myshopify.com',
+      // },
+    ],
+    // Optimize images for better performance
+    formats: ['image/avif', 'image/webp'],
+  },
 };
 
 export default nextConfig;

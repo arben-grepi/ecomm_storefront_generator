@@ -11,9 +11,11 @@
     "seed:clear": "node scripts/clear-dummy-data.js",
     "seed:content": "node scripts/create-editable-content.js",
     "data:clear-all": "node scripts/clear-all-data.js",
-    "shopify:import": "node scripts/import-shopify-products.js"
+    "shopify:import": "node scripts/import-shopify-products.js",
+    "shopify:check-storefront": "node scripts/check-storefront-api-config.js"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "firebase": "^12.5.0",
     "firebase-admin": "^13.6.0",
     "next": "16.0.1",

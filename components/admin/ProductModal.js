@@ -10,200 +10,188 @@ import Toast from '@/components/admin/Toast';
 import CategorySelector from '@/components/admin/CategorySelector';
 import ImageManager from '@/components/admin/ImageManager';
 
-// Simple size pattern matching (common clothing sizes)
-const SIZE_PATTERN = /^(xxxs|xxs|xs|s|small|m|medium|l|large|xl|xxl|xxxl|2xl|3xl|4xl|5xl|one[\s-]?size|onesize|petite|regular|tall|short|long|plus|queen|king)$/i;
+// Assumption: Variants always follow format "color/style / size"
+// Example: "A / S", "green / One Size", "Black / M"
 
 const normalizeString = (value) => {
   if (value === null || value === undefined) return '';
   return value.toString().trim().toLowerCase();
 };
 
-const getOptionName = (options, position) => {
-  const option = options.find((opt) => (opt?.position || 0) === position);
-  return normalizeString(option?.name || '');
-};
+// Comprehensive color list - used to filter out non-color words from variant titles
+const COLOR_ENUM = new Set([
+  // Basic colors
+  'black', 'white', 'gray', 'grey', 'silver', 'gold', 'beige', 'ivory', 'cream',
+  // Primary colors
+  'red', 'blue', 'green', 'yellow', 'orange', 'purple', 'pink', 'brown',
+  // Shades and variations
+  'navy', 'maroon', 'burgundy', 'crimson', 'scarlet', 'coral', 'salmon', 'peach',
+  'teal', 'turquoise', 'cyan', 'aqua', 'azure', 'sky', 'royal', 'indigo', 'violet', 'lavender', 'lilac', 'magenta', 'fuchsia', 'rose',
+  'lime', 'mint', 'olive', 'emerald', 'forest', 'khaki', 'sage',
+  'amber', 'tan', 'copper', 'bronze', 'champagne', 'mustard', 'honey',
+  'charcoal', 'slate', 'ash', 'pearl', 'platinum', 'bronze',
+  // Extended colors
+  'wine', 'ruby', 'cherry', 'berry', 'strawberry',
+  'ocean', 'seafoam', 'jade', 'mint', 'avocado',
+  'lemon', 'banana', 'butter', 'sunshine', 'canary',
+  'tangerine', 'apricot', 'mango', 'papaya',
+  'orchid', 'plum', 'aubergine', 'eggplant',
+  'blush', 'dusty', 'mauve', 'powder', 'bubblegum',
+  'coffee', 'chocolate', 'cocoa', 'camel', 'cognac', 'espresso',
+  // Metallic and special
+  'rose', 'rose gold', 'copper', 'bronze', 'brass',
+  // Multi-word colors (common phrases)
+  'rose purple', 'dusty rose', 'navy blue', 'sky blue', 'royal blue', 'powder blue',
+  'forest green', 'emerald green', 'olive green', 'mint green', 'sage green',
+  'dusty pink', 'rose pink', 'blush pink', 'bubblegum pink',
+  'burnt orange', 'tangerine orange',
+  'deep purple', 'royal purple', 'lavender purple',
+  'burnt sienna', 'raw sienna',
+  // Single letter colors (fallback)
+  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
+].map(c => c.toLowerCase()));
 
-const isLikelyColorValue = (value) => {
-  const lower = normalizeString(value);
-  if (!lower) return false;
-  // If it has digits or dashes, it's likely not a color (e.g., "L-80ABC", "1PC-style8")
-  if (/\d/.test(lower) || lower.includes('-')) return false;
-  // If it matches a size pattern, it's not a color
-  if (SIZE_PATTERN.test(lower)) return false;
-  // If it's a simple word (no special chars except spaces), it might be a color
-  if (/^[a-z\s]+$/.test(lower) && lower.length > 2) return true;
-  return false;
-};
-
-const isLikelySizeValue = (value) => {
-  const lower = normalizeString(value);
-  if (!lower) return false;
-  // Check if it matches common size patterns
-  if (SIZE_PATTERN.test(lower)) return true;
-  // If it contains digits, it's likely a size (e.g., "32", "10.5")
-  if (/\d/.test(lower)) return true;
-  // If it contains measurement units, it's likely a size
-  if (/(cm|mm|inch|in|kg|lb|lbs)/.test(lower)) return true;
-  return false;
-};
-
-const normalizeVariantAttributes = (options, variant) => {
-  if (!variant) {
-    return { color: null, size: null };
-  }
-
-  const optionValues = [
-    { position: 1, name: getOptionName(options, 1), value: variant.option1 },
-    { position: 2, name: getOptionName(options, 2), value: variant.option2 },
-    { position: 3, name: getOptionName(options, 3), value: variant.option3 },
-  ].filter((opt) => opt.value);
-
-  // Simple option detection: check if option name contains "color" or "size"
-  let colorEntry = optionValues.find(
-    (opt) => opt.name && /color|colour/i.test(opt.name) && opt.value
-  );
-  let sizeEntry = optionValues.find(
-    (opt) => opt.name && /size/i.test(opt.name) && opt.value
-  );
-
-  if (!colorEntry || !isLikelyColorValue(colorEntry.value)) {
-    colorEntry = optionValues.find((opt) => isLikelyColorValue(opt.value));
-  }
-
-  if ((!sizeEntry || sizeEntry === colorEntry || !isLikelySizeValue(sizeEntry.value)) && optionValues.length > 1) {
-    sizeEntry = optionValues.find(
-      (opt) => opt !== colorEntry && isLikelySizeValue(opt.value)
-    );
-  }
-
-  if (colorEntry && !isLikelyColorValue(colorEntry.value)) {
-    colorEntry = null;
-  }
-
-  if (!colorEntry && optionValues.length > 0) {
-    const remaining = optionValues.filter((opt) => opt !== sizeEntry);
-    colorEntry = remaining.find((opt) => isLikelyColorValue(opt.value)) || null;
-  }
-
-  if (!sizeEntry) {
-    const fallback = optionValues.find((opt) => opt !== colorEntry);
-    sizeEntry = fallback || null;
-  }
-
-  const colorValue = colorEntry && isLikelyColorValue(colorEntry.value) ? colorEntry.value : null;
-  const sizeValue =
-    sizeEntry && sizeEntry !== colorEntry ? sizeEntry.value : null;
+// Check if a word is a color (case-insensitive)
+const isColor = (word) => {
+  if (!word) return false;
+  const normalized = word.trim().toLowerCase();
   
-  // If no color but there's a non-size option, treat it as type
-  let typeValue = null;
-  if (!colorValue && optionValues.length > 0) {
-    const nonSizeOption = optionValues.find((opt) => opt !== sizeEntry && opt.value);
-    if (nonSizeOption) {
-      typeValue = nonSizeOption.value;
+  // Check exact match
+  if (COLOR_ENUM.has(normalized)) return true;
+  
+  // Check multi-word combinations (up to 2 words)
+  const words = normalized.split(/\s+/);
+  if (words.length === 2) {
+    return COLOR_ENUM.has(words.join(' ')) || COLOR_ENUM.has(words[0]);
+  }
+  
+  // Check if any part of the word is a color (for compound colors like "blackish")
+  for (const color of COLOR_ENUM) {
+    if (normalized.includes(color) || color.includes(normalized)) {
+      // Only return true if it's a significant match (not just a substring)
+      if (normalized.length >= color.length * 0.7) {
+        return true;
+      }
     }
   }
-
-  return { color: colorValue || null, size: sizeValue || null, type: typeValue || null };
+  
+  return false;
 };
 
-const getSizeSortRank = (sizeValue) => {
-  const normalized = normalizeString(sizeValue);
-  if (!normalized) {
-    return { rank: 1000, label: '' };
+// Extract only color words from the prefix before "/"
+// "Black vest / S" -> "Black" (removes "vest")
+// "Rose Purple vest / L" -> "Rose Purple" (removes "vest")
+// "A / S" -> "A" (single letter preserved)
+const getVariantColor = (variant) => {
+  if (!variant?.title) return null;
+  
+  // Normalize whitespace
+  const clean = variant.title.replace(/\s+/g, " ").trim();
+  
+  // Extract prefix before "/"
+  const match = clean.match(/^([^\/]+?)\s*\/\s*/);
+  if (!match || !match[1]) return null;
+  
+  const prefix = match[1].trim();
+  
+  // Split into words
+  const words = prefix.split(/\s+/);
+  
+  // Filter to keep only color words
+  const colorWords = words.filter(word => {
+    const normalized = word.toLowerCase().trim();
+    // Keep single letters (A, B, C, etc.)
+    if (normalized.length === 1 && /^[a-z]$/.test(normalized)) {
+      return true;
+    }
+    // Keep if it's a color
+    return isColor(word);
+  });
+  
+  // Also check for multi-word color combinations
+  // Try combinations: "rose purple", "dusty rose", etc.
+  const multiWordColors = [];
+  for (let i = 0; i < words.length - 1; i++) {
+    const twoWords = `${words[i]} ${words[i + 1]}`.toLowerCase();
+    if (COLOR_ENUM.has(twoWords)) {
+      multiWordColors.push(`${words[i]} ${words[i + 1]}`);
+      // Skip the next word since we've used it
+      i++;
+    }
   }
-
-  // Predefined order for common sizes
-  const sizeOrder = ['xxxs', 'xxs', 'xs', 's', 'small', 'm', 'medium', 'l', 'large', 'xl', 'xxl', 'xxxl', '2xl', '3xl', '4xl', '5xl', 'one size', 'onesize', 'one-size', 'petite', 'regular', 'tall', 'short', 'long', 'plus', 'queen', 'king'];
-  const predefinedIndex = sizeOrder.indexOf(normalized);
-  if (predefinedIndex !== -1) {
-    return { rank: predefinedIndex, label: normalized };
+  
+  // Combine multi-word colors with single-word colors (avoid duplicates)
+  const allColorWords = [...multiWordColors];
+  colorWords.forEach(word => {
+    // Skip if already part of a multi-word color
+    const isPartOfMultiWord = multiWordColors.some(mwc => 
+      mwc.toLowerCase().includes(word.toLowerCase())
+    );
+    if (!isPartOfMultiWord) {
+      allColorWords.push(word);
+    }
+  });
+  
+  // Return joined color words, or original prefix if no colors found (fallback)
+  if (allColorWords.length > 0) {
+    return allColorWords.join(' ').trim();
   }
-
-  // Extract numeric value if present
-  const numericMatch = normalized.match(/(\d+(\.\d+)?)/);
-  if (numericMatch) {
-    const numericValue = parseFloat(numericMatch[1]);
-    return { rank: 200 + numericValue, label: normalized };
+  
+  // Fallback: return original prefix if it's a single letter or very short
+  if (prefix.length <= 3) {
+    return prefix;
   }
-
-  // Alphabetic fallback
-  return { rank: 600 + normalized.charCodeAt(0), label: normalized };
+  
+  // If we can't identify colors, return null (will use variant ID as group key)
+  return null;
 };
 
-const getVariantColorKey = (options, variant) => {
-  const { color } = normalizeVariantAttributes(options, variant);
-  if (color && typeof color === 'string') {
-    const normalized = normalizeString(color);
-    if (normalized) return normalized;
-  }
-  const fallback =
-    variant?.title?.split(' / ')[0] ||
-    variant?.option1 ||
-    variant?.option2 ||
-    null;
-  return normalizeString(fallback);
+// Extract size (suffix after "/") from variant title
+// "A / S" -> "S", "green / One Size" -> "One Size"
+const getVariantSize = (variant) => {
+  if (!variant?.title) return null;
+  const clean = variant.title.replace(/\s+/g, " ").trim();
+  const match = clean.match(/\s*\/\s*(.+)$/);
+  return match?.[1]?.trim() || null;
 };
 
-const sortVariantsList = (options, variantsList = []) => {
+// Get group key for variant (color/style) - used for grouping variants and images
+const getVariantGroupKey = (variant) => {
+  return getVariantColor(variant) || `variant:${variant.id || variant.shopifyId}`;
+};
+
+// Sort variants: by color/style, then by size
+const sortVariantsList = (variantsList = []) => {
   const list = [...variantsList];
   list.sort((a, b) => {
-    const { color: colorAValue, size: sizeAValue } = normalizeVariantAttributes(options, a);
-    const { color: colorBValue, size: sizeBValue } = normalizeVariantAttributes(options, b);
-
-    const colorA = normalizeString(colorAValue);
-    const colorB = normalizeString(colorBValue);
-
+    const colorA = normalizeString(getVariantColor(a) || '');
+    const colorB = normalizeString(getVariantColor(b) || '');
     if (colorA !== colorB) {
       return colorA.localeCompare(colorB);
     }
-
-    const sizeInfoA = getSizeSortRank(sizeAValue);
-    const sizeInfoB = getSizeSortRank(sizeBValue);
-
-    if (sizeInfoA.rank !== sizeInfoB.rank) {
-      return sizeInfoA.rank - sizeInfoB.rank;
-    }
-
-    return sizeInfoA.label.localeCompare(sizeInfoB.label);
+    const sizeA = normalizeString(getVariantSize(a) || '');
+    const sizeB = normalizeString(getVariantSize(b) || '');
+    return sizeA.localeCompare(sizeB);
   });
-
   return list;
 };
 
-const getVariantsWithSameColor = (options, variantsList, variantId) => {
+// Group variants with same color/style (prefix before "/")
+const getVariantsWithSameColor = (variantsList, variantId) => {
   const variant = variantsList.find((v) => (v.id || v.shopifyId) === variantId);
   if (!variant) return [variantId];
 
-  const colorKey = getVariantColorKey(options, variant);
-  // If no color key, group by variant ID itself (single variant group)
-  if (!colorKey) {
-    // Try to find other variants with similar attributes (fallback grouping)
-    const fallbackKey = variant.option1 || variant.title?.split(' / ')[0] || 'default';
-    return variantsList
-      .filter((v) => {
-        const vKey = getVariantColorKey(options, v) || (v.option1 || v.title?.split(' / ')[0] || 'default');
-        return normalizeString(vKey) === normalizeString(fallbackKey);
-      })
-      .map((v) => v.id || v.shopifyId);
-  }
+  const groupKey = getVariantColor(variant);
+  if (!groupKey) return [variantId];
 
+  // Group variants with same color/style (case-insensitive)
+  const normalizedKey = normalizeString(groupKey);
   return variantsList
     .filter((v) => {
-      const vColorKey = getVariantColorKey(options, v);
-      return vColorKey && normalizeString(vColorKey) === normalizeString(colorKey);
+      const vColor = getVariantColor(v);
+      return vColor && normalizeString(vColor) === normalizedKey;
     })
     .map((v) => v.id || v.shopifyId);
-};
-
-// Get color/type key for manual variants (for grouping photos)
-const getManualVariantGroupKey = (variant) => {
-  if (variant.color) {
-    return `color:${normalizeString(variant.color)}`;
-  }
-  if (variant.type) {
-    return `type:${normalizeString(variant.type)}`;
-  }
-  return 'default';
 };
 
 /**
@@ -229,7 +217,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const [toastMessage, setToastMessage] = useState(null);
   const [error, setError] = useState(null);
   const [storefrontSelections, setStorefrontSelections] = useState([]);
-  
   // Form state
   const [selectedImages, setSelectedImages] = useState([]);
   const [selectedVariants, setSelectedVariants] = useState([]);
@@ -242,6 +229,9 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const [productId, setProductId] = useState(null); // For edit mode
   const [variantImages, setVariantImages] = useState({});
   const [defaultVariantId, setDefaultVariantId] = useState(null);
+  const [defaultVariantPhotos, setDefaultVariantPhotos] = useState({}); // Map variantId -> default photo URL
+  const [variantPriceOverrides, setVariantPriceOverrides] = useState({}); // Map variantId -> price override
+  const [editModeShopifyItem, setEditModeShopifyItem] = useState(null); // Store shopifyItem when editing
   
   // Manual mode: image URLs and variant creation
   const [manualImageUrls, setManualImageUrls] = useState([]); // Raw image URLs for manual mode
@@ -265,51 +255,18 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   
   const sortedVariants = useMemo(() => {
     if (mode === 'shopify') {
-      return sortVariantsList(itemOptions, item?.rawProduct?.variants || item?.variants || []);
+      return sortVariantsList(item?.rawProduct?.variants || item?.variants || []);
     }
-    // For manual/edit mode, sort by color then size
-    return sortVariantsList([], manualVariants);
-  }, [mode, item, itemOptions, manualVariants]);
+    return sortVariantsList(manualVariants);
+  }, [mode, item, manualVariants]);
   
   const allVariants = sortedVariants;
 
-  const getVariantAttributes = useCallback(
-    (variant) => normalizeVariantAttributes(itemOptions, variant),
-    [itemOptions]
-  );
-
-  const getVariantColorKeyFor = useCallback(
-    (variant) => getVariantColorKey(itemOptions, variant),
-    [itemOptions]
-  );
-
   const getSameColorVariantIds = useCallback(
     (variantId, variantsList = allVariants) => {
-      if (mode === 'shopify') {
-        return getVariantsWithSameColor(itemOptions, variantsList, variantId);
-      } else {
-        // For manual/edit mode, group by color/type
-        const variant = variantsList.find((v) => (v.id || v.shopifyId) === variantId);
-        if (!variant) return [variantId];
-        const groupKey = getManualVariantGroupKey(variant);
-        return variantsList
-          .filter((v) => getManualVariantGroupKey(v) === groupKey)
-          .map((v) => v.id || v.shopifyId);
-      }
+      return getVariantsWithSameColor(variantsList, variantId);
     },
-    [mode, itemOptions, allVariants]
-  );
-  
-  // Get group key for a variant (for photo grouping)
-  const getVariantGroupKey = useCallback(
-    (variant) => {
-      if (mode === 'shopify') {
-        return getVariantColorKey(itemOptions, variant);
-      } else {
-        return getManualVariantGroupKey(variant);
-      }
-    },
-    [mode, itemOptions]
+    [allVariants]
   );
 
   const getVariantDefaultImages = (variant) => {
@@ -343,27 +300,27 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
   const getAvailableImagesForVariant = (variant) => {
     if (mode === 'shopify') {
-      const variantId = variant.id || variant.shopifyId;
-      if (!item?.rawProduct?.images) {
-        return availableImages;
-      }
+    const variantId = variant.id || variant.shopifyId;
+    if (!item?.rawProduct?.images) {
+      return availableImages;
+    }
 
-      const variantSpecificImages = item.rawProduct.images
-        .filter((img) => {
-          const imgVariantIds = img.variant_ids || [];
-          return imgVariantIds.includes(variantId);
-        })
-        .map((img) => img.src);
+    const variantSpecificImages = item.rawProduct.images
+      .filter((img) => {
+        const imgVariantIds = img.variant_ids || [];
+        return imgVariantIds.includes(variantId);
+      })
+      .map((img) => img.src);
 
-      const generalImages = item.rawProduct.images
-        .filter((img) => {
-          const imgVariantIds = img.variant_ids || [];
-          return imgVariantIds.length === 0;
-        })
-        .map((img) => img.src);
+    const generalImages = item.rawProduct.images
+      .filter((img) => {
+        const imgVariantIds = img.variant_ids || [];
+        return imgVariantIds.length === 0;
+      })
+      .map((img) => img.src);
 
-      const combined = [...variantSpecificImages, ...generalImages, ...availableImages];
-      return Array.from(new Set(combined.filter(Boolean)));
+    const combined = [...variantSpecificImages, ...generalImages, ...availableImages];
+    return Array.from(new Set(combined.filter(Boolean)));
     } else {
       // For manual/edit mode, return all available images
       return availableImages;
@@ -553,6 +510,21 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
         const productData = productDoc.data();
 
+        // Try to fetch original shopifyItem to get all available images (like when first handling)
+        if (productData.sourceShopifyItemDocId) {
+          try {
+            const shopifyItemDoc = await getDoc(
+              doc(db, ...getCollectionPath('shopifyItems'), productData.sourceShopifyItemDocId)
+            );
+            if (shopifyItemDoc.exists()) {
+              const shopifyItemData = { id: shopifyItemDoc.id, ...shopifyItemDoc.data() };
+              setEditModeShopifyItem(shopifyItemData);
+            }
+          } catch (error) {
+            console.warn('Failed to load shopifyItem for editing:', error);
+          }
+        }
+
         // Load variants from the storefront where product was found
         const variantsSnapshot = await getDocs(
           collection(db, ...getDocumentPath('products', productId, productStorefront), 'variants')
@@ -563,12 +535,16 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         }));
 
         // Convert existing variants to format compatible with modal
+        // Preserve shopifyVariantId and shopifyInventoryItemId from Firestore
         const convertedVariants = variantsData.map((v) => ({
           id: v.id,
-          shopifyId: v.id, // Use id as shopifyId for compatibility
+          shopifyId: v.shopifyVariantId || v.id, // Use shopifyVariantId if available, otherwise fallback to Firestore ID
+          shopifyVariantId: v.shopifyVariantId || null, // Preserve Shopify variant ID
+          inventory_item_id: v.shopifyInventoryItemId || null, // Preserve inventory item ID
           option1: v.color || v.type || '',
           option2: v.size || '',
           price: v.priceOverride || productData.basePrice || 0,
+          priceOverride: v.priceOverride || null, // Preserve priceOverride for editing
           inventory_quantity: v.stock || 0,
           inventoryQuantity: v.stock || 0,
           sku: v.sku || '',
@@ -594,7 +570,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         );
         setDefaultVariantId(productData.defaultVariantId || null);
 
-        // Set images
+        // Set selected images (preserve current selection)
         const productImages = productData.images || [];
         if (productImages.length > 0) {
           const imageObjects = productImages.map((url, idx) => ({
@@ -604,20 +580,37 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
           setSelectedImages(imageObjects);
         }
 
-        // Set variant images
+        // Set variant images and default photos
         const variantImagesMap = {};
+        const defaultPhotosMap = {};
+        const priceOverridesMap = {};
         convertedVariants.forEach((variant) => {
           if (variant.images && variant.images.length > 0) {
             variantImagesMap[variant.id] = variant.images;
+            // Set default photo if specified, otherwise use first image
+            if (variant.defaultPhoto) {
+              defaultPhotosMap[variant.id] = variant.defaultPhoto;
+            } else if (variant.images.length > 0) {
+              defaultPhotosMap[variant.id] = variant.images[0];
+            }
+          }
+          // Load price overrides if they exist
+          if (variant.priceOverride) {
+            priceOverridesMap[variant.id] = variant.priceOverride.toString();
           }
         });
         setVariantImages(variantImagesMap);
+        setDefaultVariantPhotos(defaultPhotosMap);
+        setVariantPriceOverrides(priceOverridesMap);
 
         setStorefrontSelections(
           Array.isArray(productData.storefronts) && productData.storefronts.length > 0
             ? productData.storefronts
             : [selectedWebsite]
         );
+        
+        // Initialize markets from existing product
+        // Markets are read-only - they come from Shopify, not editable in ProductModal
 
         setLoading(false);
       } catch (error) {
@@ -663,36 +656,52 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       }
     }
 
-    const colorGroups = new Map();
+    // Check for new properties in database: displayName, displayDescription, bulletpoints
+    if (item.displayName) {
+      setDisplayName(item.displayName);
+    }
+    if (item.displayDescription) {
+      setDisplayDescription(item.displayDescription);
+    }
+    if (item.bulletpoints && Array.isArray(item.bulletpoints)) {
+      setBulletPoints(item.bulletpoints.filter(Boolean)); // Filter out empty strings
+    }
+
+    // Group variants by color/style and set default images
+    const initialDefaultPhotos = {};
     variants.forEach((variant) => {
       const variantId = variant.id || variant.shopifyId;
-      const colorKey = getVariantColorKeyFor(variant);
-      const key = colorKey || variantId;
-
-      if (!colorGroups.has(key)) {
-        colorGroups.set(key, []);
-      }
-      colorGroups.get(key).push(variant);
-    });
-
-    colorGroups.forEach((groupVariants) => {
-      groupVariants.forEach((variant) => {
-        const variantId = variant.id || variant.shopifyId;
-        // Get variant-specific images for THIS variant (prioritizing its image_id photo)
-        const defaults = getVariantDefaultImages(variant);
-        if (defaults.length > 0) {
-          initialVariantImages[variantId] = [...defaults];
+      const defaults = getVariantDefaultImages(variant);
+      if (defaults.length > 0) {
+        initialVariantImages[variantId] = [...defaults];
+        // Set first default image as default photo if no explicit defaultPhoto exists
+        if (variant.defaultPhoto) {
+          initialDefaultPhotos[variantId] = variant.defaultPhoto;
+        } else if (defaults.length > 0) {
+          initialDefaultPhotos[variantId] = defaults[0];
         }
-      });
+      }
     });
 
     setExpandedVariants(initialExpanded);
     setVariantImages(initialVariantImages);
+    setDefaultVariantPhotos(initialDefaultPhotos);
+    
+    // Initialize variant price overrides from imported data
+    const initialPriceOverrides = {};
+    variants.forEach((variant) => {
+      const variantId = variant.id || variant.shopifyId;
+      // Only set if variant has a price (from Shopify)
+      if (variant.price) {
+        initialPriceOverrides[variantId] = variant.price.toString();
+      }
+    });
+    setVariantPriceOverrides(initialPriceOverrides);
 
     if (item.matchedCategorySlug) {
       loadCategoryId(item.matchedCategorySlug);
     }
-  }, [item, sortedVariants, getVariantColorKeyFor, mode, basePriceInput]);
+  }, [item, sortedVariants, mode, basePriceInput]);
 
   const loadCategoryId = async (slug) => {
     if (!db || !slug) return;
@@ -710,7 +719,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       console.error('Failed to load category:', error);
     }
   };
-
+  
   const handleImageToggle = (imageUrl) => {
     setSelectedImages((prev) => {
       const exists = prev.find((img) => img.url === imageUrl);
@@ -810,6 +819,17 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         return updated;
       });
 
+      // Always ensure we have a default variant - set the first selected variant as default
+      // If no default variant is set yet, or the current default is not selected anymore,
+      // set the toggled variant as the default. This makes the first selected variant
+      // automatically become the default.
+      if (!defaultVariantId || !newSelected.includes(defaultVariantId)) {
+        setDefaultVariantId(variantId);
+      } else if (newSelected.length > 0 && !newSelected.includes(defaultVariantId)) {
+        // If default variant was removed, set first selected as default
+        setDefaultVariantId(newSelected[0]);
+      }
+
       return newSelected;
     });
   };
@@ -832,10 +852,8 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       return;
     }
 
-    if (selectedImages.length === 0) {
-      setToastMessage({ type: 'error', text: 'Please select at least one image.' });
-      return;
-    }
+    // Main product photos are now optional - if none selected, use default variant's photo
+    // Validation removed - we'll use default variant photo if no main images are selected
 
     // For Shopify mode, require variants
     if (mode === 'shopify' && selectedVariants.length === 0) {
@@ -924,24 +942,84 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         const slugConflict = editUniquenessChecks.some((check) => check.slugConflict);
 
         if (nameConflict || slugConflict) {
-          setToastMessage({
-            type: 'error',
-            text: 'A product with this name already exists. Please choose a different display name.',
-          });
-          setLoading(false);
-          return;
+        setToastMessage({
+          type: 'error',
+          text: 'A product with this name already exists. Please choose a different display name.',
+        });
+        setLoading(false);
+        return;
         }
       }
 
-      const mainImage = selectedImages.find((img) => img.isMain)?.url || selectedImages[0].url;
-      const additionalImages = selectedImages
-        .filter((img) => !img.isMain)
-        .map((img) => img.url);
+      // Validate default variant is selected - if not, use first selected variant
+      // This must be done early because it's used in main image determination
+      let validatedDefaultVariantId = defaultVariantId && selectedVariants.includes(defaultVariantId)
+        ? defaultVariantId
+        : null;
+      
+      // Always ensure we have a default variant - use first selected if none set
+      if (!validatedDefaultVariantId && selectedVariants.length > 0) {
+        validatedDefaultVariantId = selectedVariants[0];
+      }
 
-      // Get selected variant data
+      // Get selected variant data (needed for main image determination)
       const selectedVariantData = mode === 'shopify'
         ? allVariants.filter((v) => selectedVariants.includes(v.id || v.shopifyId))
         : manualVariants.filter((v) => selectedVariants.includes(v.id || v.shopifyId));
+
+      // Determine main image: use selected main image, or default variant's photo, or first selected image
+      let mainImage = null;
+      let additionalImages = [];
+      
+      if (selectedImages.length > 0) {
+        // If main product photos are selected, use them
+        mainImage = selectedImages.find((img) => img.isMain)?.url || selectedImages[0].url;
+        additionalImages = selectedImages
+          .filter((img) => !img.isMain)
+          .map((img) => img.url);
+      } else if (validatedDefaultVariantId && selectedVariantData.length > 0) {
+        // If no main product photos, use default variant's default photo
+        const defaultVariant = selectedVariantData.find((v) => (v.id || v.shopifyId) === validatedDefaultVariantId);
+        if (defaultVariant) {
+          const defaultVariantId = defaultVariant.id || defaultVariant.shopifyId;
+          const defaultPhoto = defaultVariantPhotos[defaultVariantId];
+          if (defaultPhoto) {
+            mainImage = defaultPhoto;
+          } else {
+            // Fallback to first variant image or first available image
+            const variantImageUrls = variantImages[getVariantGroupKey(defaultVariant)] || getSelectedVariantImages(defaultVariantId);
+            if (variantImageUrls.length > 0) {
+              mainImage = variantImageUrls[0];
+            } else {
+              const defaultImages = getVariantDefaultImages(defaultVariant);
+              if (defaultImages.length > 0) {
+                mainImage = defaultImages[0];
+              }
+            }
+          }
+        }
+      }
+      
+      // If still no main image, use first available image from any source
+      if (!mainImage) {
+        if (availableImages.length > 0) {
+          mainImage = availableImages[0];
+        } else if (selectedVariantData.length > 0) {
+          const firstVariant = selectedVariantData[0];
+          const firstVariantId = firstVariant.id || firstVariant.shopifyId;
+          const firstVariantImages = getVariantDefaultImages(firstVariant);
+          if (firstVariantImages.length > 0) {
+            mainImage = firstVariantImages[0];
+          }
+        }
+      }
+      
+      // Ensure we have at least one image
+      if (!mainImage) {
+        setToastMessage({ type: 'error', text: 'Please select at least one image or variant photo.' });
+        setLoading(false);
+        return;
+      }
 
       let parsedBasePrice = null;
       if (basePriceInput.trim()) {
@@ -978,13 +1056,47 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       // Determine sourceType and sourceShopifyId
       const sourceType = mode === 'shopify' ? 'shopify' : 'manual';
       const sourceShopifyId = mode === 'shopify' ? item.shopifyId : (mode === 'edit' ? existingProduct?.sourceShopifyId : null);
+      // Store doc_id from shopifyItems collection for recognition
+      const sourceShopifyItemDocId = mode === 'shopify' ? item.id : (mode === 'edit' ? existingProduct?.sourceShopifyItemDocId : null);
+      
+      // Get markets array from shopifyItems (shopify mode) or existing product (edit mode)
+      // Markets are important for market-based filtering in the storefront
+      // Support both array format (legacy) and object format (new with Shopify Markets)
+      let markets = [];
+      let marketsObject = null;
+      
+      if (mode === 'shopify') {
+        // From shopifyItems document
+        if (item.marketsObject && typeof item.marketsObject === 'object') {
+          // New format: markets object
+          marketsObject = item.marketsObject;
+          markets = Object.keys(item.marketsObject);
+        } else {
+          // Legacy format: markets array
+          markets = item.markets || [];
+        }
+      } else if (mode === 'edit') {
+        // From existing product
+        if (existingProduct?.marketsObject && typeof existingProduct.marketsObject === 'object') {
+          marketsObject = existingProduct.marketsObject;
+          markets = Object.keys(existingProduct.marketsObject);
+        } else {
+          markets = existingProduct?.markets || [];
+        }
+      } else {
+        // Manual mode - no markets (manual products don't use Shopify Markets)
+        markets = [];
+      }
+
+      // Get publishedToOnlineStore flag from shopifyItems (shopify mode) or existing product (edit mode)
+      // This determines if product is accessible via Storefront API
+      const publishedToOnlineStore = mode === 'shopify' 
+        ? (item.publishedToOnlineStore !== undefined ? item.publishedToOnlineStore : true) // Default to true for backward compatibility
+        : (mode === 'edit' 
+          ? (existingProduct?.publishedToOnlineStore !== undefined ? existingProduct.publishedToOnlineStore : true) // Default to true for backward compatibility
+          : true); // Manual mode - assume published (manual products don't use Storefront API)
 
       const categoryIds = categoryId ? [categoryId] : [];
-
-      // Validate default variant is selected
-      const validatedDefaultVariantId = defaultVariantId && selectedVariants.includes(defaultVariantId)
-        ? defaultVariantId
-        : null;
 
       const productData = {
         name: displayName,
@@ -998,6 +1110,10 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         active: true,
         sourceType,
         ...(sourceShopifyId ? { sourceShopifyId } : {}),
+        ...(sourceShopifyItemDocId ? { sourceShopifyItemDocId } : {}),
+        ...(markets.length > 0 ? { markets } : {}), // Include markets array if available
+        ...(marketsObject && Object.keys(marketsObject).length > 0 ? { marketsObject } : {}), // Include markets object if available
+        publishedToOnlineStore, // Include Online Store publication status
         manuallyEdited: true,
         updatedAt: serverTimestamp(),
         ...(mode !== 'edit' ? { createdAt: serverTimestamp() } : {}),
@@ -1073,16 +1189,16 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       for (const variant of selectedVariantData) {
         const variantId = variant.id || variant.shopifyId;
         const groupKey = getVariantGroupKey(variant);
-        
+
         // Get images for this color/type group
         let variantImageUrls = variantImages[groupKey] || getSelectedVariantImages(variantId);
 
         if (mode === 'shopify') {
-          if (!variantImageUrls.length) {
-            variantImageUrls = getVariantDefaultImages(variant);
-          }
-          if (!variantImageUrls.length) {
-            variantImageUrls = [mainImage, ...additionalImages];
+        if (!variantImageUrls.length) {
+          variantImageUrls = getVariantDefaultImages(variant);
+        }
+        if (!variantImageUrls.length) {
+          variantImageUrls = [mainImage, ...additionalImages];
           }
         } else {
           // For manual/edit mode, use group images or fallback to main images
@@ -1092,13 +1208,22 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         }
 
         // Always add main product photos to variant images (they show with all variants)
-        // But keep variant-specific images first (especially the main variant photo)
+        // But keep variant-specific images first (especially the default variant photo)
         const allMainImages = selectedImages.map((img) => img.url);
-        // Preserve order: variant-specific images first, then main images
+        // Preserve order: default variant photo first, then other variant-specific images, then main images
         const uniqueVariantImages = [];
         const seen = new Set();
         
-        // Add variant-specific images first (preserving their order)
+        // Get default photo for this variant (if set)
+        const defaultPhoto = defaultVariantPhotos[variantId];
+        
+        // Add default photo FIRST if it exists
+        if (defaultPhoto && variantImageUrls.includes(defaultPhoto)) {
+          uniqueVariantImages.push(defaultPhoto);
+          seen.add(defaultPhoto);
+        }
+        
+        // Add variant-specific images (excluding default photo if already added)
         variantImageUrls.forEach((url) => {
           if (url && !seen.has(url)) {
             uniqueVariantImages.push(url);
@@ -1114,27 +1239,41 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
           }
         });
         
-        // Get variant attributes - for manual/edit mode, use direct properties
-        const { color: normalizedColor, size: normalizedSize, type: normalizedType } = mode === 'shopify'
-          ? getVariantAttributes(variant)
-          : {
-              color: variant.color || null,
-              size: variant.size || null, // Size is stored as string (including "one size")
-              type: variant.type || null,
-            };
+        // Extract color/style and size from variant title
+        const normalizedColor = mode === 'shopify' 
+          ? getVariantColor(variant) 
+          : (variant.color || null);
+        const normalizedSize = mode === 'shopify'
+          ? getVariantSize(variant)
+          : (variant.size || null);
+
+        // Preserve location-specific inventory levels for market-based availability checks
+        const inventoryLevels = mode === 'shopify' && variant.inventory_levels
+          ? variant.inventory_levels // From Shopify import (location-specific)
+          : (variant.inventory_levels || []); // From existing Firestore data or empty
 
         const variantData = {
-          size: normalizedSize || null, // Store as string
+          size: normalizedSize || null,
           color: normalizedColor || null,
-          type: normalizedType || null,
           sku: variant.sku || null,
           stock: variant.inventory_quantity || variant.inventoryQuantity || variant.stock || 0,
-          priceOverride: parseFloat(variant.price || variant.priceOverride || 0) || null,
+          inventory_levels: inventoryLevels.length > 0 ? inventoryLevels : undefined, // Store location-specific inventory
+          priceOverride: variantPriceOverrides[variantId] !== undefined 
+            ? (variantPriceOverrides[variantId] === '' ? null : parseFloat(variantPriceOverrides[variantId]) || null)
+            : (parseFloat(variant.price || variant.priceOverride || 0) || null),
           images: uniqueVariantImages,
-          ...(mode === 'shopify' && variant.inventory_item_id
-            ? { shopifyInventoryItemId: variant.inventory_item_id }
+          defaultPhoto: defaultPhoto || (uniqueVariantImages.length > 0 ? uniqueVariantImages[0] : null), // Store default photo
+          // Always preserve shopifyVariantId if it exists (from Shopify or from existing Firestore data)
+          ...(variant.shopifyVariantId
+            ? { shopifyVariantId: variant.shopifyVariantId.toString() }
+            : (mode === 'shopify' && variant.id
+              ? { shopifyVariantId: variant.id.toString() } // Store Shopify variant ID for new Shopify variants
+              : {})),
+          // Always preserve shopifyInventoryItemId if it exists
+          ...(variant.inventory_item_id || variant.shopifyInventoryItemId
+            ? { shopifyInventoryItemId: variant.inventory_item_id || variant.shopifyInventoryItemId }
             : {}),
-          updatedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
           ...(mode !== 'edit' || !variant.id ? { createdAt: serverTimestamp() } : {}),
         };
 
@@ -1161,15 +1300,35 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
       // Mark Shopify item as processed (only for shopify mode)
       if (mode === 'shopify' && item?.id) {
-        await setDoc(
-          doc(db, ...getDocumentPath('shopifyItems', item.id)),
-          {
-            processedStorefronts: arrayUnion(...selectedStorefronts),
-            storefronts: arrayUnion(...selectedStorefronts),
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true }
+        // Get current document to check if storefronts are new
+        const shopifyItemRef = doc(db, ...getDocumentPath('shopifyItems', item.id));
+        const shopifyItemDoc = await getDoc(shopifyItemRef);
+        const existingStorefronts = shopifyItemDoc.exists() 
+          ? (shopifyItemDoc.data().storefronts || [])
+          : [];
+        
+        // Count how many new storefronts are being added
+        const newStorefronts = selectedStorefronts.filter(
+          sf => !existingStorefronts.includes(sf)
         );
+        const newStorefrontCount = newStorefronts.length;
+
+        const updateData = {
+          processedStorefronts: arrayUnion(...selectedStorefronts),
+          storefronts: arrayUnion(...selectedStorefronts),
+          updatedAt: serverTimestamp(),
+        };
+
+        // Only increment if there are new storefronts being added
+        if (newStorefrontCount > 0) {
+          // If field doesn't exist, set it; otherwise increment
+          const currentCount = shopifyItemDoc.exists() 
+            ? (shopifyItemDoc.data().storefrontUsageCount || 0)
+            : 0;
+          updateData.storefrontUsageCount = currentCount + newStorefrontCount;
+        }
+
+        await setDoc(shopifyItemRef, updateData, { merge: true });
       }
 
       setToastMessage({ 
@@ -1191,16 +1350,21 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   };
 
   // Determine available images based on mode
+  // For edit mode, use shopifyItem images if available (like when first handling), otherwise use product images
   const availableImages = useMemo(() => {
     if (mode === 'shopify') {
       return item?.imageUrls || item?.images || [];
     } else if (mode === 'edit') {
+      // Use shopifyItem images if available (like when first handling), otherwise use product images
+      if (editModeShopifyItem) {
+        return editModeShopifyItem.imageUrls || editModeShopifyItem.images || existingProduct?.images || [];
+      }
       return existingProduct?.images || [];
     } else {
       // Manual mode - use manualImageUrls
       return manualImageUrls;
     }
-  }, [mode, item, existingProduct, manualImageUrls]);
+  }, [mode, item, existingProduct, manualImageUrls, editModeShopifyItem]);
   
   // Sync manualImageUrls to selectedImages when they change
   useEffect(() => {
@@ -1222,47 +1386,17 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     ? allVariants.filter((v) => (v.inventory_quantity || v.inventoryQuantity || 0) > 0)
     : allVariants;
 
-  // Build normalized option labels - rename "Color" if values aren't actually colors
+  // Build option labels - simplified since we assume "color/style / size" format
   const normalizedOptionLabels = useMemo(() => {
     if (mode === 'shopify') {
       const options = item?.rawProduct?.options || [];
       if (options.length === 0) return [];
-      
+      // Return option names as-is, or default to "Color" and "Size" based on position
       return options.map((opt, index) => {
-        const position = opt.position || index + 1;
-        const values = opt.values || [];
-        
-        // Check if Shopify labeled it "Color" but values aren't colors
-        if (opt.name && opt.name.toLowerCase().includes('color')) {
-          const hasValidColor = values.some((val) => isLikelyColorValue(val));
-          if (!hasValidColor) {
-            return 'Type';
-          }
-          return 'Color';
-        }
-        
-        // Check if Shopify labeled it "Size" but values aren't sizes
-        if (opt.name && opt.name.toLowerCase().includes('size')) {
-          const hasValidSize = values.some((val) => isLikelySizeValue(val));
-          if (!hasValidSize) {
-            return opt.name;
-          }
-          return 'Size';
-        }
-        
-        // Check if values look like colors or sizes
-        const hasColorValues = values.some((val) => isLikelyColorValue(val));
-        const hasSizeValues = values.some((val) => isLikelySizeValue(val));
-        
-        if (hasColorValues && !hasSizeValues) {
-          return 'Color';
-        }
-        if (hasSizeValues && !hasColorValues) {
-          return 'Size';
-        }
-        
-        return opt.name || `Option ${position}`;
-      }).filter(Boolean);
+        if (opt.name) return opt.name;
+        // Default: first option is Color/Style, second is Size
+        return index === 0 ? 'Color' : index === 1 ? 'Size' : `Option ${index + 1}`;
+      });
     } else {
       // For manual/edit mode, determine labels from variant properties
       const labels = [];
@@ -1333,7 +1467,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   </h2>
                   {sourceShopifyId && (
                     <a
-                      href={`/${selectedWebsite}/admin/overview/shopifyItems`}
+                      href="/admin/overview/shopifyItems"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-emerald-600 underline hover:text-emerald-700 dark:text-emerald-400"
@@ -1356,21 +1490,21 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
               <div className="space-y-6">
                 {/* Original Title (only for Shopify mode) */}
                 {mode === 'shopify' && item?.title && (
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                      Original Title
-                    </label>
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">{item.title}</p>
-                  </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                    Original Title
+                  </label>
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400">{item.title}</p>
+                </div>
                 )}
 
                 {/* Main Product Photos - Used in product cards and as fallback */}
                 {availableImages.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">
-                      Main Product Photos ({selectedImages.length} selected)
+                      Main Product Photos ({selectedImages.length} selected) <span className="text-xs font-normal text-zinc-400">(Optional)</span>
                       <span className="ml-2 text-xs font-normal text-zinc-500">
-                        - Used in product cards and product detail page
+                        - Used in product cards and product detail page. If none selected, default variant's photo will be used.
                       </span>
                     </label>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -1557,9 +1691,9 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   <div>
                     <div className="mb-3 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                          Select Variants ({selectedVariants.length} selected)
-                        </label>
+                      <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                        Select Variants ({selectedVariants.length} selected)
+                      </label>
                         <button
                           type="button"
                           onClick={() => {
@@ -1618,6 +1752,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                         const isOutOfStock = stock <= 0;
                         const selectedVariantImagesForVariant = getSelectedVariantImages(variantId);
                         const previewImage =
+                          defaultVariantPhotos[variantId] ||
                           selectedVariantImagesForVariant[0] ||
                           getVariantDefaultImages(variant)[0] ||
                           selectedImages.find((img) => img.isMain)?.url ||
@@ -1627,17 +1762,9 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                         const variantInstance = availableVariants.find((v) => (v.id || v.shopifyId) === variantId) || variant;
                         const sameGroupVariants = getSameColorVariantIds(variantId);
                         const groupKey = getVariantGroupKey(variantInstance);
-                        let displayGroup = 'this variant';
-                        if (mode === 'shopify') {
-                          const { color: colorLabel } = getVariantAttributes(variantInstance);
-                          displayGroup = colorLabel || variantInstance?.title?.split(' / ')[0] || 'this color';
-                        } else {
-                          if (variantInstance?.color) {
-                            displayGroup = variantInstance.color;
-                          } else if (variantInstance?.type) {
-                            displayGroup = variantInstance.type;
-                          }
-                        }
+                        const displayGroup = mode === 'shopify'
+                          ? (getVariantColor(variantInstance) || 'this variant')
+                          : (variantInstance?.color || variantInstance?.type || 'this variant');
                         // Variant-specific images (original variant photos) - get for THIS specific variant
                         const thisVariantSpecificImages = variantImages[variantId] || [];
                         // Group-level variant images (for backward compatibility)
@@ -1668,11 +1795,11 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                           >
                             <div className="flex items-center justify-between gap-3 px-4 py-3">
                               <div className="flex items-center gap-3">
-                                <input
+                              <input
                                   id={`variant-${variantId}`}
-                                  type="checkbox"
+                                type="checkbox"
                                   checked={selectedVariants.includes(variantId)}
-                                  onChange={() => handleVariantToggle(variantId)}
+                                onChange={() => handleVariantToggle(variantId)}
                                   className="h-4 w-4 rounded border-zinc-300 text-emerald-500 focus:ring-emerald-400"
                                 />
                                 <div className="flex items-center gap-1">
@@ -1725,50 +1852,126 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                       </svg>
                                     </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleVariantExpanded(variantId)}
-                                    className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => toggleVariantExpanded(variantId)}
+                                  className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                                >
+                                  <svg
+                                    className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
                                   >
-                                    <svg
-                                      className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                  </button>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
                                 </div>
                               </div>
                             </div>
 
                             {isExpanded && (
-                              <div className="border-t border-zinc-200 bg-white/70 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900/50">
-                                <div className="mb-2 flex items-center justify-between">
-                                  <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                                 <div className="border-t border-zinc-200 bg-white/70 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900/50 space-y-4">
+                                   {/* Price Override (for shopify mode) */}
+                                   {mode === 'shopify' && (
+                                     <div>
+                                       <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                         Price Override (Optional)
+                                       </label>
+                                       <div className="flex items-center gap-2">
+                                         <span className="text-xs text-zinc-500 dark:text-zinc-400">€</span>
+                                         <input
+                                           type="number"
+                                           min="0"
+                                           step="0.01"
+                                           value={variantPriceOverrides[variantId] !== undefined ? variantPriceOverrides[variantId] : (variant.price || variant.priceOverride || '')}
+                                           onChange={(e) => {
+                                             const value = e.target.value;
+                                             setVariantPriceOverrides((prev) => {
+                                               if (value === '' || value === (variant.price || variant.priceOverride || '').toString()) {
+                                                 // Remove override if empty or same as original
+                                                 const updated = { ...prev };
+                                                 delete updated[variantId];
+                                                 return updated;
+                                               }
+                                               return { ...prev, [variantId]: value };
+                                             });
+                                           }}
+                                           placeholder={variant.price || variant.priceOverride || basePriceInput || '0.00'}
+                                           className="w-32 rounded-lg border border-zinc-200 px-2 py-1 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                         />
+                                         <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                           {variantPriceOverrides[variantId] !== undefined 
+                                             ? '(Overridden)' 
+                                             : variant.price || variant.priceOverride 
+                                               ? `(From Shopify: €${variant.price || variant.priceOverride})`
+                                               : `(Inherits base price: €${basePriceInput || '0.00'})`}
+                                         </span>
+                                       </div>
+                                       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                         Leave empty to use Shopify price or base price. Override to set a custom price for this variant.
+                                       </p>
+                                     </div>
+                                   )}
+                                   
+                                   <div className="mb-2 flex items-center justify-between">
+                                     <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
                                     Variant Photos ({groupSelectedImages.length} selected)
-                                  </p>
+                                     </p>
                                   {sameGroupVariants.length > 1 && (
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
                                       Applies to all {displayGroup} sizes
-                                    </p>
-                                  )}
-                                </div>
+                                       </p>
+                                     )}
+                                   </div>
                                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 md:grid-cols-5">
                                   {availableVariantImages.map((imageUrl, idx) => {
                                     const isSelectedImage = groupSelectedImages.includes(imageUrl);
+                                    const isDefaultPhoto = defaultVariantPhotos[variantId] === imageUrl;
                                     return (
                                       <button
                                         key={`${variantId}-image-${idx}`}
                                         type="button"
-                                        onClick={() => handleVariantImageToggle(variantId, imageUrl)}
+                                        onClick={(e) => {
+                                          if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                                            // Set as default photo when holding Shift/Cmd/Ctrl
+                                            // Apply to all grouped variants (same color/style)
+                                            const sameGroupVariantIds = getSameColorVariantIds(variantId);
+                                            setDefaultVariantPhotos((prev) => {
+                                              const updated = { ...prev };
+                                              // Set default photo for all variants in the same group
+                                              sameGroupVariantIds.forEach((groupId) => {
+                                                updated[groupId] = imageUrl;
+                                              });
+                                              return updated;
+                                            });
+                                            // Also select the image (toggle selection)
+                                            handleVariantImageToggle(variantId, imageUrl);
+                                          } else {
+                                            // Toggle image selection
+                                            handleVariantImageToggle(variantId, imageUrl);
+                                          }
+                                        }}
+                                        onDoubleClick={() => {
+                                          // Double-click to set as default photo
+                                          // Apply to all grouped variants (same color/style)
+                                          const sameGroupVariantIds = getSameColorVariantIds(variantId);
+                                          setDefaultVariantPhotos((prev) => {
+                                            const updated = { ...prev };
+                                            // Set default photo for all variants in the same group
+                                            sameGroupVariantIds.forEach((groupId) => {
+                                              updated[groupId] = imageUrl;
+                                            });
+                                            return updated;
+                                          });
+                                        }}
                                         className={`group relative aspect-square w-full overflow-hidden rounded-lg border-2 transition ${
                                           isSelectedImage
                                             ? 'border-emerald-500 ring-2 ring-emerald-200'
                                             : 'border-zinc-200 dark:border-zinc-700'
-                                        }`}
+                                        } ${isDefaultPhoto ? 'ring-2 ring-yellow-400 ring-offset-2' : ''}`}
+                                        title={isDefaultPhoto ? 'Default photo (double-click to change)' : 'Click to select, Shift+Click or Double-click to set as default'}
                                       >
                                         <img
                                           src={imageUrl}
@@ -1784,10 +1987,23 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                                             </div>
                                           </div>
                                         )}
+                                        {isDefaultPhoto && (
+                                          <div className="absolute top-1 right-1 rounded-full bg-yellow-500 p-1 shadow-lg">
+                                            <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                            </svg>
+                                          </div>
+                                        )}
                                       </button>
                                     );
                                   })}
                                 </div>
+                                {groupSelectedImages.length > 0 && (
+                                  <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                    💡 Tip: Double-click an image or Shift+Click to set it as the default photo (shown first). 
+                                    {defaultVariantPhotos[variantId] && ' Yellow star indicates default photo.'}
+                                  </p>
+                                )}
                                 {groupSelectedImages.length === 0 && (
                                   <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                                     No images selected for this variant. The product main images will be used if you leave this empty.
@@ -1858,6 +2074,41 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   )}
                 </div>
 
+                {/* Market Information (Read-only) */}
+                {mode === 'shopify' && item && (
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                      Available in Markets
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {(() => {
+                        const marketsList = item.marketsObject && typeof item.marketsObject === 'object'
+                          ? Object.keys(item.marketsObject)
+                          : (Array.isArray(item.markets) ? item.markets : []);
+                        const marketNames = { FI: 'Finland', DE: 'Germany' };
+                        return marketsList.length > 0 ? (
+                          marketsList.map((market) => (
+                            <span
+                              key={market}
+                              className="rounded-lg border border-emerald-500 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                            >
+                              {market} ({marketNames[market] || market})
+                              <svg className="ml-1.5 inline h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-zinc-500 dark:text-zinc-400">No markets assigned (assign in Shopify)</span>
+                        );
+                      })()}
+                    </div>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                      Markets are managed in Shopify. To change markets, update the product in Shopify and re-run the import script.
+                    </p>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                     Base Price *
@@ -1883,15 +2134,15 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                       Display Name
                     </label>
                     {mode !== 'manual' && (
-                      <button
-                        type="button"
-                        onClick={handleGenerateAI}
-                        disabled={true}
-                        className="rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50 cursor-not-allowed"
-                        title="AI text generation coming soon - see docs/ai-text-generation.md"
-                      >
-                        Generate with AI (Coming Soon)
-                      </button>
+                    <button
+                      type="button"
+                      onClick={handleGenerateAI}
+                      disabled={true}
+                      className="rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50 cursor-not-allowed"
+                      title="AI text generation coming soon - see docs/ai-text-generation.md"
+                    >
+                      Generate with AI (Coming Soon)
+                    </button>
                     )}
                   </div>
                   <input

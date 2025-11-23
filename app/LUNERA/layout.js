@@ -1,37 +1,30 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import PageTransitionBar from "@/components/PageTransitionBar";
-import UnderConstructionBanner from "@/components/UnderConstructionBanner";
+import { Metadata } from 'next';
+import { StorefrontProvider } from '@/lib/storefront-context';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
+// TEMPORARY: Site is under construction - blocking search engine indexing until site is finished
+// TODO: Change robots to { index: true, follow: true } once site is ready for production
 export const metadata = {
-  title: "Ecommerce Admin",
-  description: "Lightweight dashboard overview for the ecommerce platform",
+  title: 'Blerinas - Premium Fashion & Accessories',
+  description: 'Discover premium fashion and accessories at Blerinas. Shop the latest collections with worldwide shipping.',
   robots: {
-    index: false,
-    follow: false,
+    index: false, // TEMPORARY: Block indexing while site is under construction
+    follow: false, // TEMPORARY: Block following links while site is under construction
+  },
+  openGraph: {
+    title: 'Blerinas - Premium Fashion & Accessories',
+    description: 'Discover premium fashion and accessories at Blerinas.',
+    type: 'website',
+    url: 'https://www.blerinas.com',
+  },
+  alternates: {
+    canonical: 'https://www.blerinas.com',
   },
 };
 
-export default function RootLayout({ children }) {
+export default function LuneraLayout({ children }) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <PageTransitionBar />
-        <UnderConstructionBanner />
-        {children}
-      </body>
-    </html>
+    <StorefrontProvider>
+      {children}
+    </StorefrontProvider>
   );
 }

@@ -12,26 +12,21 @@ export default function WebsiteSelector() {
     const newWebsite = e.target.value;
     setSelectedWebsite(newWebsite);
 
-    // Update URL to reflect the selected website
-    // Replace the website segment in the current path
+    // For admin routes, stay on the same admin page, just change the selected website
+    // The data will update automatically via the context
     const pathSegments = pathname.split('/').filter(Boolean);
     
-    // If we're in an admin route, update the website segment
-    if (pathSegments.length > 0) {
-      // Check if first segment is a website name or 'admin'
-      const isAdminRoute = pathSegments[0] === 'admin';
-      
-      if (isAdminRoute) {
-        // We're at /admin/..., need to add website prefix
-        router.push(`/${newWebsite}/admin/${pathSegments.slice(1).join('/')}`);
-      } else {
-        // Replace first segment with new website
-        pathSegments[0] = newWebsite;
-        router.push(`/${pathSegments.join('/')}`);
-      }
+    if (pathSegments.length > 0 && pathSegments[0] === 'admin') {
+      // We're in admin, stay on the same admin route
+      // The selectedWebsite change will trigger data refetch via context
+      return;
+    } else if (pathSegments.length > 0) {
+      // Storefront route, update the website segment
+      pathSegments[0] = newWebsite;
+      router.push(`/${pathSegments.join('/')}`);
     } else {
       // Root path, go to admin overview
-      router.push(`/${newWebsite}/admin/overview`);
+      router.push('/admin/overview');
     }
   };
 
