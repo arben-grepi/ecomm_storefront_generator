@@ -17,6 +17,7 @@
 /.next/
 /out
 
+firebase-service-account.json
 # logs
 *.log 
 
