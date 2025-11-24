@@ -23,6 +23,8 @@ firebase-service-account.json
 
 # Ignore all Markdown files
 *.md
+# upload-secrets.sh
+upload-secrets.sh
 
 # But keep README.md
 !README.md
