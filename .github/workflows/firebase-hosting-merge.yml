@@ -9,94 +9,11 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-    environment: "production"
-    env:
-      # Set at job level so all steps have access
-      NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-      NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
+    environment: production
     steps:
       - uses: actions/checkout@v4
-      - name: Verify environment variables
-        run: |
-          echo "Checking environment variables..."
-          if [ -z "$NEXT_PUBLIC_FIREBASE_API_KEY" ]; then
-            echo "❌ NEXT_PUBLIC_FIREBASE_API_KEY is not set"
-            exit 1
-          else
-            echo "✅ NEXT_PUBLIC_FIREBASE_API_KEY is set (length: ${#NEXT_PUBLIC_FIREBASE_API_KEY})"
-          fi
-          if [ -z "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" ]; then
-            echo "❌ NEXT_PUBLIC_FIREBASE_PROJECT_ID is not set"
-            exit 1
-          else
-            echo "✅ NEXT_PUBLIC_FIREBASE_PROJECT_ID is set: $NEXT_PUBLIC_FIREBASE_PROJECT_ID"
-          fi
+      - run: npm ci && npm run build
         env:
-          # Use secrets as primary source (vars can be added later)
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
-      - name: Verify build environment variables
-        run: |
-          echo "🔍 Verifying environment variables for Next.js build..."
-          echo "NEXT_PUBLIC_FIREBASE_API_KEY length: ${#NEXT_PUBLIC_FIREBASE_API_KEY}"
-          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID: $NEXT_PUBLIC_FIREBASE_PROJECT_ID"
-          echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: $NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"
-          if [ -z "$NEXT_PUBLIC_FIREBASE_API_KEY" ]; then
-            echo "❌ ERROR: NEXT_PUBLIC_FIREBASE_API_KEY is empty during build step!"
-            exit 1
-          fi
-          echo "✅ All NEXT_PUBLIC_* variables are set for build"
-        env:
-          # Try vars first (environment variables), fallback to secrets if vars not set
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY || secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID || secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID || secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
-      - name: Build Next.js application
-        run: |
-          echo "🔨 Starting Next.js build with environment variables..."
-          echo "Verifying environment variables are available:"
-          echo "NEXT_PUBLIC_FIREBASE_API_KEY exists: $([ -n "$NEXT_PUBLIC_FIREBASE_API_KEY" ] && echo 'yes' || echo 'no')"
-          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID: $NEXT_PUBLIC_FIREBASE_PROJECT_ID"
-          echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: $NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN"
-          
-          npm ci
-          echo "Running Next.js build..."
-          npm run build
-          echo "✅ Build completed"
-          
-          echo "Verifying build output contains env vars..."
-          # Check if the actual values are in the build (they'll be embedded, not as variable names)
-          if grep -r "AIza" .next/static/chunks/ 2>/dev/null | head -1; then
-            echo "✅ Found Firebase API key in build output"
-          else
-            echo "❌ CRITICAL: Firebase API key NOT found in build output!"
-            echo "This means Next.js did not embed the environment variables."
-            echo "Checking .next directory structure..."
-            ls -la .next/static/chunks/ | head -5
-          fi
-          
-          # Also check for project ID
-          if grep -r "ecommerce-generator-4c007" .next/static/chunks/ 2>/dev/null | head -1; then
-            echo "✅ Found project ID in build output"
-          else
-            echo "❌ Project ID not found in build output"
-          fi
-        env:
-          # Use secrets for NEXT_PUBLIC_* (they're public anyway, and this ensures they're available)
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
@@ -107,20 +24,11 @@ jobs:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
-          GH_WEBHOOK_SECRET: ${{ secrets.GH_WEBHOOK_SECRET }}
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_GENERATOR_4C007 }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_2F366 }}
           channelId: live
-          projectId: ecommerce-generator-4c007
+          projectId: ecommerce-2f366
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
-          # Pass environment variables to Firebase build process
-          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
-          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
-          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
-          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
-          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
