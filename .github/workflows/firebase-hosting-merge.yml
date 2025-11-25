@@ -16,6 +16,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify environment variables
+        run: |
+          echo "Checking environment variables..."
+          echo "NEXT_PUBLIC_FIREBASE_API_KEY: ${NEXT_PUBLIC_FIREBASE_API_KEY:+SET (length: ${#NEXT_PUBLIC_FIREBASE_API_KEY})}${NEXT_PUBLIC_FIREBASE_API_KEY:-NOT SET}"
+          echo "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:+SET}${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-NOT SET}"
+          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${NEXT_PUBLIC_FIREBASE_PROJECT_ID:+SET}${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-NOT SET}"
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+
       - name: Install dependencies & build Next.js
         run: npm ci && npm run build
         env:
