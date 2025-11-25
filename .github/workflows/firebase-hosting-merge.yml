@@ -39,6 +39,7 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_GENERATOR_4C007 }}
           projectId: ecommerce-generator-4c007
+          target: live
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
 
