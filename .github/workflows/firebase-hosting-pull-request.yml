@@ -26,14 +26,9 @@ jobs:
       - name: Build Next.js application
         run: |
           echo "🔨 Starting Next.js build with environment variables..."
-          # Explicitly export variables to ensure they're available to Next.js
-          export NEXT_PUBLIC_FIREBASE_API_KEY
-          export NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-          export NEXT_PUBLIC_FIREBASE_PROJECT_ID
-          export NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-          export NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-          export NEXT_PUBLIC_FIREBASE_APP_ID
-          export NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+          echo "Verifying environment variables are available:"
+          echo "NEXT_PUBLIC_FIREBASE_API_KEY exists: $([ -n "$NEXT_PUBLIC_FIREBASE_API_KEY" ] && echo 'yes' || echo 'no')"
+          echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID: $NEXT_PUBLIC_FIREBASE_PROJECT_ID"
           npm ci
           npm run build
         env:
