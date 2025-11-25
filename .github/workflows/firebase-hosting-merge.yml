@@ -10,6 +10,15 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     environment: "production"
+    env:
+      # Set at job level so all steps have access
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
     steps:
       - uses: actions/checkout@v4
       - name: Verify environment variables
@@ -62,15 +71,40 @@ jobs:
           echo "Checking what Next.js will see:"
           echo "NEXT_PUBLIC_FIREBASE_API_KEY exists: $([ -n "$NEXT_PUBLIC_FIREBASE_API_KEY" ] && echo 'yes' || echo 'no')"
           echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID: $NEXT_PUBLIC_FIREBASE_PROJECT_ID"
+          
+          # Explicitly export variables to ensure they're available to Next.js
+          export NEXT_PUBLIC_FIREBASE_API_KEY
+          export NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+          export NEXT_PUBLIC_FIREBASE_PROJECT_ID
+          export NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+          export NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+          export NEXT_PUBLIC_FIREBASE_APP_ID
+          export NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+          
+          echo "Verifying exports:"
+          env | grep NEXT_PUBLIC_FIREBASE | head -7
+          
           npm ci
           echo "Running Next.js build..."
           npm run build
           echo "✅ Build completed"
+          
           echo "Verifying build output contains env vars..."
-          if grep -r "NEXT_PUBLIC_FIREBASE_API_KEY" .next/static/chunks/ 2>/dev/null | head -1; then
-            echo "✅ Found NEXT_PUBLIC_FIREBASE_API_KEY in build output"
+          # Check if the actual values are in the build (they'll be embedded, not as variable names)
+          if grep -r "AIza" .next/static/chunks/ 2>/dev/null | head -1; then
+            echo "✅ Found Firebase API key in build output"
           else
-            echo "⚠️  NEXT_PUBLIC_FIREBASE_API_KEY not found in build output (might be minified)"
+            echo "❌ CRITICAL: Firebase API key NOT found in build output!"
+            echo "This means Next.js did not embed the environment variables."
+            echo "Checking .next directory structure..."
+            ls -la .next/static/chunks/ | head -5
+          fi
+          
+          # Also check for project ID
+          if grep -r "ecommerce-generator-4c007" .next/static/chunks/ 2>/dev/null | head -1; then
+            echo "✅ Found project ID in build output"
+          else
+            echo "❌ Project ID not found in build output"
           fi
         env:
           # Use secrets for NEXT_PUBLIC_* (they're public anyway, and this ensures they're available)
@@ -93,3 +127,11 @@ jobs:
           projectId: ecommerce-generator-4c007
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
+          # Pass environment variables to Firebase build process
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
+          NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID }}
