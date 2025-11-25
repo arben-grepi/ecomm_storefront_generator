@@ -6,6 +6,49 @@ import HomeClient from '@/components/HomeClient';
 // This is now a Server Component - it fetches data on the server
 // and passes it to the client component for interactivity
 export default async function Home() {
+  // Log environment variables for debugging (only in production to diagnose auth issues)
+  if (process.env.NODE_ENV === 'production') {
+    const envVars = {
+      NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY 
+        ? `✅ Set (length: ${process.env.NEXT_PUBLIC_FIREBASE_API_KEY.length})` 
+        : '❌ Missing',
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN 
+        ? `✅ Set: ${process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}` 
+        : '❌ Missing',
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID 
+        ? `✅ Set: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}` 
+        : '❌ Missing',
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET 
+        ? `✅ Set: ${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}` 
+        : '❌ Missing',
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID 
+        ? `✅ Set (length: ${process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID.length})` 
+        : '❌ Missing',
+      NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID 
+        ? `✅ Set (length: ${process.env.NEXT_PUBLIC_FIREBASE_APP_ID.length})` 
+        : '❌ Missing',
+      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID 
+        ? `✅ Set: ${process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}` 
+        : '❌ Missing',
+      FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID 
+        ? `✅ Set: ${process.env.FIREBASE_PROJECT_ID}` 
+        : '❌ Missing',
+      FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL 
+        ? `✅ Set: ${process.env.FIREBASE_CLIENT_EMAIL}` 
+        : '❌ Missing',
+      FIREBASE_PRIVATE_KEY: process.env.FIREBASE_PRIVATE_KEY 
+        ? `✅ Set (length: ${process.env.FIREBASE_PRIVATE_KEY.length})` 
+        : '❌ Missing',
+    };
+    
+    console.log('🔍 Environment Variables Check (Production):');
+    console.log('==========================================');
+    Object.entries(envVars).forEach(([key, value]) => {
+      console.log(`${key}: ${value}`);
+    });
+    console.log('==========================================');
+  }
+  
   // Always use English - language functionality removed
   const language = 'en';
   
