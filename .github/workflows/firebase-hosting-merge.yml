@@ -27,6 +27,11 @@ jobs:
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
 
+      - name: Clear Next.js cache
+        run: |
+          rm -rf .next
+          rm -rf node_modules/.cache
+
       - name: Install dependencies & build Next.js
         run: npm ci && npm run build
         env:
@@ -48,8 +53,17 @@ jobs:
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_GENERATOR_4C007 }}' > ${{ github.workspace }}/firebase-service-account.json
 
+      - name: Verify env vars in build output
+        run: |
+          echo "Checking if env vars are in build output..."
+          if grep -r "NEXT_PUBLIC_FIREBASE_API_KEY" .next/static/chunks/ 2>/dev/null | head -1; then
+            echo "✅ Found NEXT_PUBLIC_FIREBASE_API_KEY in build output"
+          else
+            echo "❌ NEXT_PUBLIC_FIREBASE_API_KEY not found in build output"
+          fi
+
       - name: Deploy to Firebase Hosting (Production)
-        run: npx firebase-tools@latest deploy --only hosting --project ecommerce-generator-4c007
+        run: npx firebase-tools@latest deploy --only hosting --project ecommerce-generator-4c007 --force
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
