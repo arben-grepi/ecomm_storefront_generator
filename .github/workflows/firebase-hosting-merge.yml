@@ -33,13 +33,13 @@ jobs:
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
 
-      - name: Deploy to Firebase Hosting (Action)
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_GENERATOR_4C007 }}
-          projectId: ecommerce-generator-4c007
-          target: live
+      - name: Setup Firebase credentials
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_ECOMMERCE_GENERATOR_4C007 }}' > ${{ github.workspace }}/firebase-service-account.json
+
+      - name: Deploy to Firebase Hosting (Production)
+        run: npx firebase-tools@latest deploy --only hosting --project ecommerce-generator-4c007
         env:
           FIREBASE_CLI_EXPERIMENTS: webframeworks
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/firebase-service-account.json
 
