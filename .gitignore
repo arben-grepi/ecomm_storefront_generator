@@ -57,6 +57,12 @@ yarn-error.log*
 # Firebase App Hosting config (managed in Firebase Console)
 apphosting.yaml
 
+# Google Cloud Secret Manager secrets (managed in Google Cloud Console)
+secrets/*
+
+# create secrets from env script
+create-secrets-from-env.sh
+sync-secrets-to-gcp.sh
 # typescript
 *.tsbuildinfo
 next-env.d.ts
