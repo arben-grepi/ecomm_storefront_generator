@@ -54,6 +54,9 @@ yarn-error.log*
 # firebase CLI cache
 .firebase
 
+# Firebase App Hosting config (managed in Firebase Console)
+apphosting.yaml
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
