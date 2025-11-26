@@ -9,6 +9,9 @@ import { getStorefrontFromRequest } from '@/lib/get-storefront-server';
  * This endpoint should be called server-side only (never expose Storefront API token client-side)
  */
 export async function POST(request) {
+  const apiStartTime = Date.now();
+  console.log(`[API] 🛒 POST /api/checkout/create-shopify-checkout: Request received`);
+  
   try {
     const body = await request.json();
     const {
@@ -20,8 +23,11 @@ export async function POST(request) {
     
     // Extract storefront from request URL or use body parameter
     const storefront = bodyStorefront || getStorefrontFromRequest(request);
+    
+    console.log(`[API] 📦 Checkout request - Storefront: ${storefront}, Cart items: ${cart?.length || 0}, Address: ${shippingAddress?.city || 'N/A'}, ${shippingAddress?.countryCode || shippingAddress?.country || 'N/A'}`);
 
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
+      console.error(`[API] ❌ Invalid request: Cart is empty or missing`);
       return NextResponse.json(
         { error: 'Cart is required and must not be empty' },
         { status: 400 }
@@ -94,7 +100,7 @@ export async function POST(request) {
     // Verify variants are accessible in Storefront API before creating cart
     // This prevents "merchandise does not exist" errors due to indexing delays
     const variantIds = lineItems.map(item => item.variantId);
-    console.log(`[Checkout API] Verifying variant accessibility in Storefront API for ${variantIds.length} variant(s)...`);
+    console.log(`[API] 🔍 Verifying variant accessibility in Storefront API for ${variantIds.length} variant(s)...`);
     
     const verificationResult = await verifyStorefrontVariantAccessibility(variantIds);
     
@@ -103,7 +109,7 @@ export async function POST(request) {
       const reasons = verificationResult.inaccessibleVariants.map(v => v.reason);
       const hasNotIndexed = reasons.includes('not_indexed');
       
-      console.warn(`[Checkout API] ⚠️  ${inaccessibleCount} variant(s) not accessible in Storefront API:`, verificationResult.inaccessibleVariants);
+      console.warn(`[API] ⚠️  ${inaccessibleCount} variant(s) not accessible in Storefront API:`, verificationResult.inaccessibleVariants);
       
       if (hasNotIndexed) {
         // Variants not yet indexed - return helpful error message
@@ -137,7 +143,7 @@ export async function POST(request) {
       }
     }
 
-    console.log(`[Checkout API] ✅ All ${verificationResult.accessibleVariants.length} variant(s) verified as accessible in Storefront API`);
+    console.log(`[API] ✅ All ${verificationResult.accessibleVariants.length} variant(s) verified as accessible in Storefront API`);
 
     // Get market from cookie or shipping address
     const market = shippingAddress.countryCode || shippingAddress.country || 'FI';
@@ -150,7 +156,8 @@ export async function POST(request) {
     ];
 
     // Create cart via Storefront API (Cart API replaces deprecated Checkout API)
-    console.log(`[Checkout API] Creating cart - Storefront: ${storefront}, Market: ${market}, Items: ${lineItems.length}, Address: ${shippingAddress.city}, ${shippingAddress.countryCode}`);
+    const cartCreateStartTime = Date.now();
+    console.log(`[API] 🛒 Creating Shopify cart - Storefront: ${storefront}, Market: ${market}, Items: ${lineItems.length}, Address: ${shippingAddress.city}, ${shippingAddress.countryCode}`);
     
     let cartResult;
     try {
@@ -160,11 +167,14 @@ export async function POST(request) {
         storefront,
         customAttributes: attributesWithMarket,
       });
+      const cartCreateDuration = Date.now() - cartCreateStartTime;
+      console.log(`[API] ✅ Shopify cart created successfully - Cart ID: ${cartResult.cartId} (${cartCreateDuration}ms)`);
     } catch (error) {
+      const cartCreateDuration = Date.now() - cartCreateStartTime;
       // If cart creation fails with "merchandise does not exist" even after verification,
       // it might be a race condition - suggest retry
       if (error.message && error.message.includes('does not exist')) {
-        console.error(`[Checkout API] Cart creation failed despite verification - possible race condition:`, error.message);
+        console.error(`[API] ❌ Cart creation failed despite verification - possible race condition (${cartCreateDuration}ms):`, error.message);
         return NextResponse.json(
           {
             error: 'cart_creation_failed',
@@ -174,6 +184,7 @@ export async function POST(request) {
           { status: 503 }
         );
       }
+      console.error(`[API] ❌ Cart creation failed (${cartCreateDuration}ms):`, error);
       throw error; // Re-throw other errors
     }
     
@@ -185,9 +196,9 @@ export async function POST(request) {
       try {
         const updatedCart = await updateCartBuyerIdentity(cartId, shippingAddress, market);
         finalCheckoutUrl = updatedCart.checkoutUrl;
-        console.log(`[Checkout API] Cart buyer identity updated - Checkout URL: ${finalCheckoutUrl}`);
+        console.log(`[API] ✅ Cart buyer identity updated`);
       } catch (error) {
-        console.warn(`[Checkout API] Failed to update cart buyer identity, using original checkout URL:`, error.message);
+        console.warn(`[API] ⚠️  Failed to update cart buyer identity, using original checkout URL:`, error.message);
       }
     }
 
@@ -213,14 +224,15 @@ export async function POST(request) {
           const checkoutPath = url.pathname + url.search;
           // Build new URL with .myshopify.com domain
           finalCheckoutUrl = `https://${myshopifyDomain}${checkoutPath}`;
-          console.log(`[Checkout API] Converted checkout URL from ${url.hostname} to ${myshopifyDomain}`);
+          console.log(`[API] 🔄 Converted checkout URL from ${url.hostname} to ${myshopifyDomain}`);
         }
       } catch (error) {
-        console.warn(`[Checkout API] Failed to parse/convert checkout URL:`, error.message);
+        console.warn(`[API] ⚠️  Failed to parse/convert checkout URL:`, error.message);
       }
     }
 
-    console.log(`[Checkout API] Cart created successfully - ID: ${cartId}, URL: ${finalCheckoutUrl}`);
+    const apiDuration = Date.now() - apiStartTime;
+    console.log(`[API] ✅ Checkout created successfully - Cart ID: ${cartId}, URL: ${finalCheckoutUrl} (${apiDuration}ms total)`);
 
     // Note: Shipping rates not available via Cart API - they're shown on Shopify's checkout page
     return NextResponse.json({
@@ -231,7 +243,13 @@ export async function POST(request) {
       shippingRates: [], // Not available via Cart API - shown on checkout page
     });
   } catch (error) {
-    console.error('Failed to create Shopify checkout:', error);
+    const apiDuration = Date.now() - apiStartTime;
+    console.error(`[API] ❌ Failed to create Shopify checkout (${apiDuration}ms):`, error);
+    console.error(`[API] ❌ Error details:`, {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
     return NextResponse.json(
       {
         error: 'Failed to create checkout',

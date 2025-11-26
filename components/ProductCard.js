@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useState } from 'react';
+import { memo, useState, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getMarket } from '@/lib/get-market';
@@ -16,7 +16,8 @@ const categoryLabels = {
 
 function ProductCard({ product, categorySlug }) {
   const categoryLabel = categoryLabels[product.category] ?? 'Collection';
-  const market = getMarket();
+  // Cache market value to avoid parsing cookies on every render
+  const market = useMemo(() => getMarket(), []);
   const isEUMarket = market === 'FI' || market === 'DE';
   const storefront = useStorefront();
   const [isNavigating, setIsNavigating] = useState(false);

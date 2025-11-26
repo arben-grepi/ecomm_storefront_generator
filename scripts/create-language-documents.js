@@ -13,7 +13,7 @@ require('dotenv').config({ path: '.env.local' });
 
 const admin = require('firebase-admin');
 
-const DEFAULT_PROJECT_ID = 'ecommerce-generator-4c007';
+const DEFAULT_PROJECT_ID = 'ecom-store-generator-41064';
 
 function initializeAdmin() {
   if (admin.apps.length > 0) {

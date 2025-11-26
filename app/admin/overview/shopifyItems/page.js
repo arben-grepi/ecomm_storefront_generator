@@ -213,6 +213,43 @@ export default function ShopifyItemsPage() {
                   )}
                 </div>
                 <h3 className="mb-2 line-clamp-2 text-sm font-medium">{item.title}</h3>
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {(() => {
+                    const marketsList = item.marketsObject && typeof item.marketsObject === 'object'
+                      ? Object.keys(item.marketsObject)
+                      : (Array.isArray(item.markets) ? item.markets : []);
+                    
+                    if (marketsList.length === 0) {
+                      return (
+                        <span className="text-xs text-zinc-400">No markets</span>
+                      );
+                    }
+                    
+                    return marketsList.map((market) => {
+                      const marketData = item.marketsObject?.[market];
+                      const isAvailable = marketData?.available !== false;
+                      
+                      return (
+                        <span
+                          key={market}
+                          className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
+                            isAvailable
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                          }`}
+                          title={isAvailable ? `${market}: Available to customers` : `${market}: Assigned but not available`}
+                        >
+                          {market}
+                          {!isAvailable && (
+                            <svg className="ml-0.5 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </span>
+                      );
+                    });
+                  })()}
+                </div>
                 <div className="flex items-center justify-between">
                   {getStatusBadge(item)}
                   <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">

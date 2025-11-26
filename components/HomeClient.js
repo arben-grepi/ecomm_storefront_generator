@@ -15,18 +15,24 @@ const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
 });
 
 export default function HomeClient({ initialCategories = [], initialProducts = [], info = null }) {
+  console.log(`[COMPONENT] 🏠 HomeClient: Initializing with SSR data - Categories: ${initialCategories.length}, Products: ${initialProducts.length}, Info: ${info ? '✅' : '❌'}`);
+  const componentStartTime = Date.now();
+  
   // Use real-time updates from Firebase, but start with server-rendered data
-  const { categories: realtimeCategories, loading: categoriesLoading } = useCategories();
-  const { products: realtimeProducts, loading: productsLoading } = useAllProducts();
+  // Pass initial data to hooks to avoid double-fetching
+  const { categories: realtimeCategories, loading: categoriesLoading } = useCategories(initialCategories);
+  const { products: realtimeProducts, loading: productsLoading } = useAllProducts(initialProducts);
   const { getCartItemCount } = useCart();
   const [hasMounted, setHasMounted] = useState(false);
   const [showSkeletons, setShowSkeletons] = useState(true);
   const [minDisplayTimeElapsed, setMinDisplayTimeElapsed] = useState(false);
 
   useEffect(() => {
+    console.log(`[COMPONENT] 🏠 HomeClient: Component mounted`);
     setHasMounted(true);
     // Ensure skeletons show for at least 500ms for better UX
     const timer = setTimeout(() => {
+      console.log(`[COMPONENT] ⏱️  HomeClient: Minimum display time (500ms) elapsed`);
       setMinDisplayTimeElapsed(true);
     }, 500);
     return () => clearTimeout(timer);
@@ -35,12 +41,20 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   // Use real-time data if available (after hydration), otherwise use initial server data
   const categories = realtimeCategories.length > 0 ? realtimeCategories : initialCategories;
   const products = realtimeProducts.length > 0 ? realtimeProducts : initialProducts;
+  
+  console.log(`[COMPONENT] 📊 HomeClient: Data state - Categories: ${categories.length} (realtime: ${realtimeCategories.length}, initial: ${initialCategories.length}), Products: ${products.length} (realtime: ${realtimeProducts.length}, initial: ${initialProducts.length})`);
+  console.log(`[COMPONENT] 📊 HomeClient: Loading state - Categories: ${categoriesLoading}, Products: ${productsLoading}`);
 
   // Hide skeletons once we have categories AND hooks have finished loading AND minimum display time has elapsed
   useEffect(() => {
-    if (categories.length > 0 && !categoriesLoading && !productsLoading && minDisplayTimeElapsed) {
+    const canHideSkeletons = categories.length > 0 && !categoriesLoading && !productsLoading && minDisplayTimeElapsed;
+    console.log(`[COMPONENT] 👻 HomeClient: Skeleton visibility check - Categories: ${categories.length}, CategoriesLoading: ${categoriesLoading}, ProductsLoading: ${productsLoading}, MinTimeElapsed: ${minDisplayTimeElapsed}, CanHide: ${canHideSkeletons}`);
+    
+    if (canHideSkeletons) {
       // Small delay to ensure smooth transition
       const timer = setTimeout(() => {
+        const componentDuration = Date.now() - componentStartTime;
+        console.log(`[COMPONENT] ✅ HomeClient: Hiding skeletons and showing products (${componentDuration}ms since init)`);
         setShowSkeletons(false);
       }, 100);
       return () => clearTimeout(timer);
@@ -51,6 +65,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   // - We're still showing skeletons (initial load), OR
   // - Hooks are loading (even if we have SSR data, show skeletons while real-time loads)
   const loading = showSkeletons || categoriesLoading || productsLoading;
+  console.log(`[COMPONENT] 🔄 HomeClient: Loading state - showSkeletons: ${showSkeletons}, categoriesLoading: ${categoriesLoading}, productsLoading: ${productsLoading}, final loading: ${loading}`);
 
   // Use info from server (for SEO), with empty strings as fallback
   const siteInfo = info || {
@@ -64,8 +79,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   };
 
   const categoryPreviews = useMemo(() => {
+    console.log(`[COMPONENT] 🎨 HomeClient: Computing category previews - Categories: ${categories.length}, Products: ${products.length}, Loading: ${loading}`);
+    
     // Don't compute previews if we're loading and have no data
     if (loading && categories.length === 0) {
+      console.log(`[COMPONENT] ⏸️  HomeClient: Skipping preview computation (loading with no data)`);
       return [];
     }
 
@@ -84,8 +102,13 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             }));
         } else {
           // Fallback: get top products by views, but only include those with images
+          // Support both categoryId (single) and categoryIds (array) for backward compatibility
           categoryProducts = products
-            .filter((product) => product.categoryId === category.id && product.image)
+            .filter((product) => {
+              const matchesCategory = product.categoryId === category.id || 
+                                     (product.categoryIds && product.categoryIds.includes(category.id));
+              return matchesCategory && product.image;
+            })
             .sort((a, b) => {
               const aViews = a.metrics?.totalViews || 0;
               const bViews = b.metrics?.totalViews || 0;
@@ -99,7 +122,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
         }
 
         // Check if category has any products at all (not just preview products)
-        const hasAnyProducts = products.some((product) => product.categoryId === category.id);
+        // Support both categoryId (single) and categoryIds (array) for backward compatibility
+        const hasAnyProducts = products.some((product) => 
+          product.categoryId === category.id || 
+          (product.categoryIds && product.categoryIds.includes(category.id))
+        );
 
         return {
           category,
@@ -109,6 +136,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       })
       .filter(({ hasAnyProducts }) => hasAnyProducts);
 
+    console.log(`[COMPONENT] ✅ HomeClient: Category previews computed - ${filtered.length} categories with products`);
     return filtered;
   }, [categories, products, loading]);
 
@@ -161,7 +189,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
 
       {/* Category carousel - hidden on mobile */}
       <section className="hidden px-4 pt-4 sm:block sm:px-6 lg:px-8">
-        <CategoryCarousel />
+        <CategoryCarousel categories={categories} products={products} />
       </section>
 
       {/* Hero Section */}

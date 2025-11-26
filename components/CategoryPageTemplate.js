@@ -15,12 +15,17 @@ const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
 });
 
 export default function CategoryPageTemplate({ categoryId, category: categoryProp, products: productsProp, info = null }) {
+  console.log(`[COMPONENT] 📁 CategoryPageTemplate: Initializing - CategoryId: ${categoryId}, SSR Products: ${productsProp?.length || 0}, Category: ${categoryProp?.name || 'N/A'}`);
+  const componentStartTime = Date.now();
+  
   const { categories } = useCategories();
-  const { products: fetchedProducts, loading: productsLoading } = useProductsByCategory(categoryId);
+  // Pass initial products from SSR to avoid fetching all products again
+  const { products: fetchedProducts, loading: productsLoading } = useProductsByCategory(categoryId, productsProp);
   const { getCartItemCount } = useCart();
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
+    console.log(`[COMPONENT] 📁 CategoryPageTemplate: Component mounted`);
     setHasMounted(true);
   }, []);
 
@@ -30,6 +35,8 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
     : categoryProp;
   const products = categoryId ? fetchedProducts : productsProp;
   const loading = categoryId ? productsLoading : false;
+  
+  console.log(`[COMPONENT] 📊 CategoryPageTemplate: Data state - Category: ${category?.name || 'N/A'}, Products: ${products?.length || 0} (fetched: ${fetchedProducts?.length || 0}, SSR: ${productsProp?.length || 0}), Loading: ${loading}`);
 
   // Use info from server (for SEO), with empty strings as fallback
   const siteInfo = info || {

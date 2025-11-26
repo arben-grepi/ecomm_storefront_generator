@@ -74,7 +74,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
   const [justAdded, setJustAdded] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const hasVariants = Array.isArray(variants) && variants.length > 0;
-  const market = getMarket();
+  // Cache market value to avoid parsing cookies on every render
+  const market = useMemo(() => getMarket(), []);
   const isEUMarket = market === 'FI' || market === 'DE';
   
   // Use info from server (for SEO), with empty strings as fallback

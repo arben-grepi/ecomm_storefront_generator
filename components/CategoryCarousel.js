@@ -3,12 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
-import { useCategories, useAllProducts } from '@/lib/firestore-data';
 
-export default function CategoryCarousel({ align = 'center' }) {
+export default function CategoryCarousel({ align = 'center', categories = [], products = [] }) {
+  console.log(`[COMPONENT] 🎠 CategoryCarousel: Initializing - Categories: ${categories.length}, Products: ${products.length}`);
   const pathname = usePathname();
-  const { categories, loading } = useCategories();
-  const { products } = useAllProducts();
 
   const navItems = useMemo(() => {
     // Filter categories that have products

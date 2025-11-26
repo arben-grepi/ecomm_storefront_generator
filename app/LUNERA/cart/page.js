@@ -48,8 +48,8 @@ export default function CartPage() {
   const { cart, updateQuantity, removeFromCart, getCartTotal, loading } = useCart();
   const storefront = useStorefront(); // Get storefront from context (cached)
   
-  // Get user's market from cookie (set by middleware)
-  const market = getMarket();
+  // Get user's market from cookie (set by middleware) - cached to avoid repeated parsing
+  const market = useMemo(() => getMarket(), []);
   const marketConfig = getMarketConfig(market);
   
   // Address form state (minimal: Country, City - full address collected in Shopify checkout)
@@ -151,7 +151,13 @@ export default function CartPage() {
 
   const handleCheckout = async (e) => {
     e.preventDefault();
-    if (cart.length === 0) return;
+    const checkoutStartTime = Date.now();
+    console.log(`[CHECKOUT] 🛒 Checkout initiated - Cart items: ${cart.length}, Market: ${market}`);
+    
+    if (cart.length === 0) {
+      console.warn(`[CHECKOUT] ⚠️  Checkout attempted with empty cart`);
+      return;
+    }
     
     setProcessing(true);
     setValidationError(null);
@@ -159,14 +165,17 @@ export default function CartPage() {
     try {
       // Validate country and city are entered (full address will be collected in Shopify checkout)
       if (!shippingAddress.city || !shippingAddress.countryCode) {
+        console.error(`[CHECKOUT] ❌ Validation failed: Missing city or country`);
         setValidationError('Please enter your country and city');
         setProcessing(false);
         return;
       }
 
       // Validate inventory and shipping (only when proceeding to checkout)
+      console.log(`[CHECKOUT] ✅ Address validated, starting pre-checkout validation...`);
       setValidatingShipping(true);
       
+      const validationStartTime = Date.now();
       const validationResponse = await fetch('/api/checkout/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -177,31 +186,40 @@ export default function CartPage() {
       });
 
       if (!validationResponse.ok) {
+        const validationDuration = Date.now() - validationStartTime;
+        console.error(`[CHECKOUT] ❌ Validation API returned error (${validationDuration}ms):`, validationResponse.status);
         throw new Error('Pre-checkout validation failed');
       }
 
       const validation = await validationResponse.json();
+      const validationDuration = Date.now() - validationStartTime;
+      console.log(`[CHECKOUT] ✅ Validation complete (${validationDuration}ms) - Valid: ${validation.valid}, Inventory: ${validation.inventory?.valid}, Shipping: ${validation.shipping?.available}`);
       setValidatingShipping(false);
       
       if (!validation.valid) {
+        console.error(`[CHECKOUT] ❌ Validation failed:`, validation.errors);
         setValidationError(validation.errors?.join(', ') || 'Validation failed');
         setProcessing(false);
         return;
       }
 
       if (!validation.inventory.valid) {
+        console.error(`[CHECKOUT] ❌ Inventory validation failed:`, validation.inventory.error);
         setValidationError(validation.inventory.error || 'Some items are no longer available in the requested quantity');
         setProcessing(false);
         return;
       }
 
       if (!validation.shipping.available) {
+        console.error(`[CHECKOUT] ❌ Shipping validation failed:`, validation.shipping.error);
         setValidationError(validation.shipping.error || 'We cannot ship to this address. Please check your address and try again.');
         setProcessing(false);
         return;
       }
 
       // Create Shopify checkout and redirect
+      console.log(`[CHECKOUT] 🛒 Creating Shopify checkout...`);
+      const checkoutCreateStartTime = Date.now();
       const checkoutResponse = await fetch('/api/checkout/create-shopify-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -213,21 +231,35 @@ export default function CartPage() {
       });
 
       if (!checkoutResponse.ok) {
+        const checkoutCreateDuration = Date.now() - checkoutCreateStartTime;
         const errorData = await checkoutResponse.json();
+        console.error(`[CHECKOUT] ❌ Checkout creation failed (${checkoutCreateDuration}ms):`, errorData);
         throw new Error(errorData.message || errorData.error || 'Failed to create checkout');
       }
 
       const checkoutData = await checkoutResponse.json();
       const checkoutUrl = checkoutData.checkoutUrl;
+      const checkoutCreateDuration = Date.now() - checkoutCreateStartTime;
 
       if (!checkoutUrl) {
+        console.error(`[CHECKOUT] ❌ No checkout URL in response`);
         throw new Error('Failed to get checkout URL');
       }
+
+      const totalDuration = Date.now() - checkoutStartTime;
+      console.log(`[CHECKOUT] ✅ Checkout created successfully - URL: ${checkoutUrl} (${totalDuration}ms total)`);
+      console.log(`[CHECKOUT] 🔀 Redirecting to Shopify checkout...`);
 
       // Redirect to Shopify checkout
       window.location.href = checkoutUrl;
     } catch (err) {
-      console.error('Checkout error:', err);
+      const totalDuration = Date.now() - checkoutStartTime;
+      console.error(`[CHECKOUT] ❌ Checkout error (${totalDuration}ms):`, err);
+      console.error(`[CHECKOUT] ❌ Error details:`, {
+        message: err.message,
+        stack: err.stack,
+        name: err.name,
+      });
       setValidationError(err.message || 'An error occurred during checkout. Please try again.');
       setProcessing(false);
     }

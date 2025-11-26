@@ -23,8 +23,8 @@ require('dotenv').config({ path: '.env.local' });
  * SHOPIFY_STOREFRONT_ACCESS_TOKEN=your_storefront_token (MUST be scoped to "Online Store")
  *
  * Optional Firebase (if not using ADC):
- * FIREBASE_PROJECT_ID=ecommerce-2f366
- * FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@ecommerce-2f366.iam.gserviceaccount.com
+ * FIREBASE_PROJECT_ID=ecom-store-generator-41064
+ * FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@ecom-store-generator-41064.iam.gserviceaccount.com
  * FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
  *
  * Usage:
@@ -33,7 +33,7 @@ require('dotenv').config({ path: '.env.local' });
 
 const admin = require('firebase-admin');
 
-const DEFAULT_PROJECT_ID = 'ecommerce-generator-4c007';
+const DEFAULT_PROJECT_ID = 'ecom-store-generator-41064';
 
 // Category matching configuration
 const CATEGORY_MATCHING = {

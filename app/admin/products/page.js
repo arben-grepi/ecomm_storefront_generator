@@ -420,6 +420,7 @@ export default function ProductsListPage() {
                 <th className="px-4 py-3 text-left font-medium">Price</th>
                 <th className="px-4 py-3 text-left font-medium">Stock</th>
                 <th className="px-4 py-3 text-left font-medium">Status</th>
+                <th className="px-4 py-3 text-left font-medium">Markets</th>
                 <th className="px-4 py-3 text-left font-medium">Orders</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
@@ -502,6 +503,43 @@ export default function ProductsListPage() {
                       >
                         {product.active === false ? 'Inactive' : 'Active'}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(() => {
+                          const marketsList = product.marketsObject && typeof product.marketsObject === 'object'
+                            ? Object.keys(product.marketsObject)
+                            : (Array.isArray(product.markets) ? product.markets : []);
+                          
+                          if (marketsList.length === 0) {
+                            return <span className="text-xs text-zinc-400">—</span>;
+                          }
+                          
+                          return marketsList.map((market) => {
+                            const marketData = product.marketsObject?.[market];
+                            const isAvailable = marketData?.available !== false;
+                            
+                            return (
+                              <span
+                                key={market}
+                                className={`inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium ${
+                                  isAvailable
+                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                }`}
+                                title={isAvailable ? `${market}: Available to customers` : `${market}: Assigned but not available`}
+                              >
+                                {market}
+                                {!isAvailable && (
+                                  <svg className="ml-0.5 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </span>
+                            );
+                          });
+                        })()}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-zinc-500">
                       {orderCounts[product.id] || 0}

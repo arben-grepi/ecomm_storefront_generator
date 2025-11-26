@@ -4,8 +4,8 @@
  * Seed Firestore with demo categories, products (with variants), and promotions.
  *
  * Usage:
- *   export FIREBASE_PROJECT_ID=ecommerce-2f366
- *   export FIREBASE_CLIENT_EMAIL=firebase-adminsdk-fbsvc@ecommerce-2f366.iam.gserviceaccount.com
+ *   export FIREBASE_PROJECT_ID=ecom-store-generator-41064
+ *   export FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@ecom-store-generator-41064.iam.gserviceaccount.com
  *   export FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
  *   npm run seed:dummy
  *
@@ -14,7 +14,7 @@
 
 const admin = require('firebase-admin');
 
-const DEFAULT_PROJECT_ID = 'ecommerce-generator-4c007';
+const DEFAULT_PROJECT_ID = 'ecom-store-generator-41064';
 
 function initializeAdmin() {
   if (admin.apps.length > 0) {

@@ -54,8 +54,12 @@ export default async function Home() {
   
   // Extract storefront from URL path (this page is in app/LUNERA/, so storefront is 'LUNERA')
   // For dynamic routes, this would come from params
+  console.log(`[SSR] 🚀 Initializing Home page (Server Component)`);
+  const pageStartTime = Date.now();
+  
   const headersList = headers();
   const storefront = await getStorefrontFromHeaders(headersList);
+  console.log(`[SSR] 📍 Detected storefront: ${storefront}`);
 
   // Fetch initial data on the server (for SEO and fast initial load)
   // 
@@ -66,12 +70,21 @@ export default async function Home() {
   let products = [];
   let info = null;
 
+  console.log(`[SSR] 📦 Starting parallel data fetch (categories, products, info)`);
   try {
     [categories, products, info] = await Promise.all([
       getServerSideCategories(storefront),
       getServerSideProducts(storefront),
       getServerSideInfo(language),
     ]);
+    
+    const pageDuration = Date.now() - pageStartTime;
+    console.log(`[SSR] ✅ All data fetched successfully:`);
+    console.log(`[SSR]    - Categories: ${categories.length}`);
+    console.log(`[SSR]    - Products: ${products.length}`);
+    console.log(`[SSR]    - Info: ${info ? '✅' : '❌'}`);
+    console.log(`[SSR] ⏱️  Total SSR time: ${pageDuration}ms`);
+    console.log(`[SSR] 📤 Sending data to client component...`);
   } catch (error) {
     // Only fallback in development - in production (Firebase Hosting), credentials should always be available
     // If this fails in production, it's a configuration issue that should be fixed

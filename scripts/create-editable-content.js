@@ -13,7 +13,7 @@
 
 const admin = require('firebase-admin');
 
-const DEFAULT_PROJECT_ID = 'ecommerce-generator-4c007';
+const DEFAULT_PROJECT_ID = 'ecom-store-generator-41064';
 const DEFAULT_STOREFRONT = 'LUNERA';
 
 const DEFAULT_CONTENT = {
@@ -65,8 +65,9 @@ function initializeAdmin(projectId) {
       }),
     });
   } else {
+    // Always explicitly set projectId when using ADC
     admin.initializeApp({
-      projectId,
+      projectId: projectId || DEFAULT_PROJECT_ID,
     });
   }
 
@@ -105,14 +106,56 @@ async function main() {
     process.exit(1);
   }
 
-  initializeAdmin(projectId);
-  const db = admin.firestore();
-
+  console.log('\n🔍 Debug Information:');
+  console.log(`  Project ID: ${projectId}`);
+  console.log(`  Storefront: ${storefront}`);
+  console.log(`  Using ADC: ${!(process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY)}`);
+  
+  const app = initializeAdmin(projectId);
+  console.log(`  Firebase App Name: ${app.name}`);
+  console.log(`  Firebase App Project ID: ${app.options.projectId || 'NOT SET'}`);
+  
+  // Use default database
+  // For named databases in Firebase Admin SDK, use: admin.firestore(app, 'database-id')
+  let db;
+  const databaseId = process.env.FIRESTORE_DATABASE_ID;
+  console.log(`  Database ID: ${databaseId || '(default)'}`);
+  console.log(`  Collection Path: ${storefront}/Info`);
+  
   try {
+    if (databaseId) {
+      // For named databases
+      db = admin.firestore(app, databaseId);
+    } else {
+      // Use default database
+      db = admin.firestore(app);
+    }
+    
+    // Test connection by listing collections
+    console.log('\n🔍 Testing Firestore connection...');
+    console.log(`  Attempting to list collections in "${databaseId || '(default)'}" database...`);
+    const collections = await db.listCollections();
+    console.log(`  ✅ Connected! Found ${collections.length} root collection(s):`);
+    collections.forEach(coll => console.log(`    - ${coll.id}`));
+    
+    // Check if LUNERA collection exists
+    const storefrontRef = db.collection(storefront);
+    const storefrontSnapshot = await storefrontRef.limit(1).get();
+    console.log(`  Collection "${storefront}" exists: ${storefrontSnapshot.size > 0 ? 'Yes' : 'No (will be created)'}`);
+    
     await ensureInfoDoc(db, storefront, force);
     process.exit(0);
   } catch (error) {
-    console.error('❌  Failed to create editable content document:', error);
+    console.error('\n❌ Error Details:');
+    console.error(`  Code: ${error.code}`);
+    console.error(`  Message: ${error.message}`);
+    console.error(`  Details: ${error.details || 'N/A'}`);
+    if (error.errorInfoMetadata) {
+      console.error(`  Consumer: ${error.errorInfoMetadata.consumer || 'N/A'}`);
+      console.error(`  Container: ${error.errorInfoMetadata.containerInfo || 'N/A'}`);
+      console.error(`  Service: ${error.errorInfoMetadata.service || 'N/A'}`);
+    }
+    console.error(`  Full error stack:`, error.stack);
     process.exit(1);
   }
 }
