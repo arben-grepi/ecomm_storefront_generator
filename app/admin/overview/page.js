@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { collection, getDocs } from 'firebase/firestore';
@@ -26,7 +26,7 @@ const QUICK_ACTIONS = [
   },
 ];
 
-export default function EcommerceOverview() {
+function EcommerceOverviewContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const db = getFirebaseDb();
@@ -628,5 +628,18 @@ export default function EcommerceOverview() {
         />
       )}
     </div>
+  );
+}
+
+// Wrap EcommerceOverviewContent in Suspense to handle useSearchParams
+export default function EcommerceOverview() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    }>
+      <EcommerceOverviewContent />
+    </Suspense>
   );
 }

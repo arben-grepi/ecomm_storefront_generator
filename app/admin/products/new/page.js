@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProductModal from '@/components/admin/ProductModal';
 import { useWebsite } from '@/lib/website-context';
 
-export default function NewProductPage() {
+function NewProductPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const categoryIdFromUrl = searchParams?.get('categoryId');
@@ -35,5 +35,18 @@ export default function NewProductPage() {
       onSaved={handleSaved}
       initialCategoryId={categoryIdFromUrl || undefined}
     />
+  );
+}
+
+// Wrap NewProductPageContent in Suspense to handle useSearchParams
+export default function NewProductPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-600">Loading...</p>
+      </div>
+    }>
+      <NewProductPageContent />
+    </Suspense>
   );
 }

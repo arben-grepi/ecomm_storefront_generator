@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -59,7 +59,7 @@ function getStorefrontFromCookie() {
   return null;
 }
 
-export default function CartPage() {
+function CartPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { cart, updateQuantity, removeFromCart, getCartTotal, loading } = useCart();
@@ -712,6 +712,19 @@ export default function CartPage() {
         </form>
       </main>
     </div>
+  );
+}
+
+// Wrap CartPageContent in Suspense to handle useSearchParams
+export default function CartPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-slate-500">Loading cart...</div>
+      </div>
+    }>
+      <CartPageContent />
+    </Suspense>
   );
 }
 
