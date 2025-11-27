@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { subscribeToAuth, isAdmin, signOutUser } from '@/lib/auth';
+import { getStorefront } from '@/lib/get-storefront';
 import { WebsiteProvider, useWebsite } from '@/lib/website-context';
-import WebsiteSelector from '@/components/admin/WebsiteSelector';
 
 function AdminLayoutContent({ children }) {
   const router = useRouter();
@@ -29,7 +29,9 @@ function AdminLayoutContent({ children }) {
 
   const handleSignOut = async () => {
     await signOutUser();
-    router.push('/');
+    // Get storefront from cache to navigate back to the correct storefront
+    const storefront = getStorefront();
+    router.push(`/${storefront}`);
   };
 
   if (loading) {
@@ -47,7 +49,6 @@ function AdminLayoutContent({ children }) {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-4">
               <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Admin Dashboard</h1>
-              <WebsiteSelector />
             </div>
             <button
               onClick={handleSignOut}

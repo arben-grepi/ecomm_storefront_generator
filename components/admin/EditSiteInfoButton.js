@@ -4,55 +4,74 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
+import { useWebsite } from '@/lib/website-context';
 import Toast from '@/components/admin/Toast';
 
 export default function EditSiteInfoButton({ className = '' }) {
   const db = getFirebaseDb();
+  const { selectedWebsite, availableWebsites, loading: websitesLoading } = useWebsite();
   const [open, setOpen] = useState(false);
+  const [selectedStorefront, setSelectedStorefront] = useState(null);
   const [form, setForm] = useState({
-    name: '',
-    slogan: '',
+    companyName: '',
+    companyTagline: '',
     heroMainHeading: '',
-    heroDescr: '',
-    categoryDesc: '',
+    heroDescription: '',
+    categorySectionDescription: '',
+    footerText: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
+  // Initialize selectedStorefront when modal opens
   useEffect(() => {
-    if (open && db) {
+    if (open && availableWebsites.length > 0) {
+      // Default to selectedWebsite if available, otherwise first available
+      if (availableWebsites.includes(selectedWebsite)) {
+        setSelectedStorefront(selectedWebsite);
+      } else {
+        setSelectedStorefront(availableWebsites[0]);
+      }
+    }
+  }, [open, availableWebsites, selectedWebsite]);
+
+  // Load site info when storefront changes
+  useEffect(() => {
+    if (open && db && selectedStorefront) {
       loadSiteInfo();
     }
-  }, [open, db]);
+  }, [open, db, selectedStorefront]);
 
   const loadSiteInfo = async () => {
-    if (!db) return;
+    if (!db || !selectedStorefront) return;
     
     setLoading(true);
     setError(null);
     
     try {
-      const infoDoc = await getDoc(doc(db, 'LUNERA', 'Info'));
+      const infoDoc = await getDoc(doc(db, selectedStorefront, 'Info'));
       
       if (infoDoc.exists()) {
         const data = infoDoc.data();
         setForm({
-          name: data.name || '',
-          slogan: data.slogan || '',
+          companyName: data.companyName || '',
+          companyTagline: data.companyTagline || '',
           heroMainHeading: data.heroMainHeading || '',
-          heroDescr: data.heroDescr || '',
-          categoryDesc: data.categoryDesc || '',
+          heroDescription: data.heroDescription || '',
+          categorySectionDescription: data.categorySectionDescription || '',
+          footerText: data.footerText || '',
         });
       } else {
         // Initialize with empty values if document doesn't exist
         setForm({
-          name: '',
-          slogan: '',
+          companyName: '',
+          companyTagline: '',
           heroMainHeading: '',
-          heroDescr: '',
-          categoryDesc: '',
+          heroDescription: '',
+          categorySectionDescription: '',
+          footerText: '',
         });
       }
     } catch (err) {
@@ -65,12 +84,14 @@ export default function EditSiteInfoButton({ className = '' }) {
 
   const resetState = () => {
     setForm({
-      name: '',
-      slogan: '',
+      companyName: '',
+      companyTagline: '',
       heroMainHeading: '',
-      heroDescr: '',
-      categoryDesc: '',
+      heroDescription: '',
+      categorySectionDescription: '',
+      footerText: '',
     });
+    setSelectedStorefront(null);
     setSubmitting(false);
     setError(null);
   };
@@ -79,8 +100,8 @@ export default function EditSiteInfoButton({ className = '' }) {
     event.preventDefault();
     event.stopPropagation();
     
-    if (!db) {
-      setError('Firestore is not configured.');
+    if (!db || !selectedStorefront) {
+      setError('Firestore is not configured or storefront not selected.');
       return;
     }
 
@@ -89,22 +110,24 @@ export default function EditSiteInfoButton({ className = '' }) {
 
     try {
       const payload = {
-        name: form.name.trim() || '',
-        slogan: form.slogan.trim() || '',
+        companyName: form.companyName.trim() || '',
+        companyTagline: form.companyTagline.trim() || '',
         heroMainHeading: form.heroMainHeading.trim() || '',
-        heroDescr: form.heroDescr.trim() || '',
-        categoryDesc: form.categoryDesc.trim() || '',
+        heroDescription: form.heroDescription.trim() || '',
+        categorySectionDescription: form.categorySectionDescription.trim() || '',
+        footerText: form.footerText.trim() || '',
+        storefront: selectedStorefront,
         updatedAt: serverTimestamp(),
       };
 
-      await setDoc(doc(db, 'LUNERA', 'Info'), payload, { merge: true });
+      await setDoc(doc(db, selectedStorefront, 'Info'), payload, { merge: true });
 
       // Close modal and reset
       setOpen(false);
       resetState();
       
       // Show success toast
-      setToastMessage({ type: 'success', text: 'Site information updated successfully!' });
+      setToastMessage({ type: 'success', text: `Site information updated successfully for ${selectedStorefront}!` });
     } catch (err) {
       console.error('Failed to update site info:', err);
       setError('Failed to update site information. Please try again.');
@@ -168,7 +191,7 @@ export default function EditSiteInfoButton({ className = '' }) {
           </button>
         </div>
 
-        {loading ? (
+        {loading || websitesLoading ? (
           <div className="py-8 text-center text-zinc-500">Loading site information...</div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -178,32 +201,59 @@ export default function EditSiteInfoButton({ className = '' }) {
               </div>
             )}
 
+            {/* Storefront Selector */}
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label htmlFor="storefront-select" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+                Select Storefront *
+              </label>
+              {availableWebsites.length === 0 ? (
+                <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                  No storefronts available
+                </div>
+              ) : (
+                <select
+                  id="storefront-select"
+                  value={selectedStorefront || ''}
+                  onChange={(e) => setSelectedStorefront(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:focus:border-emerald-500"
+                  required
+                >
+                  <option value="">Select a storefront...</option>
+                  {availableWebsites.map((storefront) => (
+                    <option key={storefront} value={storefront}>
+                      {storefront}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="companyName" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Company Name
               </label>
               <input
-                id="name"
+                id="companyName"
                 type="text"
-                value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                value={form.companyName}
+                onChange={(e) => setForm((prev) => ({ ...prev, companyName: e.target.value }))}
                 className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                placeholder="Lunera"
+                placeholder="Lingerie Boutique"
                 maxLength={50}
               />
             </div>
 
             <div>
-              <label htmlFor="slogan" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label htmlFor="companyTagline" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Company Tagline
               </label>
               <input
-                id="slogan"
+                id="companyTagline"
                 type="text"
-                value={form.slogan}
-                onChange={(e) => setForm((prev) => ({ ...prev, slogan: e.target.value }))}
+                value={form.companyTagline}
+                onChange={(e) => setForm((prev) => ({ ...prev, companyTagline: e.target.value }))}
                 className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                placeholder="softness for every day and night in."
+                placeholder="Effortless softness for every day and night in."
                 maxLength={100}
               />
             </div>
@@ -224,13 +274,13 @@ export default function EditSiteInfoButton({ className = '' }) {
             </div>
 
             <div>
-              <label htmlFor="heroDescr" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label htmlFor="heroDescription" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Hero Description
               </label>
               <textarea
-                id="heroDescr"
-                value={form.heroDescr}
-                onChange={(e) => setForm((prev) => ({ ...prev, heroDescr: e.target.value }))}
+                id="heroDescription"
+                value={form.heroDescription}
+                onChange={(e) => setForm((prev) => ({ ...prev, heroDescription: e.target.value }))}
                 className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 placeholder="From delicate lace to active-ready comfort. Discover the pieces that make you feel confident, effortless, and beautifully yourself."
                 rows={3}
@@ -239,17 +289,32 @@ export default function EditSiteInfoButton({ className = '' }) {
             </div>
 
             <div>
-              <label htmlFor="categoryDesc" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <label htmlFor="categorySectionDescription" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Category Section Description
               </label>
               <textarea
-                id="categoryDesc"
-                value={form.categoryDesc}
-                onChange={(e) => setForm((prev) => ({ ...prev, categoryDesc: e.target.value }))}
+                id="categorySectionDescription"
+                value={form.categorySectionDescription}
+                onChange={(e) => setForm((prev) => ({ ...prev, categorySectionDescription: e.target.value }))}
                 className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                 placeholder="Choose a category to explore this week's top four bestsellers, refreshed daily."
                 rows={2}
                 maxLength={150}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="footerText" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Footer Text
+              </label>
+              <input
+                id="footerText"
+                type="text"
+                value={form.footerText}
+                onChange={(e) => setForm((prev) => ({ ...prev, footerText: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                placeholder="© 2024 Lingerie Boutique. All rights reserved."
+                maxLength={100}
               />
             </div>
 

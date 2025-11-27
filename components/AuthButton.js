@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithGoogle, signOutUser, isAdmin, subscribeToAuth } from '@/lib/auth';
+import { getStorefront } from '@/lib/get-storefront';
 
 export default function AuthButton() {
   const [user, setUser] = useState(null);
@@ -40,7 +41,9 @@ export default function AuthButton() {
   const handleSignOut = async () => {
     try {
       await signOutUser();
-      router.push('/LUNERA');
+      // Get storefront from cache to navigate back to the correct storefront
+      const storefront = getStorefront();
+      router.push(`/${storefront}`);
     } catch (error) {
       console.error('Sign out error:', error);
     }

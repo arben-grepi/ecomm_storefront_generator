@@ -210,8 +210,13 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   if (mode === 'edit' && !existingProduct) return null;
 
   const db = getFirebaseDb();
-  const { selectedWebsite, availableWebsites } = useWebsite();
+  const { selectedWebsite, availableWebsites, loading: websitesLoading } = useWebsite();
   const [categories, setCategories] = useState([]);
+  
+  // Debug: Log availableWebsites when it changes
+  useEffect(() => {
+    console.log('[ProductModal] Available websites:', availableWebsites, 'Loading:', websitesLoading);
+  }, [availableWebsites, websitesLoading]);
   const [categoryId, setCategoryId] = useState(initialCategoryId || '');
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -1298,6 +1303,86 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         }
       }
 
+      // Ensure category exists in all selected storefronts and add product references
+      if (categoryId && productRefs.length > 0) {
+        // First, get category details from the current storefront (or first available)
+        let categoryData = null;
+        for (const storefront of [selectedWebsite, ...availableWebsites]) {
+          try {
+            const categoryDoc = await getDoc(doc(db, ...getDocumentPath('categories', categoryId, storefront)));
+            if (categoryDoc.exists()) {
+              categoryData = categoryDoc.data();
+              break;
+            }
+          } catch (e) {
+            // Category doesn't exist in this storefront, continue
+          }
+        }
+
+        // If category doesn't exist anywhere, we can't proceed (shouldn't happen, but safety check)
+        if (!categoryData) {
+          console.warn(`Category ${categoryId} not found in any storefront. Skipping category updates.`);
+        } else {
+          // Ensure category exists in all selected storefronts
+          for (const storefront of selectedStorefronts) {
+            const categoryRef = doc(db, ...getDocumentPath('categories', categoryId, storefront));
+            const categoryDoc = await getDoc(categoryRef);
+            
+            if (!categoryDoc.exists()) {
+              // Category doesn't exist in this storefront, create it
+              const categorySlug = categoryData.slug || categoryId;
+              const newCategoryData = {
+                name: categoryData.name || 'Unnamed Category',
+                slug: categorySlug,
+                description: categoryData.description || '',
+                imageUrl: categoryData.imageUrl || null,
+                active: categoryData.active !== false,
+                storefronts: selectedStorefronts,
+                previewProductIds: [],
+                metrics: {
+                  totalViews: 0,
+                  lastViewedAt: null,
+                },
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              };
+              await setDoc(categoryRef, newCategoryData);
+            } else {
+              // Category exists, update storefronts array if needed
+              const existingData = categoryDoc.data();
+              const existingStorefronts = Array.isArray(existingData.storefronts) ? existingData.storefronts : [];
+              const needsUpdate = !selectedStorefronts.every(sf => existingStorefronts.includes(sf));
+              
+              if (needsUpdate) {
+                await updateDoc(categoryRef, {
+                  storefronts: selectedStorefronts,
+                  updatedAt: serverTimestamp(),
+                });
+              }
+            }
+
+            // Add product references to category in this storefront
+            // Get current previewProductIds
+            const currentCategoryDoc = await getDoc(categoryRef);
+            const currentData = currentCategoryDoc.exists() ? currentCategoryDoc.data() : {};
+            const currentPreviewIds = Array.isArray(currentData.previewProductIds) ? currentData.previewProductIds : [];
+            
+            // Add product IDs that don't already exist
+            const productIdsToAdd = productRefs
+              .filter(ref => ref.storefront === storefront)
+              .map(ref => ref.id)
+              .filter(id => !currentPreviewIds.includes(id));
+            
+            if (productIdsToAdd.length > 0) {
+              await updateDoc(categoryRef, {
+                previewProductIds: arrayUnion(...productIdsToAdd),
+                updatedAt: serverTimestamp(),
+              });
+            }
+          }
+        }
+      }
+
       // Mark Shopify item as processed (only for shopify mode)
       if (mode === 'shopify' && item?.id) {
         // Get current document to check if storefronts are new
@@ -1423,11 +1508,25 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     });
   };
 
+  // Initialize storefront selections based on mode
+  // Preselect the storefront that was used to open the admin overview panel
   useEffect(() => {
     if (mode !== 'edit') {
-      setStorefrontSelections([selectedWebsite]);
+      // Preselect the current selectedWebsite (cached in localStorage from admin overview)
+      // This ensures the storefront used to open admin is preselected
+      if (availableWebsites.length > 0) {
+        if (selectedWebsite && availableWebsites.includes(selectedWebsite)) {
+          setStorefrontSelections([selectedWebsite]);
+        } else {
+          // Fallback to first available website if selectedWebsite not in list
+          setStorefrontSelections([availableWebsites[0]]);
+        }
+      } else {
+        // While loading, default to LUNERA (will update when availableWebsites loads)
+        setStorefrontSelections(['LUNERA']);
+      }
     }
-  }, [mode, selectedWebsite]);
+  }, [mode, selectedWebsite, availableWebsites]);
 
   return (
     <>
@@ -2037,38 +2136,56 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
                     Assign to Storefronts *
                   </label>
-                  {availableWebsites.length === 1 ? (
-                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                      {availableWebsites[0]}
+                  {websitesLoading || availableWebsites.length === 0 ? (
+                    <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                      {websitesLoading ? 'Loading storefronts...' : 'No storefronts available'}
                     </div>
                   ) : (
                     <>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="space-y-2 rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-900">
                         {availableWebsites.map((storefront) => {
                           const isSelected = storefrontSelections.includes(storefront);
                           return (
-                            <button
+                            <label
                               key={storefront}
-                              type="button"
-                              onClick={() => toggleStorefront(storefront)}
-                              className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
-                                isSelected
-                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                  : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-600'
-                              }`}
+                              className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 transition hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
+                              style={{
+                                borderColor: isSelected ? '#10b981' : undefined,
+                                backgroundColor: isSelected ? '#ecfdf5' : undefined,
+                              }}
                             >
-                              {storefront}
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setStorefrontSelections([...storefrontSelections, storefront]);
+                                  } else {
+                                    // Prevent unchecking if it's the only selected storefront
+                                    if (storefrontSelections.length > 1) {
+                                      setStorefrontSelections(storefrontSelections.filter(s => s !== storefront));
+                                    } else {
+                                      e.preventDefault();
+                                      setToastMessage({ type: 'error', text: 'At least one storefront must be selected.' });
+                                    }
+                                  }
+                                }}
+                                className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 dark:border-zinc-600 dark:bg-zinc-800"
+                              />
+                              <span className="flex-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                                {storefront}
+                              </span>
                               {isSelected && (
-                                <svg className="ml-1.5 inline h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                <svg className="h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                                 </svg>
                               )}
-                            </button>
+                            </label>
                           );
                         })}
                       </div>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                        Select which storefronts this product should appear in. At least one must be selected.
+                      <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                        Select one or more storefronts where this product should appear. At least one must be selected.
                       </p>
                     </>
                   )}

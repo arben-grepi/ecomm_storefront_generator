@@ -7,10 +7,10 @@ import { getMarketFromHeaders } from '@/lib/get-market-server';
 export default async function CategoryPage({ params }) {
   const { slug } = await params;
   
-  // Extract storefront from URL path (this page is in app/LUNERA/, so storefront is 'LUNERA')
+  // Extract storefront from URL path
   const headersList = headers();
-  // For pages in app/LUNERA/, always use 'LUNERA' (folder name determines storefront)
-  const storefront = 'LUNERA';
+  // For pages in app/FIVESTARFINDS/, always use 'FIVESTARFINDS' (folder name determines storefront)
+  const storefront = 'FIVESTARFINDS';
   const market = await getMarketFromHeaders(headersList);
 
   // Always use English - language functionality removed
@@ -39,3 +39,4 @@ export default async function CategoryPage({ params }) {
     />
   );
 }
+

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getMarket } from '@/lib/get-market';
 import { signInWithGoogle, signOutUser, isAdmin, subscribeToAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { getStorefront } from '@/lib/get-storefront';
 
 export default function SettingsMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -61,7 +62,9 @@ export default function SettingsMenu() {
     try {
       await signOutUser();
       setIsOpen(false);
-      router.push('/LUNERA');
+      // Get storefront from cache to navigate back to the correct storefront
+      const storefront = getStorefront();
+      router.push(`/${storefront}`);
     } catch (error) {
       console.error('Sign out error:', error);
     }

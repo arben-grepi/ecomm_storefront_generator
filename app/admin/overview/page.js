@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { collection, getDocs } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
@@ -9,6 +9,7 @@ import { getCollectionPath, getDocumentPath } from '@/lib/store-collections';
 import { useWebsite } from '@/lib/website-context';
 import EditSiteInfoButton from '@/components/admin/EditSiteInfoButton';
 import ProductModal from '@/components/admin/ProductModal';
+import { saveStorefrontToCache } from '@/lib/get-storefront';
 
 const QUICK_ACTIONS = [
   {
@@ -27,8 +28,9 @@ const QUICK_ACTIONS = [
 
 export default function EcommerceOverview() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const db = getFirebaseDb();
-  const { selectedWebsite, availableWebsites } = useWebsite();
+  const { selectedWebsite, availableWebsites, loading: websitesLoading } = useWebsite();
   const [loading, setLoading] = useState(true);
   const [selectedShopifyItem, setSelectedShopifyItem] = useState(null);
   const LOW_STOCK_THRESHOLD = 10; // Fixed threshold
@@ -38,6 +40,10 @@ export default function EcommerceOverview() {
     orders: [],
   });
   const [viewMode, setViewMode] = useState('selected'); // 'selected' | 'all'
+  const [selectedFilterStorefront, setSelectedFilterStorefront] = useState(null); // null = all, or specific storefront
+  
+  // Get storefront from URL parameter (like cart does)
+  const urlStorefront = searchParams?.get('storefront');
 
   // Load all data - memoized to prevent unnecessary re-renders
   useEffect(() => {
@@ -143,7 +149,12 @@ export default function EcommerceOverview() {
     setViewMode('selected');
   }, [selectedWebsite]);
 
+  // Use availableWebsites from context, fallback to derived storefronts if not available
   const allStorefronts = useMemo(() => {
+    if (availableWebsites && availableWebsites.length > 0) {
+      return availableWebsites.sort();
+    }
+    // Fallback: derive from data
     const set = new Set();
     datasets.products.forEach((product) => (product.storefronts || []).forEach((sf) => set.add(sf)));
     datasets.orders.forEach((order) => {
@@ -153,14 +164,51 @@ export default function EcommerceOverview() {
       set.add(selectedWebsite || 'LUNERA');
     }
     return Array.from(set).sort();
-  }, [datasets, selectedWebsite]);
+  }, [availableWebsites, datasets, selectedWebsite]);
+
+  // Initialize selectedFilterStorefront from URL parameter or availableWebsites
+  useEffect(() => {
+    if (allStorefronts.length > 0 && selectedFilterStorefront === null) {
+      // Priority: URL parameter > selectedWebsite > first available
+      if (urlStorefront && allStorefronts.includes(urlStorefront)) {
+        setSelectedFilterStorefront(urlStorefront);
+        saveStorefrontToCache(urlStorefront);
+      } else if (allStorefronts.includes(selectedWebsite)) {
+        setSelectedFilterStorefront(selectedWebsite);
+      } else {
+        setSelectedFilterStorefront(allStorefronts[0]);
+      }
+    }
+  }, [allStorefronts, selectedWebsite, selectedFilterStorefront, urlStorefront]);
+  
+  // Update URL when storefront filter changes
+  useEffect(() => {
+    if (selectedFilterStorefront && typeof window !== 'undefined') {
+      const currentUrl = new URL(window.location.href);
+      if (viewMode === 'all') {
+        currentUrl.searchParams.delete('storefront');
+      } else {
+        currentUrl.searchParams.set('storefront', selectedFilterStorefront);
+      }
+      // Update URL without reloading (using replaceState to avoid adding to history)
+      window.history.replaceState({}, '', currentUrl.toString());
+      saveStorefrontToCache(selectedFilterStorefront);
+    }
+  }, [selectedFilterStorefront, viewMode]);
 
   const effectiveSelectedStorefront = useMemo(() => {
+    if (viewMode === 'all') {
+      return null; // All storefronts
+    }
+    // Use selectedFilterStorefront if set, otherwise fallback to selectedWebsite
+    if (selectedFilterStorefront && allStorefronts.includes(selectedFilterStorefront)) {
+      return selectedFilterStorefront;
+    }
     if (allStorefronts.includes(selectedWebsite)) {
       return selectedWebsite;
     }
-    return allStorefronts[0];
-  }, [allStorefronts, selectedWebsite]);
+    return allStorefronts[0] || 'LUNERA';
+  }, [selectedFilterStorefront, allStorefronts, selectedWebsite, viewMode]);
 
   const isPendingForStorefront = (item, storefront) => {
     if (!storefront) {
@@ -362,34 +410,112 @@ export default function EcommerceOverview() {
           <EditSiteInfoButton />
         </header>
 
-        {allStorefronts.length > 1 && (
-          <div className="flex items-center justify-between gap-4">
+        {allStorefronts.length > 0 && (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-zinc-500 dark:text-zinc-400">
-              Viewing {viewMode === 'all' ? 'aggregate metrics across all storefronts' : `metrics for ${effectiveSelectedStorefront}`}
+              {viewMode === 'all' ? (
+                'Viewing aggregate metrics across all storefronts'
+              ) : (
+                `Viewing metrics for ${effectiveSelectedStorefront || 'selected storefront'}`
+              )}
             </div>
-            <div className="inline-flex rounded-full border border-zinc-200 bg-white/70 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
-              <button
-                type="button"
-                onClick={() => setViewMode('selected')}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                  viewMode === 'selected'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-zinc-600 hover:text-emerald-600 dark:text-zinc-300 dark:hover:text-emerald-400'
-                }`}
-              >
-                {effectiveSelectedStorefront}
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('all')}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                  viewMode === 'all'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-zinc-600 hover:text-emerald-600 dark:text-zinc-300 dark:hover:text-emerald-400'
-                }`}
-              >
-                All storefronts
-              </button>
+            <div className="flex items-center gap-3">
+              {/* Storefront Filter Dropdown */}
+              {allStorefronts.length > 1 && (
+                <div className="relative">
+                  <select
+                    value={viewMode === 'all' ? 'all' : (selectedFilterStorefront || '')}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === 'all') {
+                        setViewMode('all');
+                        setSelectedFilterStorefront(null);
+                        // Update URL to remove storefront parameter
+                        if (typeof window !== 'undefined') {
+                          const currentUrl = new URL(window.location.href);
+                          currentUrl.searchParams.delete('storefront');
+                          window.history.replaceState({}, '', currentUrl.toString());
+                        }
+                      } else {
+                        setViewMode('selected');
+                        setSelectedFilterStorefront(value);
+                        // URL will be updated by the useEffect above
+                      }
+                    }}
+                    className="appearance-none rounded-lg border border-zinc-200 bg-white px-4 py-2 pr-8 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-emerald-300 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-emerald-500 dark:focus:border-emerald-500"
+                  >
+                    <option value="all">All Storefronts</option>
+                    {allStorefronts.map((storefront) => (
+                      <option key={storefront} value={storefront}>
+                        {storefront}
+                      </option>
+                    ))}
+                  </select>
+                  <svg
+                    className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              )}
+              {/* Quick Toggle (if only 2 storefronts, show as toggle buttons) */}
+              {allStorefronts.length === 2 && (
+                <div className="inline-flex rounded-full border border-zinc-200 bg-white/70 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode('selected');
+                      setSelectedFilterStorefront(allStorefronts[0]);
+                      // URL will be updated by the useEffect above
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                      viewMode === 'selected' && selectedFilterStorefront === allStorefronts[0]
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-zinc-600 hover:text-emerald-600 dark:text-zinc-300 dark:hover:text-emerald-400'
+                    }`}
+                  >
+                    {allStorefronts[0]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode('selected');
+                      setSelectedFilterStorefront(allStorefronts[1]);
+                      // URL will be updated by the useEffect above
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                      viewMode === 'selected' && selectedFilterStorefront === allStorefronts[1]
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-zinc-600 hover:text-emerald-600 dark:text-zinc-300 dark:hover:text-emerald-400'
+                    }`}
+                  >
+                    {allStorefronts[1]}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode('all');
+                      setSelectedFilterStorefront(null);
+                      // Update URL to remove storefront parameter
+                      if (typeof window !== 'undefined') {
+                        const currentUrl = new URL(window.location.href);
+                        currentUrl.searchParams.delete('storefront');
+                        window.history.replaceState({}, '', currentUrl.toString());
+                      }
+                    }}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                      viewMode === 'all'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-zinc-600 hover:text-emerald-600 dark:text-zinc-300 dark:hover:text-emerald-400'
+                    }`}
+                  >
+                    All
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -72,7 +72,6 @@ function CategoryCard({ category, products }) {
             Shop
           </span>
         </div>
-        <p className="text-xs text-slate-500 sm:text-sm line-clamp-2">{category.description}</p>
         <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary sm:text-sm">
           View collection
           <svg

@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCart } from '@/lib/cart';
 import { getMarket } from '@/lib/get-market';
 import { getMarketConfig } from '@/lib/market-utils';
 import { useStorefront } from '@/lib/storefront-context';
+import { getStorefrontLogo, getStorefrontTheme } from '@/lib/storefront-logos';
+import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getFirebaseDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import AuthButton from '@/components/AuthButton';
 
 // Format price based on market currency
 const formatPrice = (value, market = 'FI') => {
@@ -43,10 +45,160 @@ const countries = [
   { code: 'GB', name: 'United Kingdom' },
 ];
 
+// Helper function to get storefront from cookie (reusable)
+function getStorefrontFromCookie() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return null;
+  }
+  const cookies = document.cookie.split(';').map(c => c.trim());
+  const storefrontCookie = cookies.find(c => c.startsWith('storefront='));
+  if (storefrontCookie) {
+    const sf = storefrontCookie.split('=')[1];
+    return sf || null;
+  }
+  return null;
+}
+
 export default function CartPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { cart, updateQuantity, removeFromCart, getCartTotal, loading } = useCart();
-  const storefront = useStorefront(); // Get storefront from context (cached)
+  
+  // Get storefront from context (set by middleware cookie or URL path)
+  // This allows the cart to know which storefront the user came from
+  const storefrontFromContext = useStorefront();
+  
+  // IMPORTANT: Get storefront from URL parameter first (most reliable - passed explicitly)
+  // This ensures we use the correct storefront even when multiple tabs are open
+  // Priority: URL param > Cookie > Context > localStorage > Default
+  const [storefront, setStorefront] = useState(() => {
+    // First priority: URL parameter (explicitly passed when navigating to cart)
+    // Try both searchParams hook and window.location (for immediate access)
+    let urlStorefront = null;
+    
+    try {
+      if (searchParams) {
+        urlStorefront = searchParams.get('storefront');
+      }
+    } catch (e) {
+      // searchParams might not be available during initial render
+    }
+    
+    // Fallback: read from window.location if searchParams not available
+    if (!urlStorefront && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      urlStorefront = urlParams.get('storefront');
+    }
+    
+    if (urlStorefront) {
+      const decoded = decodeURIComponent(urlStorefront);
+      if (decoded && typeof window !== 'undefined') {
+        saveStorefrontToCache(decoded);
+        return decoded;
+      }
+    }
+    
+    // Second priority: Cookie (set by middleware)
+    if (typeof window !== 'undefined') {
+      const cookieStorefront = getStorefrontFromCookie();
+      if (cookieStorefront) {
+        saveStorefrontToCache(cookieStorefront);
+        return cookieStorefront;
+      }
+      
+      // Third priority: localStorage cache
+      const cached = localStorage.getItem('ecommerce_storefront');
+      if (cached) {
+        return cached;
+      }
+    }
+    
+    // Fourth priority: Context
+    if (storefrontFromContext && storefrontFromContext !== 'LUNERA') {
+      if (typeof window !== 'undefined') {
+        saveStorefrontToCache(storefrontFromContext);
+      }
+      return storefrontFromContext;
+    }
+    
+    // Default fallback
+    return 'LUNERA';
+  });
+  
+  // Check for storefront changes from URL parameter (highest priority)
+  // This ensures the theme updates when navigating to cart from different storefronts
+  useEffect(() => {
+    if (!searchParams) return;
+    
+    const urlStorefront = searchParams.get('storefront');
+    if (urlStorefront) {
+      const decoded = decodeURIComponent(urlStorefront);
+      if (decoded && decoded !== storefront) {
+        console.log(`[CART] 🔄 Storefront changed from URL: ${storefront} → ${decoded}`);
+        setStorefront(decoded);
+        saveStorefrontToCache(decoded);
+      }
+    }
+  }, [searchParams, storefront]);
+  
+  // Also check cookie periodically (for cases where URL param is missing)
+  // But only if URL param is not present
+  useEffect(() => {
+    if (!searchParams) return;
+    
+    const urlStorefront = searchParams.get('storefront');
+    // Only check cookie if URL param is not present
+    if (urlStorefront) {
+      return; // URL param takes precedence, don't check cookie
+    }
+    
+    const checkStorefront = () => {
+      const cookieStorefront = getStorefrontFromCookie();
+      if (cookieStorefront && cookieStorefront !== storefront) {
+        console.log(`[CART] 🔄 Storefront changed from cookie: ${storefront} → ${cookieStorefront}`);
+        setStorefront(cookieStorefront);
+        saveStorefrontToCache(cookieStorefront);
+      }
+    };
+    
+    // Check immediately
+    checkStorefront();
+    
+    // Check when page becomes visible (user switches tabs/windows)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkStorefront();
+      }
+    };
+    
+    // Check on focus (user switches back to tab)
+    const handleFocus = () => {
+      checkStorefront();
+    };
+    
+    // Check periodically (every 500ms) to catch cookie changes
+    const interval = setInterval(checkStorefront, 500);
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [storefront, searchParams]);
+  
+  // Also save to cache whenever storefront changes
+  useEffect(() => {
+    if (storefront && typeof window !== 'undefined') {
+      saveStorefrontToCache(storefront);
+    }
+  }, [storefront]);
+  
+  // Get logo path for the current storefront (recalculate when storefront changes)
+  const logoPath = useMemo(() => getStorefrontLogo(storefront), [storefront]);
+  const theme = useMemo(() => getStorefrontTheme(storefront), [storefront]); // Get theme colors for current storefront
   
   // Get user's market from cookie (set by middleware) - cached to avoid repeated parsing
   const market = useMemo(() => getMarket(), []);
@@ -114,7 +266,7 @@ export default function CartPage() {
     };
     
     fetchProducts();
-  }, [productIds.join(',')]); // Only re-fetch if product IDs change
+  }, [productIds.join(','), storefront]); // Only re-fetch if product IDs or storefront changes
   
   // Calculate shipping estimate from products' marketsObject
   const shippingEstimatePrice = useMemo(() => {
@@ -276,20 +428,37 @@ export default function CartPage() {
   if (cart.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
+        {/* Header with Storefront Logo - Clickable to navigate back to storefront */}
         <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
-            <Link href={`/${storefront}`} className="text-xl font-light text-primary tracking-wide">
-              {storefront}
+          <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-4 sm:px-6 lg:px-8">
+            <Link 
+              href={`/${storefront}`} 
+              className="flex items-center transition-opacity hover:opacity-80"
+              aria-label={`Return to ${storefront} homepage`}
+            >
+              <Image
+                src={logoPath}
+                alt={`${storefront} logo`}
+                width={300}
+                height={100}
+                className="h-16 w-auto sm:h-24"
+                priority
+              />
             </Link>
-            <AuthButton />
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-16 text-center">
-          <h1 className="mb-4 text-2xl font-medium text-primary">Your cart is empty</h1>
+          <h1 className="mb-4 text-2xl font-medium" style={{ color: theme.textColor }}>Your cart is empty</h1>
           <p className="mb-8 text-slate-600">Add some items to get started.</p>
           <Link
             href={`/${storefront}`}
-            className="inline-block rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90"
+            className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
+            style={{ 
+              backgroundColor: theme.primaryColor,
+              '--hover-color': theme.primaryColorHover,
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.primaryColorHover}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme.primaryColor}
           >
             Continue Shopping
           </Link>
@@ -300,18 +469,28 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
-      {/* Header */}
+      {/* Header with Storefront Logo - Clickable to navigate back to storefront */}
       <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
-          <Link href={`/${storefront}`} className="text-xl font-light text-primary tracking-wide">
-            {storefront}
+        <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-4 sm:px-6 lg:px-8">
+          <Link 
+            href={`/${storefront}`} 
+            className="flex items-center transition-opacity hover:opacity-80"
+            aria-label={`Return to ${storefront} homepage`}
+          >
+            <Image
+              src={logoPath}
+              alt={`${storefront} logo`}
+              width={300}
+              height={100}
+              className="h-16 w-auto sm:h-24"
+              priority
+            />
           </Link>
-          <AuthButton />
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-8 text-3xl font-light text-primary">Shopping Cart</h1>
+        <h1 className="mb-8 text-3xl font-light" style={{ color: theme.textColor }}>Shopping Cart</h1>
 
         {validationError && (
           <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
@@ -324,7 +503,7 @@ export default function CartPage() {
           <div className="lg:col-span-2 space-y-6">
             {/* Shipping Address Form - At the top */}
             <section className="rounded-xl border border-secondary/70 bg-white/90 p-6">
-              <h2 className="mb-2 text-lg font-medium text-primary">Shipping Location</h2>
+              <h2 className="mb-2 text-lg font-medium" style={{ color: theme.textColor }}>Shipping Location</h2>
               <p className="mb-4 text-sm text-slate-600">
                 Enter your country and city to check shipping availability. Full address will be collected on the checkout page.
               </p>
@@ -348,7 +527,15 @@ export default function CartPage() {
                         country: selectedCountry?.name || '',
                       });
                     }}
-                    className="w-full rounded-lg border border-secondary/70 px-4 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full rounded-lg border border-secondary/70 px-4 py-2.5 focus:outline-none focus:ring-2"
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = theme.borderColor;
+                      e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.borderColor}33`;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = '';
+                      e.currentTarget.style.boxShadow = '';
+                    }}
                   >
                     {countries.map((country) => (
                       <option key={country.code} value={country.code}>
@@ -372,7 +559,15 @@ export default function CartPage() {
                     value={shippingAddress.city}
                     onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
                     placeholder="Enter your city"
-                    className="w-full rounded-lg border border-secondary/70 px-4 py-2.5 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full rounded-lg border border-secondary/70 px-4 py-2.5 focus:outline-none focus:ring-2"
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = theme.borderColor;
+                      e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.borderColor}33`;
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = '';
+                      e.currentTarget.style.boxShadow = '';
+                    }}
                   />
                 </div>
               </div>
@@ -380,7 +575,7 @@ export default function CartPage() {
 
             {/* Cart Items */}
             <section className="space-y-4">
-              <h2 className="text-lg font-medium text-primary">Cart Items</h2>
+              <h2 className="text-lg font-medium" style={{ color: theme.textColor }}>Cart Items</h2>
               {cart.map((item) => (
                 <div
                   key={`${item.productId}-${item.variantId}`}
@@ -394,7 +589,7 @@ export default function CartPage() {
                     />
                   )}
                   <div className="flex-1">
-                    <h3 className="font-medium text-primary">{item.productName}</h3>
+                    <h3 className="font-medium" style={{ color: theme.textColor }}>{item.productName}</h3>
                     {item.variantName && (
                       <p className="text-sm text-slate-600">{item.variantName}</p>
                     )}
@@ -434,7 +629,7 @@ export default function CartPage() {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 rounded-xl border border-secondary/70 bg-white/90 p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-medium text-primary">Order Summary</h2>
+              <h2 className="mb-6 text-lg font-medium" style={{ color: theme.textColor }}>Order Summary</h2>
               
               {/* Subtotal */}
               <div className="mb-4 space-y-3">
@@ -461,7 +656,7 @@ export default function CartPage() {
               <div className="border-t border-secondary/70 pt-4">
                 <div className="mb-2 flex justify-between">
                   <span className="text-sm font-medium text-slate-700">Estimated Total</span>
-                  <span className="text-lg font-semibold text-primary">{formatPrice(estimatedTotal, shippingAddress.countryCode || market)}</span>
+                  <span className="text-lg font-semibold" style={{ color: theme.textColor }}>{formatPrice(estimatedTotal, shippingAddress.countryCode || market)}</span>
                 </div>
                 <p className="text-xs text-slate-500">
                   Final total will be shown on checkout page
@@ -472,7 +667,20 @@ export default function CartPage() {
               <button
                 type="submit"
                 disabled={processing || validatingShipping}
-                className="mt-6 w-full rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-6 w-full rounded-full px-6 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ 
+                  backgroundColor: theme.primaryColor,
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = theme.primaryColorHover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = theme.primaryColor;
+                  }
+                }}
               >
                 {processing ? (
                   'Processing...'
@@ -486,7 +694,11 @@ export default function CartPage() {
               {/* Continue Shopping */}
               <Link
                 href={`/${storefront}`}
-                className="mt-3 block w-full rounded-full border border-primary bg-white px-6 py-3 text-center font-semibold text-primary transition hover:bg-slate-50"
+                className="mt-3 block w-full rounded-full bg-white px-6 py-3 text-center font-semibold transition hover:bg-slate-50"
+                style={{
+                  borderColor: theme.borderColor,
+                  color: theme.textColor,
+                }}
               >
                 Continue Shopping
               </Link>
@@ -502,3 +714,4 @@ export default function CartPage() {
     </div>
   );
 }
+

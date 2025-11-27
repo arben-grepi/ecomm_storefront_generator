@@ -5,7 +5,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/lib/cart';
 import SettingsMenu from '@/components/SettingsMenu';
+import { useStorefront } from '@/lib/storefront-context';
+import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getMarket } from '@/lib/get-market';
+import { getStorefrontTheme } from '@/lib/storefront-logos';
 
 // Format price based on market (EUR for EU markets)
 const formatPrice = (value, market = 'FI') => {
@@ -70,6 +73,8 @@ const filterOutCountries = (value) => {
 
 export default function ProductDetailPage({ category, product, variants, info = null }) {
   const { addToCart, getCartItemCount, cart } = useCart();
+  const storefront = useStorefront(); // Get storefront for dynamic links
+  const theme = getStorefrontTheme(storefront); // Get theme for cart badge
   const [addingToCart, setAddingToCart] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
@@ -410,7 +415,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Link
-              href={`/LUNERA/${category.slug}`}
+              href={`/${storefront}/${category.slug}`}
               className="flex items-center text-primary transition hover:text-primary"
               aria-label={`Back to ${category.label}`}
             >
@@ -425,15 +430,22 @@ export default function ProductDetailPage({ category, product, variants, info = 
               </svg>
             </Link>
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-              <h1 className="whitespace-nowrap text-xl font-light text-primary tracking-wide sm:hidden">
-                {siteInfo.companyName}
-              </h1>
+              <Link href={`/${storefront}`} className="flex items-center sm:hidden">
+                <Image
+                  src="/Blerinas/Blerinas-logo-transparent2.png"
+                  alt={siteInfo.companyName || 'Blerinas'}
+                  width={240}
+                  height={80}
+                  className="h-10 w-auto"
+                  priority
+                />
+              </Link>
               <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] text-primary sm:flex">
-                <Link href="/LUNERA" className="transition hover:text-primary">
+                <Link href={`/${storefront}`} className="transition hover:text-primary">
                   Home
                 </Link>
                 <span>•</span>
-                <Link href={`/LUNERA/${category.slug}`} className="transition hover:text-primary">
+                <Link href={`/${storefront}/${category.slug}`} className="transition hover:text-primary">
                   {category.label}
                 </Link>
                 <span>•</span>
@@ -442,31 +454,43 @@ export default function ProductDetailPage({ category, product, variants, info = 
             </div>
           </div>
           <div className="flex items-center gap-3 sm:gap-4">
-            <SettingsMenu />
-            <Link
-              href="/LUNERA/cart"
-              className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
-              aria-label="Shopping cart"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="2"
-                stroke="currentColor"
+            {/* Cart icon - only show if cart has items (after hydration to avoid mismatch) */}
+            {hasMounted && getCartItemCount() > 0 && (
+              <Link
+                href={`/cart?storefront=${encodeURIComponent(storefront)}`}
+                onClick={() => {
+                  // Ensure storefront is saved to cache before navigating to cart
+                  if (storefront && typeof window !== 'undefined') {
+                    saveStorefrontToCache(storefront);
+                  }
+                }}
+                className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
+                aria-label="Shopping cart"
+                style={{ borderColor: theme.borderColor, color: theme.textColor, '--hover-bg': theme.primaryColorHover }}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-                />
-              </svg>
-              {hasMounted && getCartItemCount() > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                  />
+                </svg>
+                <span 
+                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold text-white" 
+                  style={{ backgroundColor: theme.primaryColor }}
+                  suppressHydrationWarning
+                >
                   {getCartItemCount() > 9 ? '9+' : getCartItemCount()}
                 </span>
-              )}
-            </Link>
+              </Link>
+            )}
+            <SettingsMenu />
           </div>
         </div>
       </header>

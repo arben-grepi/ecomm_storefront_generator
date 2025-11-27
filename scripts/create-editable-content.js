@@ -6,6 +6,7 @@
  *   export FIREBASE_CLIENT_EMAIL=...
  *   export FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
  *   node scripts/create-editable-content.js --storefront LUNERA
+ *   node scripts/create-editable-content.js --storefront FIVESTARFINDS
  *
  * If FIREBASE_* env vars are not supplied, the script falls back to Application
  * Default Credentials (e.g., gcloud auth application-default login).
@@ -16,16 +17,32 @@ const admin = require('firebase-admin');
 const DEFAULT_PROJECT_ID = 'ecom-store-generator-41064';
 const DEFAULT_STOREFRONT = 'LUNERA';
 
-const DEFAULT_CONTENT = {
-  companyName: 'Lingerie Boutique',
-  companyTagline: 'Effortless softness for every day and night in.',
-  heroMainHeading: 'Curated collections for every mood and moment.',
-  heroDescription:
-    'From delicate lace to active-ready comfort. Discover the pieces that make you feel confident, effortless, and beautifully yourself.',
-  categorySectionHeading: 'Shop by category',
-  categorySectionDescription: "Choose a category to explore this week's top four bestsellers, refreshed daily.",
-  footerText: '© 2024 Lingerie Boutique. All rights reserved.',
+// Storefront-specific default content
+const STOREFRONT_CONTENT = {
+  LUNERA: {
+    companyName: 'Lingerie Boutique',
+    companyTagline: 'Effortless softness for every day and night in.',
+    heroMainHeading: 'Curated collections for every mood and moment.',
+    heroDescription:
+      'From delicate lace to active-ready comfort. Discover the pieces that make you feel confident, effortless, and beautifully yourself.',
+    categorySectionHeading: 'Shop by category',
+    categorySectionDescription: "Choose a category to explore this week's top four bestsellers, refreshed daily.",
+    footerText: '© 2024 Lingerie Boutique. All rights reserved.',
+  },
+  FIVESTARFINDS: {
+    companyName: 'Five-Star Finds',
+    companyTagline: 'Top Rated. Always.',
+    heroMainHeading: 'Shop the Internet\'s Top Rated & Trending Products',
+    heroDescription:
+      'Discover viral best sellers, five-star favorites, and the hottest items people love — all curated in one place.',
+    categorySectionHeading: 'Shop by category',
+    categorySectionDescription: 'Explore top-rated products, trending finds, and viral best sellers — updated daily with the hottest items.',
+    footerText: '© 2024 Five-Star Finds. All rights reserved.',
+  },
 };
+
+// Fallback default content (used if storefront not found in STOREFRONT_CONTENT)
+const DEFAULT_CONTENT = STOREFRONT_CONTENT.LUNERA;
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -84,8 +101,12 @@ async function ensureInfoDoc(db, storefront, force) {
     );
   }
 
+  // Get storefront-specific content or fallback to default
+  const content = STOREFRONT_CONTENT[storefront] || DEFAULT_CONTENT;
+  console.log(`📝 Using content template for storefront: ${storefront}`);
+
   const payload = {
-    ...DEFAULT_CONTENT,
+    ...content,
     storefront,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
@@ -96,6 +117,8 @@ async function ensureInfoDoc(db, storefront, force) {
 
   await docRef.set(payload, { merge: true });
   console.log(`✅  Stored editable content for storefront "${storefront}" at ${storefront}/Info`);
+  console.log(`   Company: ${content.companyName}`);
+  console.log(`   Tagline: ${content.companyTagline}`);
 }
 
 async function main() {

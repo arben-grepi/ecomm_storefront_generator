@@ -13,8 +13,8 @@ export default async function ProductPage({ params }) {
     notFound();
   }
 
-  // For pages in app/LUNERA/, always use 'LUNERA' (folder name determines storefront)
-  const storefront = 'LUNERA';
+  // For pages in app/FIVESTARFINDS/, always use 'FIVESTARFINDS' (folder name determines storefront)
+  const storefront = 'FIVESTARFINDS';
 
   // Always use English - language functionality removed
   const language = 'en';

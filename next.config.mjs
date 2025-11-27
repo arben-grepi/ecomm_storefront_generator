@@ -2,6 +2,11 @@
 const nextConfig = {
   /* config options here */
   reactCompiler: true,
+  // Suppress favicon.ico 404 errors in development
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
   images: {
     // Allow images from Shopify CDN and other common sources
     remotePatterns: [

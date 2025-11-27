@@ -1,26 +1,34 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import SettingsMenu from '@/components/SettingsMenu';
 import CategoryCarousel from '@/components/CategoryCarousel';
 import ProductCard from '@/components/ProductCard';
 import SkeletonProductCard from '@/components/SkeletonProductCard';
 import { useCategories, useProductsByCategory } from '@/lib/firestore-data';
 import { useCart } from '@/lib/cart';
+import { useStorefront } from '@/lib/storefront-context';
+import { saveStorefrontToCache } from '@/lib/get-storefront';
+import { getStorefrontTheme } from '@/lib/storefront-logos';
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
   ssr: false,
 });
 
-export default function CategoryPageTemplate({ categoryId, category: categoryProp, products: productsProp, info = null }) {
-  console.log(`[COMPONENT] 📁 CategoryPageTemplate: Initializing - CategoryId: ${categoryId}, SSR Products: ${productsProp?.length || 0}, Category: ${categoryProp?.name || 'N/A'}`);
-  const componentStartTime = Date.now();
+export default function CategoryPageTemplate({ categoryId, category: categoryProp, products: productsProp, info = null, storefront: storefrontProp = null }) {
+  console.log(`[COMPONENT] 📁 CategoryPageTemplate: Initializing - CategoryId: ${categoryId}, SSR Products: ${productsProp?.length || 0}, Category: ${categoryProp?.name || 'N/A'}, Storefront: ${storefrontProp || 'not provided'}`);
   
-  const { categories } = useCategories();
+  // Use storefront from prop (server-provided) or fallback to context
+  const storefrontFromContext = useStorefront();
+  const storefront = storefrontProp || storefrontFromContext;
+  const theme = getStorefrontTheme(storefront); // Get theme for cart badge
+  
+  const { categories } = useCategories([], storefront);
   // Pass initial products from SSR to avoid fetching all products again
-  const { products: fetchedProducts, loading: productsLoading } = useProductsByCategory(categoryId, productsProp);
+  const { products: fetchedProducts, loading: productsLoading } = useProductsByCategory(categoryId, productsProp, storefront);
   const { getCartItemCount } = useCart();
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -39,11 +47,38 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
   console.log(`[COMPONENT] 📊 CategoryPageTemplate: Data state - Category: ${category?.name || 'N/A'}, Products: ${products?.length || 0} (fetched: ${fetchedProducts?.length || 0}, SSR: ${productsProp?.length || 0}), Loading: ${loading}`);
 
   // Use info from server (for SEO), with empty strings as fallback
-  const siteInfo = info || {
-    companyName: '',
-    companyTagline: '',
-    footerText: '',
-  };
+  // Cache info to localStorage to avoid refetching on subsequent category page visits
+  const siteInfo = useMemo(() => {
+    if (info) {
+      // Cache info to localStorage for future use
+      if (typeof window !== 'undefined' && storefront) {
+        try {
+          localStorage.setItem(`storefront_info_${storefront}`, JSON.stringify(info));
+        } catch (e) {
+          console.warn('Failed to cache site info:', e);
+        }
+      }
+      return info;
+    }
+    
+    // Try to get from cache if info prop is not provided
+    if (typeof window !== 'undefined' && storefront) {
+      try {
+        const cached = localStorage.getItem(`storefront_info_${storefront}`);
+        if (cached) {
+          return JSON.parse(cached);
+        }
+      } catch (e) {
+        console.warn('Failed to read cached site info:', e);
+      }
+    }
+    
+    return {
+      companyName: '',
+      companyTagline: '',
+      footerText: '',
+    };
+  }, [info, storefront]);
 
   // (Analytics removed)
 
@@ -73,9 +108,15 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Link
-              href="/LUNERA"
+              href={`/${storefront || 'LUNERA'}`}
               className="flex items-center text-primary transition hover:text-primary"
               aria-label="Back to home"
+              onClick={() => {
+                // Ensure storefront is saved to cache before navigating
+                if (storefront && typeof window !== 'undefined') {
+                  saveStorefrontToCache(storefront);
+                }
+              }}
             >
               <svg
                 className="h-5 w-5"
@@ -87,11 +128,18 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
               </svg>
             </Link>
-            {/* Mobile: Company name, Desktop: Full branding */}
+            {/* Mobile: Logo, Desktop: Full branding */}
             <div className="flex flex-col sm:flex-col">
-              <h1 className="whitespace-nowrap text-xl font-light text-primary tracking-wide sm:text-2xl">
-                {siteInfo.companyName}
-              </h1>
+              <Link href={`/${storefront}`} className="flex items-center">
+                <Image
+                  src="/Blerinas/Blerinas-logo-transparent2.png"
+                  alt={siteInfo.companyName || 'Blerinas'}
+                  width={300}
+                  height={100}
+                  className="h-12 w-auto sm:h-16"
+                  priority
+                />
+              </Link>
               <p className="hidden text-sm text-slate-500 sm:block">
                 {siteInfo.companyTagline}
               </p>
@@ -100,67 +148,69 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
           {/* Spacer for mobile to push buttons to right */}
           <div className="flex-1 sm:hidden" />
           <div className="flex w-full items-center justify-end gap-3 sm:w-auto sm:gap-4">
-            <SettingsMenu />
-            <Link
-              href="/LUNERA/cart"
-              className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2.5 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
-              aria-label="Shopping cart"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="2"
-                stroke="currentColor"
+            {/* Cart icon - only show if cart has items (after hydration to avoid mismatch) */}
+            {hasMounted && getCartItemCount() > 0 && (
+              <Link
+                href={`/cart?storefront=${encodeURIComponent(storefront)}`}
+                onClick={() => {
+                  // Ensure storefront is saved to cache before navigating to cart
+                  if (storefront && typeof window !== 'undefined') {
+                    saveStorefrontToCache(storefront);
+                  }
+                }}
+                className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2.5 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
+                aria-label="Shopping cart"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
-                />
-              </svg>
-              {hasMounted && getCartItemCount() > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth="2"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
+                  />
+                </svg>
+                <span 
+                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold text-white" 
+                  style={{ backgroundColor: theme.primaryColor }}
+                  suppressHydrationWarning
+                >
                   {getCartItemCount() > 9 ? '9+' : getCartItemCount()}
                 </span>
-              )}
-            </Link>
+              </Link>
+            )}
+            <SettingsMenu />
           </div>
         </div>
       </header>
 
       {/* Category carousel - hidden on mobile */}
-      <section className="hidden px-4 pt-4 sm:block sm:px-6 lg:px-8">
-        <CategoryCarousel align="start" />
+      <section className="hidden px-6 pt-4 sm:block sm:px-8 lg:px-16">
+        <CategoryCarousel align="start" storefront={storefront} />
       </section>
 
       {/* Hero Section */}
       <section className="px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
           <span className="rounded-full bg-white/70 px-4 py-1 text-xs font-medium uppercase tracking-[0.3em] text-primary">
-            {category.label || category.name || 'Collection'}
+            {category.label || 'Collection'}
           </span>
           <h2 className="text-3xl font-light text-primary sm:text-5xl">
-            {category.description || 'Discover our curated collection.'}
+            {category.label || 'Collection'}
           </h2>
-          <p className="text-base text-slate-600 sm:text-lg">
-            Discover the full assortment of best-sellers, refreshed styles, and timeless pieces in
-            our {(category.label || category.name || 'collection').toLowerCase()} collection.
+          <p className="text-base text-primary sm:text-lg">
+            {category.description || `Discover the full assortment of best-selling products in the ${category.label?.toLowerCase() || 'collection'} collection.`}
           </p>
         </div>
       </section>
 
       {/* Products Grid */}
-      <main className="mx-auto max-w-7xl px-3 pb-16 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col gap-2 text-center sm:mb-12 sm:text-left">
-          <h3 className="text-xl font-medium text-primary sm:text-2xl">
-            {category.label} favorites
-          </h3>
-          <p className="text-sm text-slate-600 sm:text-base">
-            Pieces designed for softness, style, and everyday confidence.
-          </p>
-        </div>
-
+      <main className="mx-auto mt-8 max-w-7xl px-3 pb-16 sm:px-6 lg:px-8">
+       
         {loading ? (
           <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (

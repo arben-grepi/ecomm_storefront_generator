@@ -3,10 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
+import { useStorefront } from '@/lib/storefront-context';
 
-export default function CategoryCarousel({ align = 'center', categories = [], products = [] }) {
+export default function CategoryCarousel({ align = 'center', categories = [], products = [], storefront: storefrontProp = null }) {
   console.log(`[COMPONENT] 🎠 CategoryCarousel: Initializing - Categories: ${categories.length}, Products: ${products.length}`);
   const pathname = usePathname();
+  const storefrontFromContext = useStorefront(); // Get current storefront from context
+  const storefront = storefrontProp || storefrontFromContext || 'LUNERA'; // Use prop if provided, otherwise context, fallback to LUNERA
 
   const navItems = useMemo(() => {
     // Filter categories that have products
@@ -14,18 +17,23 @@ export default function CategoryCarousel({ align = 'center', categories = [], pr
       products.some((product) => product.categoryId === category.id)
     );
 
+    // Use current storefront for navigation links
+    const storefrontPath = storefront || 'LUNERA'; // Fallback to LUNERA if not available
+
     return [
-      { href: '/LUNERA', value: 'all', label: 'All Categories' },
+      { href: `/${storefrontPath}`, value: 'all', label: 'All Categories' },
       ...categoriesWithProducts.map((category) => ({
-        href: `/LUNERA/${category.slug}`,
+        href: `/${storefrontPath}/${category.slug}`,
         value: category.slug,
         label: category.label,
       })),
     ];
-  }, [categories, products]);
+  }, [categories, products, storefront]);
 
-  const isActive = (item) =>
-    (item.value === 'all' && pathname === '/LUNERA') || pathname === item.href;
+  const isActive = (item) => {
+    const storefrontPath = storefront || 'LUNERA';
+    return (item.value === 'all' && pathname === `/${storefrontPath}`) || pathname === item.href;
+  };
 
   const containerAlignment =
     align === 'start' ? 'justify-start' : 'justify-center sm:justify-start';
@@ -33,7 +41,7 @@ export default function CategoryCarousel({ align = 'center', categories = [], pr
   return (
     <div className="relative">
       <div
-        className="-mx-2 flex overflow-x-auto scroll-smooth px-2 sm:mx-0 sm:px-0 hide-scrollbar"
+        className="-mx-2 flex overflow-x-auto scroll-smooth px-2 sm:mx-0 sm:px-4 lg:px-6 hide-scrollbar"
         aria-label="Browse categories"
       >
         <ul className={`flex w-full min-w-max flex-nowrap items-center gap-2 ${containerAlignment}`}>

@@ -22,15 +22,23 @@ export function middleware(request) {
   
   // Extract storefront from URL path
   const segments = pathname.split('/').filter(Boolean);
-  const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next'];
+  const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart'];
   let storefront = null;
   
-  if (segments.length > 0 && !excludedSegments.includes(segments[0].toLowerCase())) {
+  // Check if we're on the cart page - if so, use existing storefront cookie or default
+  if (pathname === '/cart' || pathname.startsWith('/cart/')) {
+    // On cart page, preserve the existing storefront cookie (don't change it)
+    const existingStorefront = request.cookies.get('storefront')?.value;
+    storefront = existingStorefront || 'LUNERA';
+    console.log(`[MIDDLEWARE] 🛒 Cart page detected - preserving storefront: ${storefront}`);
+  } else if (segments.length > 0 && !excludedSegments.includes(segments[0].toLowerCase())) {
     storefront = segments[0].toUpperCase();
     console.log(`[MIDDLEWARE] 📍 Storefront detected from URL: ${storefront}`);
   } else {
-    storefront = 'LUNERA'; // Default
-    console.log(`[MIDDLEWARE] 📍 Using default storefront: ${storefront}`);
+    // For other excluded paths, use existing cookie or default
+    const existingStorefront = request.cookies.get('storefront')?.value;
+    storefront = existingStorefront || 'LUNERA';
+    console.log(`[MIDDLEWARE] 📍 Using existing storefront cookie or default: ${storefront}`);
   }
   
   // Check if market is already set in cookie (memoization - skip detection if already set)
@@ -87,16 +95,21 @@ export function middleware(request) {
     console.log(`[MIDDLEWARE] 🍪 Market cookie already set, skipping`);
   }
   
-  // Set storefront cookie (only if it changed or doesn't exist)
-  if (existingStorefront !== storefront) {
-    console.log(`[MIDDLEWARE] 🍪 Setting storefront cookie: ${storefront} (was: ${existingStorefront || 'none'}, 30 days)`);
-    response.cookies.set('storefront', storefront, {
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      path: '/',
-      sameSite: 'lax'
-    });
+  // Set storefront cookie (only if it changed or doesn't exist, and we're not on cart page)
+  // On cart page, we preserve the existing cookie and don't update it
+  if (pathname !== '/cart' && !pathname.startsWith('/cart/')) {
+    if (existingStorefront !== storefront) {
+      console.log(`[MIDDLEWARE] 🍪 Setting storefront cookie: ${storefront} (was: ${existingStorefront || 'none'}, 30 days)`);
+      response.cookies.set('storefront', storefront, {
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+        path: '/',
+        sameSite: 'lax'
+      });
+    } else {
+      console.log(`[MIDDLEWARE] 🍪 Storefront cookie already set (${storefront}), skipping`);
+    }
   } else {
-    console.log(`[MIDDLEWARE] 🍪 Storefront cookie already set (${storefront}), skipping`);
+    console.log(`[MIDDLEWARE] 🍪 Cart page - preserving existing storefront cookie (${storefront})`);
   }
   
   const duration = Date.now() - middlewareStartTime;
@@ -112,10 +125,9 @@ export const config = {
      * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
      * - admin (admin routes)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|admin).*)',
+    '/((?!api|_next/static|_next/image|admin).*)',
   ],
 };
 

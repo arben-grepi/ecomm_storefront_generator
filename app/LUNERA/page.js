@@ -1,6 +1,6 @@
 import { getServerSideCategories, getServerSideProducts, getServerSideInfo } from '@/lib/firestore-server';
 import { headers } from 'next/headers';
-import { getStorefrontFromHeaders } from '@/lib/get-storefront-server';
+import { getMarketFromHeaders } from '@/lib/get-market-server';
 import HomeClient from '@/components/HomeClient';
 
 // This is now a Server Component - it fetches data on the server
@@ -58,8 +58,11 @@ export default async function Home() {
   const pageStartTime = Date.now();
   
   const headersList = headers();
-  const storefront = await getStorefrontFromHeaders(headersList);
-  console.log(`[SSR] 📍 Detected storefront: ${storefront}`);
+  // For pages in app/LUNERA/, always use 'LUNERA' (folder name determines storefront)
+  // Don't detect from headers/cookies - the folder structure is the source of truth
+  const storefront = 'LUNERA';
+  const market = await getMarketFromHeaders(headersList);
+  console.log(`[SSR] 📍 Using storefront: ${storefront} (from folder), market: ${market}`);
 
   // Fetch initial data on the server (for SEO and fast initial load)
   // 
@@ -73,9 +76,9 @@ export default async function Home() {
   console.log(`[SSR] 📦 Starting parallel data fetch (categories, products, info)`);
   try {
     [categories, products, info] = await Promise.all([
-      getServerSideCategories(storefront),
-      getServerSideProducts(storefront),
-      getServerSideInfo(language),
+      getServerSideCategories(storefront, market),
+      getServerSideProducts(storefront, market),
+      getServerSideInfo(language, storefront),
     ]);
     
     const pageDuration = Date.now() - pageStartTime;
@@ -104,11 +107,19 @@ export default async function Home() {
 
   // Ensure info has defaults if fetch failed
   if (!info) {
-    info = await getServerSideInfo(language);
+    console.log(`[SSR] ⚠️  Info is null, attempting to fetch again for storefront: ${storefront}`);
+    info = await getServerSideInfo(language, storefront);
+  }
+  
+  // Log info for debugging
+  if (info && info.heroMainHeading) {
+    console.log(`[SSR] 📄 Info loaded - heroMainHeading: "${info.heroMainHeading.substring(0, 50)}..."`);
+  } else {
+    console.log(`[SSR] ⚠️  Info is missing or empty - storefront: ${storefront}`);
   }
 
   // Pass server-rendered data to client component
   // The client component will hydrate with this data and then add real-time updates
   // If server data is empty, client component will fetch everything client-side
-  return <HomeClient initialCategories={categories} initialProducts={products} info={info} />;
+  return <HomeClient initialCategories={categories} initialProducts={products} info={info} storefront={storefront} />;
 }
