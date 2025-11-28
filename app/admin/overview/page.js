@@ -106,7 +106,7 @@ function EcommerceOverviewContent() {
         });
 
         // Load orders from all storefronts
-        const allStorefronts = availableWebsites.length > 0 ? availableWebsites : ['LUNERA', 'GIFTSHOP'];
+        const allStorefronts = availableWebsites.length > 0 ? availableWebsites : ['LUNERA', 'FIVESTARFINDS'];
         const ordersPromises = allStorefronts.map(async (storefront) => {
           try {
             const ordersSnap = await getDocs(collection(db, storefront, 'orders', 'items'));

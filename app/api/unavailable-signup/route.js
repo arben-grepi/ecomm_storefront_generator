@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAdminDb } from '@/lib/firebase';
+import { getAdminDb } from '@/lib/firestore-server';
 
 /**
  * Store email signups from unavailable page
@@ -14,7 +14,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email and country are required' }, { status: 400 });
     }
 
-    console.log(`[Signup] Country signup - Email: ${email}, Country: ${country}`);
+    // Don't log full email for security (GDPR/compliance) - only log domain
+    const emailDomain = email.includes('@') ? email.split('@')[1] : 'unknown';
+    console.log(`[Signup] Country signup - Email domain: ${emailDomain}, Country: ${country}`);
 
     const db = getAdminDb();
     if (!db) {
@@ -33,7 +35,8 @@ export async function POST(request) {
       createdAt: timestamp,
     });
 
-    console.log(`[Signup] Stored country signup - Email: ${email}, Country: ${country}, Document ID: ${docRef.id}`);
+    // Don't log full email for security (GDPR/compliance)
+    console.log(`[Signup] Stored country signup - Country: ${country}, Document ID: ${docRef.id}`);
 
     return NextResponse.json({ success: true });
   } catch (error) {

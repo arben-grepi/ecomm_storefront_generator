@@ -1,0 +1,113 @@
+/**
+ * SHARED GLOBAL CSS (app/globals.css)
+ * 
+ * This file contains styles that apply to ALL pages across the entire application.
+ * It's imported in the root layout (app/layout.js).
+ * 
+ * Storefront-specific theme colors are defined in:
+ * - app/LUNERA/globals.css (pink theme)
+ * - app/FIVESTARFINDS/globals.css (turquoise theme)
+ * 
+ * Each storefront layout imports its own theme CSS, which overrides the CSS variables
+ * defined here (if any).
+ */
+
+/* Import Tailwind CSS - this gives us utility classes like flex, grid, text-center, etc. */
+@import "tailwindcss";
+
+/**
+ * CSS VARIABLES (Custom Properties)
+ * 
+ * These are default values that can be overridden by storefront-specific CSS files.
+ * Each storefront (LUNERA, FIVESTARFINDS) defines its own --primary and --secondary colors
+ * in its own globals.css file, which will override these defaults.
+ */
+:root {
+  --background: #ffffff;
+  --foreground: #1f2937;
+  /* Default colors (will be overridden by storefront-specific CSS) */
+  --primary: #ec4899; /* Default to LUNERA's pink, but each storefront overrides this */
+  --secondary: #fdf2f8;
+}
+
+/**
+ * TAILWIND THEME CONFIGURATION
+ * 
+ * This maps CSS variables to Tailwind's theme system, so you can use classes like:
+ * - bg-primary (uses --color-primary)
+ * - text-primary (uses --color-primary)
+ * - bg-secondary (uses --color-secondary)
+ * 
+ * Font variables are set in app/layout.js and applied to the <body> tag.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  /* Font variables are set in app/layout.js via className on <body> */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/**
+ * GLOBAL BODY STYLES
+ * 
+ * These styles apply to the entire page, regardless of which storefront you're on.
+ */
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/**
+ * GLOBAL LINK STYLES
+ * 
+ * Removes default underline and inherits text color from parent.
+ */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/**
+ * GLOBAL MAIN ELEMENT STYLES
+ */
+main {
+  font-family: inherit;
+}
+
+/**
+ * SMOOTH SCROLLING
+ * 
+ * Makes page scrolling smooth when clicking anchor links (e.g., #section)
+ */
+html {
+  scroll-behavior: smooth;
+}
+
+/**
+ * SHIMMER ANIMATION
+ * 
+ * Used for skeleton loading states (the animated placeholder cards you see
+ * while content is loading).
+ * 
+ * Usage: Add class "animate-shimmer" to any element to apply this animation.
+ */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+

@@ -6,6 +6,7 @@ import HomeClient from '@/components/HomeClient';
 // This is now a Server Component - it fetches data on the server
 // and passes it to the client component for interactivity
 export default async function Home() {
+  // 🔍 FIVESTARFINDS PAGE (SERVER COMPONENT) - Set breakpoint here in Cursor
   const pageStartTime = Date.now();
   console.log(`[SSR] 🚀 Initializing Five-Star Finds Home page (Server Component)`);
 

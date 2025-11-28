@@ -21,6 +21,7 @@ const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
 });
 
 export default function HomeClient({ initialCategories = [], initialProducts = [], info = null, storefront: storefrontProp = null }) {
+  // 🔍 CLIENT COMPONENT (HYDRATION) - Set breakpoint here in Cursor
   console.log(`[COMPONENT] 🏠 HomeClient: Initializing with SSR data - Categories: ${initialCategories.length}, Products: ${initialProducts.length}, Info: ${info ? '✅' : '❌'}, Storefront: ${storefrontProp || 'not provided'}`);
   
   // Use storefront from prop (server-provided) or fallback to context

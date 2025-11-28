@@ -1,57 +1,27 @@
-@import "tailwindcss";
+/**
+ * FIVESTARFINDS STOREFRONT THEME CSS (app/FIVESTARFINDS/globals.css)
+ * 
+ * This file defines FIVESTARFINDS's theme colors (turquoise/blue).
+ * It's imported in app/FIVESTARFINDS/layout.js and overrides the default colors
+ * defined in app/globals.css.
+ * 
+ * Common styles (body, html, animations) are defined in app/globals.css.
+ * This file only contains theme-specific overrides.
+ */
 
+/* FIVESTARFINDS Theme Colors - Turquoise/Blue */
 :root {
-  --background: #ffffff;
-  --foreground: #1f2937;
-  /* Primary color (Turquoise/Blue - for text, buttons, accents) */
+  /* Primary color (Turquoise - for text, buttons, accents) */
   --primary: #14b8a6; /* Turquoise */
-  /* Secondary color (Turquoise/Blue - for backgrounds) */
+  /* Secondary color (Light turquoise - for backgrounds) */
   --secondary: #f0fdfa; /* Light turquoise */
 }
 
+/* Map theme colors to Tailwind classes */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
+  /* Use Inter font for FIVESTARFINDS */
   --font-sans: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  margin: 0;
-  padding: 0;
-  min-height: 100vh;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-main {
-  font-family: inherit;
-}
-
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Shimmer animation for skeleton loading states */
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.animate-shimmer {
-  animation: shimmer 2s infinite;
 }
 
