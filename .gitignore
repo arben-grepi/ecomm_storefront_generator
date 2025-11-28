@@ -66,3 +66,6 @@ sync-secrets-to-gcp.sh
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# create-secrets-from-env.ps1
+create-secrets-from-env.ps1
