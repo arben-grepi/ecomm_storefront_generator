@@ -7,40 +7,6 @@ import HomeClient from '@/components/HomeClient';
 // and passes it to the client component for interactivity
 export default async function Home() {
   // 🔍 LUNERA PAGE (SERVER COMPONENT) - Set breakpoint here in Cursor
-  // Log environment variables for debugging (only in production to diagnose auth issues)
-  if (process.env.NODE_ENV === 'production') {
-    const envVars = {
-      NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY 
-        ? `✅ Set (length: ${process.env.NEXT_PUBLIC_FIREBASE_API_KEY.length})` 
-        : '❌ Missing',
-      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN 
-        ? `✅ Set: ${process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}` 
-        : '❌ Missing',
-      NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID 
-        ? `✅ Set: ${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}` 
-        : '❌ Missing',
-      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET 
-        ? `✅ Set: ${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}` 
-        : '❌ Missing',
-      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID 
-        ? `✅ Set (length: ${process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID.length})` 
-        : '❌ Missing',
-      NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID 
-        ? `✅ Set (length: ${process.env.NEXT_PUBLIC_FIREBASE_APP_ID.length})` 
-        : '❌ Missing',
-      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID 
-        ? `✅ Set: ${process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}` 
-        : '❌ Missing',
-    };
-    
-    console.log('🔍 Environment Variables Check (Production):');
-    console.log('==========================================');
-    Object.entries(envVars).forEach(([key, value]) => {
-      console.log(`${key}: ${value}`);
-    });
-    console.log('==========================================');
-  }
-  
   // Always use English - language functionality removed
   const language = 'en';
   
@@ -65,13 +31,16 @@ export default async function Home() {
   let products = [];
   let info = null;
 
-  console.log(`[SSR] 📦 Starting parallel data fetch (categories, products, info)`);
+  console.log(`[SSR] 📦 Starting parallel data fetch (products, info)`);
   try {
-    [categories, products, info] = await Promise.all([
-      getServerSideCategories(storefront, market),
+    // Fetch products and info in parallel first
+    [products, info] = await Promise.all([
       getServerSideProducts(storefront, market),
       getServerSideInfo(language, storefront),
     ]);
+    
+    // Then fetch categories using the already-fetched products (avoids duplicate product fetch)
+    categories = await getServerSideCategories(storefront, market, products);
     
     const pageDuration = Date.now() - pageStartTime;
     console.log(`[SSR] ✅ All data fetched successfully:`);
@@ -95,12 +64,6 @@ export default async function Home() {
       console.error('Server-side data fetching failed in production:', error);
       // Still fallback to prevent page crash, but this shouldn't happen normally
     }
-  }
-
-  // Ensure info has defaults if fetch failed
-  if (!info) {
-    console.log(`[SSR] ⚠️  Info is null, attempting to fetch again for storefront: ${storefront}`);
-    info = await getServerSideInfo(language, storefront);
   }
   
   // Log info for debugging

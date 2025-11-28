@@ -25,13 +25,16 @@ export default async function Home() {
   let products = [];
   let info = null;
 
-  console.log(`[SSR] 📦 Starting parallel data fetch (categories, products, info)`);
+  console.log(`[SSR] 📦 Starting parallel data fetch (products, info)`);
   try {
-    [categories, products, info] = await Promise.all([
-      getServerSideCategories(storefront, market),
+    // Fetch products and info in parallel first
+    [products, info] = await Promise.all([
       getServerSideProducts(storefront, market),
       getServerSideInfo(language, storefront),
     ]);
+    
+    // Then fetch categories using the already-fetched products (avoids duplicate product fetch)
+    categories = await getServerSideCategories(storefront, market, products);
     
     const pageDuration = Date.now() - pageStartTime;
     console.log(`[SSR] ✅ All data fetched successfully:`);
@@ -55,11 +58,6 @@ export default async function Home() {
       console.error('Server-side data fetching failed in production:', error);
       // Still fallback to prevent page crash, but this shouldn't happen normally
     }
-  }
-
-  // Ensure info has defaults if fetch failed
-  if (!info) {
-    info = await getServerSideInfo(language, storefront);
   }
 
   // Pass server-rendered data to client component
