@@ -16,6 +16,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 // PageTransitionBar removed - wasn't working/visible. Can be re-added if needed.
 import UnderConstructionBanner from "@/components/UnderConstructionBanner";
+import CookieConsent from "@/components/CookieConsent";
 
 /**
  * FONT LOADING (Next.js Font Optimization)
@@ -106,10 +107,15 @@ export default function RootLayout({ children }) {
         */}
         <UnderConstructionBanner />
         
-        {/* 
-          {children} is where the actual page content gets rendered
-        */}
-        {children}
+            {/* 
+              {children} is where the actual page content gets rendered
+            */}
+            {children}
+            
+            {/* 
+              Cookie Consent Banner - appears at bottom until user gives consent
+            */}
+            <CookieConsent />
       </body>
     </html>
   );

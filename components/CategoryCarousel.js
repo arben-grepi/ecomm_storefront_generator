@@ -6,7 +6,6 @@ import { useMemo } from 'react';
 import { useStorefront } from '@/lib/storefront-context';
 
 export default function CategoryCarousel({ align = 'center', categories = [], products = [], storefront: storefrontProp = null }) {
-  console.log(`[COMPONENT] 🎠 CategoryCarousel: Initializing - Categories: ${categories.length}, Products: ${products.length}`);
   const pathname = usePathname();
   const storefrontFromContext = useStorefront(); // Get current storefront from context
   const storefront = storefrontProp || storefrontFromContext || 'LUNERA'; // Use prop if provided, otherwise context, fallback to LUNERA
