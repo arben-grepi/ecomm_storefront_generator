@@ -44,9 +44,9 @@ function getClientIP(request) {
  * @returns {Promise<string|null>} Country code (2 letters) or null if detection fails
  */
 async function getCountryFromIP(ip, isDevelopment = false) {
-  // In development, default to 'FI' for testing (can be overridden via env var)
+  // In development, default to 'DE' (Germany) for testing (can be overridden via env var)
   if (isDevelopment && (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.'))) {
-    const devCountry = process.env.NEXT_PUBLIC_DEV_COUNTRY || 'FI';
+    const devCountry = process.env.NEXT_PUBLIC_DEV_COUNTRY || 'DE';
     console.log(`[MIDDLEWARE] 🧪 Development mode - using default country: ${devCountry} (set NEXT_PUBLIC_DEV_COUNTRY to override)`);
     return devCountry;
   }
@@ -168,34 +168,39 @@ export async function middleware(request) {
     
     // Try method 2: External IP geolocation API (works on Firebase App Hosting and when request.geo fails)
     if (!geoCountry) {
+      console.log(`[MIDDLEWARE] 🔍 request.geo not available (${request.geo ? 'object exists but no country' : 'undefined'}), trying external IP geolocation API...`);
+      
       const clientIP = getClientIP(request);
       const isDevelopment = process.env.NODE_ENV === 'development';
       
+      console.log(`[MIDDLEWARE] 🔍 Extracted client IP: ${clientIP || 'null'} (isDevelopment: ${isDevelopment})`);
+      
       if (clientIP) {
-        console.log(`[MIDDLEWARE] 🔍 request.geo not available, trying external IP geolocation API for IP: ${clientIP}...`);
+        console.log(`[MIDDLEWARE] 🔍 Calling external IP geolocation API for IP: ${clientIP}...`);
         geoCountry = await getCountryFromIP(clientIP, isDevelopment);
         if (geoCountry) {
           console.log(`[MIDDLEWARE] ✅ External API detected country: ${geoCountry}`);
         } else {
-          console.warn(`[MIDDLEWARE] ⚠️  External IP geolocation API failed for IP: ${clientIP}`);
+          console.warn(`[MIDDLEWARE] ⚠️  External IP geolocation API failed for IP: ${clientIP} - will use fallback`);
         }
       } else {
         // In development, still try with null IP to get the dev fallback
         if (isDevelopment) {
+          console.log(`[MIDDLEWARE] 🧪 Development mode - no client IP, using development fallback...`);
           geoCountry = await getCountryFromIP(null, isDevelopment);
           if (geoCountry) {
             console.log(`[MIDDLEWARE] ✅ Development mode - using default country: ${geoCountry}`);
           }
         } else {
-          console.warn(`[MIDDLEWARE] ⚠️  Could not extract client IP address from headers`);
+          console.warn(`[MIDDLEWARE] ⚠️  Could not extract client IP address from headers - will use fallback`);
         }
       }
     } else {
       console.log(`[MIDDLEWARE] ✅ request.geo detected country: ${geoCountry}`);
     }
     
-    // Use detected country or fallback to 'FI' if all methods fail
-    country = geoCountry || 'FI';
+    // Use detected country or fallback to 'DE' (Germany) if all methods fail
+    country = geoCountry || 'DE';
     shouldSetMarketCookie = true; // Set cookie with detected country (or fallback)
     console.log(`[MIDDLEWARE] 🌍 Final detected country: ${geoCountry || 'none'} (using: ${country})`);
     
