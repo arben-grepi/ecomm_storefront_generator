@@ -146,7 +146,7 @@ export async function POST(request) {
     console.log(`[API] ✅ All ${verificationResult.accessibleVariants.length} variant(s) verified as accessible in Storefront API`);
 
     // Get market from cookie or shipping address
-    const market = shippingAddress.countryCode || shippingAddress.country || 'FI';
+    const market = shippingAddress.countryCode || shippingAddress.country || 'DE';
     
     // Add market and storefront to custom attributes (for webhook routing)
     const attributesWithMarket = [

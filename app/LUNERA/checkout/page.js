@@ -28,8 +28,8 @@ export default function CheckoutPage() {
   const [shippingAddress, setShippingAddress] = useState({
     address1: '', // Street address
     city: '',
-    country: 'Finland',
-    countryCode: 'FI',
+    country: 'Germany',
+    countryCode: 'DE',
   });
 
   // Load user if authenticated (for future use, not needed for checkout)

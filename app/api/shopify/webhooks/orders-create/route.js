@@ -62,7 +62,7 @@ function transformShopifyOrder(shopifyOrder) {
     (attr) => attr.name === '_market' || attr.name === 'storefront_market'
   )?.value;
   const marketFromCountry = shopifyOrder.shipping_address?.country_code?.toUpperCase();
-  const market = marketFromAttributes || marketFromCountry || 'FI'; // Default to FI if not found
+  const market = marketFromAttributes || marketFromCountry || 'DE'; // Default to DE if not found
   
   console.log(`[Order Webhook] Order ${shopifyOrder.id} (${shopifyOrder.order_number || shopifyOrder.name}) - Storefront: ${storefront}, Market: ${market} (from attributes: ${marketFromAttributes || 'none'}, from country: ${marketFromCountry || 'none'})`);
 

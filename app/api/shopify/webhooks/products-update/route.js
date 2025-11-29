@@ -145,16 +145,39 @@ async function fetchShippingRatesFromAdmin() {
                   price: parseFloat(m.node.rateProvider.price?.amount || 0),
                   currency: m.node.rateProvider.price?.currencyCode || 'EUR'
                 }))
-                .filter(m => m.price >= 0) // Filter out invalid prices
-                .sort((a, b) => a.price - b.price); // Sort by price (lowest first)
+                .filter(m => m.price >= 0); // Filter out invalid prices
 
               if (methods.length > 0) {
-                // Store standard (lowest) and express (highest) rates
+                // Look for "standard" rate by name (case-insensitive)
+                const standardRate = methods.find(m => 
+                  m.name.toLowerCase().includes('standard')
+                );
+                
+                // If "standard" rate found, use it; otherwise use lowest rate
+                const standardPrice = standardRate 
+                  ? standardRate.price.toFixed(2)
+                  : methods.sort((a, b) => a.price - b.price)[0].price.toFixed(2);
+                
+                const standardCurrency = standardRate 
+                  ? standardRate.currency
+                  : methods.sort((a, b) => a.price - b.price)[0].currency;
+                
+                // Find express rate (highest price, or one with "express" in name)
+                const expressRate = methods.find(m => 
+                  m.name.toLowerCase().includes('express')
+                );
+                const sortedByPrice = methods.sort((a, b) => a.price - b.price);
+                const expressPrice = expressRate
+                  ? expressRate.price.toFixed(2)
+                  : sortedByPrice[sortedByPrice.length - 1]?.price.toFixed(2) || standardPrice;
+
                 ratesByMarket[countryCode] = {
-                  standard: methods[0].price.toFixed(2), // Lowest rate
-                  express: methods[methods.length - 1]?.price.toFixed(2) || methods[0].price.toFixed(2), // Highest rate
-                  currency: methods[0].currency,
-                  allRates: methods // Store all rates for reference
+                  standard: standardPrice,
+                  express: expressPrice,
+                  currency: standardCurrency,
+                  hasActualRates: true, // Flag to indicate these are actual Shopify rates, not estimates
+                  allRates: methods, // Store all rates for reference
+                  lastUpdated: new Date().toISOString() // Track when rates were last synced
                 };
               }
             });
@@ -218,19 +241,32 @@ async function buildMarketsObjectForWebhook(productId, marketsArray, shippingRat
   for (const market of marketsArray) {
     const marketData = await fetchProductMarketData(productId, market);
     
-    // Get shipping estimate: prefer Admin API rates, fallback to market config
-    let shippingEstimate = '0.00';
+    // Get shipping rate: prefer actual Shopify rates, fallback to market config estimate
+    let shippingRate = null;
+    let isEstimate = true;
+    
     if (shippingRates && shippingRates[market]) {
-      shippingEstimate = shippingRates[market].standard;
+      // Use actual Shopify rate if available
+      shippingRate = shippingRates[market].standard;
+      isEstimate = !shippingRates[market].hasActualRates; // Use flag to determine if it's an estimate
     } else {
+      // Fallback to market config estimate
       const marketConfig = getMarketConfig(market);
-      shippingEstimate = marketConfig.shippingEstimate || '0.00';
+      shippingRate = marketConfig.shippingEstimate || '0.00';
+      isEstimate = true;
     }
+    
+    // Get delivery estimate from market config
+    const marketConfig = getMarketConfig(market);
+    const deliveryEstimateDays = marketConfig.deliveryEstimateDays || '7-10';
     
     if (marketData) {
       marketsObject[market] = {
         ...marketData,
-        shippingEstimate: shippingEstimate
+        shippingRate: shippingRate, // Actual rate or estimate
+        shippingEstimate: shippingRate, // Keep for backward compatibility
+        isShippingEstimate: isEstimate, // Flag to indicate if it's an estimate
+        deliveryEstimateDays: deliveryEstimateDays // Delivery time estimate (e.g., "7-10")
       };
     } else {
       // Fallback: assume available if we can't fetch data
@@ -238,7 +274,10 @@ async function buildMarketsObjectForWebhook(productId, marketsArray, shippingRat
         available: true,
         price: '0.00',
         currency: 'EUR',
-        shippingEstimate: shippingEstimate
+        shippingRate: shippingRate,
+        shippingEstimate: shippingRate, // Keep for backward compatibility
+        isShippingEstimate: isEstimate,
+        deliveryEstimateDays: deliveryEstimateDays
       };
     }
   }

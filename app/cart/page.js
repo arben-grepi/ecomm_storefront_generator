@@ -14,9 +14,11 @@ import { getFirebaseDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 // Format price based on market currency
-const formatPrice = (value, market = 'FI') => {
-  const currency = market === 'FI' || market === 'DE' ? 'EUR' : 'USD';
-  const locale = market === 'FI' ? 'fi-FI' : market === 'DE' ? 'de-DE' : 'en-US';
+import { getMarketCurrency, getMarketLocale } from '@/lib/market-utils';
+
+const formatPrice = (value, market = 'DE') => {
+  const currency = getMarketCurrency(market);
+  const locale = getMarketLocale(market);
   const formatter = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency,

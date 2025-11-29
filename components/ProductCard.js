@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getMarket } from '@/lib/get-market';
 import { useStorefront } from '@/lib/storefront-context';
+import { isEUMarket } from '@/lib/market-utils';
 
 const categoryLabels = {
   lingerie: 'Lingerie',
@@ -18,7 +19,7 @@ function ProductCard({ product, categorySlug }) {
   const categoryLabel = categoryLabels[product.category] ?? 'Collection';
   // Cache market value to avoid parsing cookies on every render
   const market = useMemo(() => getMarket(), []);
-  const isEUMarket = market === 'FI' || market === 'DE';
+  const isEU = isEUMarket(market);
   const storefront = useStorefront();
   const [isNavigating, setIsNavigating] = useState(false);
 
@@ -77,7 +78,7 @@ function ProductCard({ product, categorySlug }) {
           <p className="text-base font-semibold text-primary sm:text-lg">
             €{product.price.toFixed(2)}
           </p>
-          {isEUMarket && (
+          {isEU && (
             <p className="text-xs text-slate-500 mt-0.5">
               Includes VAT
             </p>

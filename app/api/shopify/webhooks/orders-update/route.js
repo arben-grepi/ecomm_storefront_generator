@@ -96,7 +96,7 @@ function transformShopifyOrder(shopifyOrder) {
     (attr) => attr.name === '_market' || attr.name === 'storefront_market'
   )?.value;
   const marketFromCountry = shopifyOrder.shipping_address?.country_code?.toUpperCase();
-  const market = marketFromAttributes || marketFromCountry || 'FI'; // Default to FI if not found
+  const market = marketFromAttributes || marketFromCountry || 'DE'; // Default to DE if not found
   
   console.log(`[Order Webhook] Updating order ${shopifyOrder.id} - Market: ${market} (from attributes: ${marketFromAttributes || 'none'}, from country: ${marketFromCountry || 'none'})`);
 
@@ -139,7 +139,7 @@ async function updateOrderInFirestore(db, shopifyOrder) {
   // Extract market from note_attributes (set via customAttributes in checkoutCreate)
   const market = shopifyOrder.note_attributes?.find(
     (attr) => attr.name === '_market' || attr.name === 'storefront_market'
-  )?.value || shopifyOrder.shipping_address?.country_code?.toUpperCase() || 'FI'; // Default to FI if not found
+  )?.value || shopifyOrder.shipping_address?.country_code?.toUpperCase() || 'DE'; // Default to DE if not found
   
   // Save to storefront-specific orders collection
   // Path: {storefront}/orders/items/{orderId}

@@ -11,11 +11,15 @@ import { getMarket } from '@/lib/get-market';
 import { getStorefrontTheme } from '@/lib/storefront-logos';
 
 // Format price based on market (EUR for EU markets)
-const formatPrice = (value, market = 'FI') => {
-  const isEUMarket = market === 'FI' || market === 'DE';
-  const currencyFormatter = new Intl.NumberFormat(isEUMarket ? 'fi-FI' : 'en-US', {
+import { isEUMarket, getMarketLocale, getMarketCurrency } from '@/lib/market-utils';
+
+const formatPrice = (value, market = 'DE') => {
+  const isEU = isEUMarket(market);
+  const locale = getMarketLocale(market);
+  const currency = getMarketCurrency(market);
+  const currencyFormatter = new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: isEUMarket ? 'EUR' : 'USD',
+    currency: currency,
   });
   return currencyFormatter.format(value ?? 0);
 };
@@ -81,7 +85,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
   const hasVariants = Array.isArray(variants) && variants.length > 0;
   // Cache market value to avoid parsing cookies on every render
   const market = useMemo(() => getMarket(), []);
-  const isEUMarket = market === 'FI' || market === 'DE';
+  const isEU = isEUMarket(market);
   
   // Use info from server (for SEO), with empty strings as fallback
   const siteInfo = info || {
@@ -581,7 +585,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                     </span>
                   )}
                 </div>
-                {isEUMarket && (
+                {isEU && (
                   <p className="text-sm text-slate-500">
                     Includes VAT
                   </p>
