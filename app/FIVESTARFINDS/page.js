@@ -43,7 +43,6 @@ export default async function Home() {
     console.log(`[SSR]    - Info: ${info ? '✅' : '❌'}`);
     console.log(`[SSR] ⏱️  Total SSR time: ${pageDuration}ms`);
     console.log(`[SSR] 📤 Sending data to client component...`);
-    console.log(`[SSR] 📤 Sending data to client component...`);
   } catch (error) {
     // Only fallback in development - in production (Firebase Hosting), credentials should always be available
     // If this fails in production, it's a configuration issue that should be fixed

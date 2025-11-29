@@ -59,8 +59,6 @@ env:
     secret: SHOPIFY_STORE_DOMAIN
   - variable: SHOPIFY_WEBHOOK_SECRET
     secret: SHOPIFY_WEBHOOK_SECRET
-  - variable: GH_WEBHOOK_SECRET
-    secret: GH_WEBHOOK_SECRET
 
 # GitHub integration (configure in Firebase Console)
 # This will automatically build and deploy on push to master
