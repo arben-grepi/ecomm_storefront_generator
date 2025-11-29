@@ -54,8 +54,9 @@ yarn-error.log*
 # firebase CLI cache
 .firebase
 
-# Firebase App Hosting config (managed in Firebase Console)
-apphosting.yaml
+# Firebase App Hosting config
+# Note: apphosting.yaml should be committed to git so Firebase App Hosting can use it
+# apphosting.yaml
 
 # Google Cloud Secret Manager secrets (managed in Google Cloud Console)
 secrets/*

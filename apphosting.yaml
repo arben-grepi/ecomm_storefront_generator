@@ -1,0 +1,68 @@
+# Firebase App Hosting configuration
+# https://firebase.google.com/docs/app-hosting
+
+# Runtime configuration
+# https://firebase.google.com/docs/app-hosting/configure#runtime-configuration
+run:
+  # Build command - runs during deployment
+  buildCommand: npm ci && npm run build
+  
+  # Start command - runs when the app starts
+  startCommand: npm start
+  
+  # Node.js runtime version
+  runtime: nodejs20
+
+# Environment variables and secrets
+# https://firebase.google.com/docs/app-hosting/configure#environment-variables
+# All values are referenced from Google Cloud Secret Manager
+# Secrets must be created in Google Cloud Secret Manager before deployment
+# See scripts/create-secrets-from-env.sh for creating secrets
+env:
+  # Client-side Firebase config (NEXT_PUBLIC_* prefix makes them available in client bundle)
+  # Note: Firebase App Hosting also provides FIREBASE_WEBAPP_CONFIG, but that's server-side only
+  # We need NEXT_PUBLIC_* variables for client-side Firebase initialization
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    secret: NEXT_PUBLIC_FIREBASE_API_KEY
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    secret: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    secret: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    secret: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    secret: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    secret: NEXT_PUBLIC_FIREBASE_APP_ID
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    secret: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+  
+  # Server-side Firebase Admin SDK secrets (OPTIONAL)
+  # Firebase App Hosting automatically provides Application Default Credentials (ADC)
+  # These are only needed for local development or if ADC doesn't work
+  # Uncomment if you need explicit credentials:
+  # - variable: FIREBASE_PROJECT_ID
+  #   secret: FIREBASE_PROJECT_ID
+  # - variable: FIREBASE_CLIENT_EMAIL
+  #   secret: FIREBASE_CLIENT_EMAIL
+  # - variable: FIREBASE_PRIVATE_KEY
+  #   secret: FIREBASE_PRIVATE_KEY
+  
+  # Shopify secrets (from Secret Manager)
+  - variable: SHOPIFY_STORE_URL
+    secret: SHOPIFY_STORE_URL
+  - variable: SHOPIFY_ACCESS_TOKEN
+    secret: SHOPIFY_ACCESS_TOKEN
+  - variable: SHOPIFY_STOREFRONT_ACCESS_TOKEN
+    secret: SHOPIFY_STOREFRONT_ACCESS_TOKEN
+  - variable: SHOPIFY_STORE_DOMAIN
+    secret: SHOPIFY_STORE_DOMAIN
+  - variable: SHOPIFY_WEBHOOK_SECRET
+    secret: SHOPIFY_WEBHOOK_SECRET
+  - variable: GH_WEBHOOK_SECRET
+    secret: GH_WEBHOOK_SECRET
+
+# GitHub integration (configure in Firebase Console)
+# This will automatically build and deploy on push to master
+# and create preview channels for pull requests
+
