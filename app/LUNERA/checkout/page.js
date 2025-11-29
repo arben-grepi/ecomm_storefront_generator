@@ -24,7 +24,7 @@ export default function CheckoutPage() {
   const [error, setError] = useState(null);
   
   // Form state - Simplified: Only collect Country, City, Street Address for shipping validation
-  // Email, name, phone will be collected on Shopify's checkout page
+  // Email, name, phone will be collected on Shopify's checkout page. (Triggering build)
   const [shippingAddress, setShippingAddress] = useState({
     address1: '', // Street address
     city: '',
