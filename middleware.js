@@ -44,11 +44,9 @@ function getClientIP(request) {
  * @returns {Promise<string|null>} Country code (2 letters) or null if detection fails
  */
 async function getCountryFromIP(ip, isDevelopment = false) {
-  // In development, default to 'DE' (Germany) for testing (can be overridden via env var)
+  // In development, default to 'DE' for testing (can be overridden via env var)
   if (isDevelopment && (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.'))) {
-    const devCountry = process.env.NEXT_PUBLIC_DEV_COUNTRY || 'DE';
-    console.log(`[MIDDLEWARE] 🧪 Development mode - using default country: ${devCountry} (set NEXT_PUBLIC_DEV_COUNTRY to override)`);
-    return devCountry;
+    return process.env.NEXT_PUBLIC_DEV_COUNTRY || 'DE';
   }
   
   // Skip localhost/private IPs in production (shouldn't happen, but safety check)
@@ -62,7 +60,6 @@ async function getCountryFromIP(ip, isDevelopment = false) {
       headers: {
         'User-Agent': 'Next.js-Middleware/1.0',
       },
-      // Add timeout to avoid hanging
       signal: AbortSignal.timeout(2000), // 2 second timeout
     });
     
@@ -89,7 +86,7 @@ async function getCountryFromIP(ip, isDevelopment = false) {
         }
       }
     } catch (fallbackError) {
-      console.warn(`[MIDDLEWARE] ⚠️  Both IP geolocation APIs failed: ${error.message}, ${fallbackError.message}`);
+      // Silently fail - will use fallback country
     }
   }
   
@@ -102,15 +99,8 @@ export async function middleware(request) {
   const middlewareStartTime = Date.now();
   const { pathname } = request.nextUrl;
   
-  // 🔍 DEBUG: Log all request details
-  console.log(`\n[MIDDLEWARE] ========================================`);
-  console.log(`[MIDDLEWARE] 🚦 Request received`);
-  console.log(`[MIDDLEWARE] 📍 Path: ${pathname}`);
-  console.log(`[MIDDLEWARE] 🌐 URL: ${request.nextUrl.href}`);
-  // Only log cookie names (not values) to avoid exposing session tokens
+  // Minimal logging - only essential information
   const cookieNames = request.cookies.getAll().map(c => c.name).join(', ') || 'none';
-  console.log(`[MIDDLEWARE] 🍪 Cookie names: ${cookieNames}`);
-  console.log(`[MIDDLEWARE] 🌍 Geo:`, request.geo || 'none');
   
   // Skip middleware for API routes, static files, admin routes, and unavailable page
   if (
@@ -120,9 +110,6 @@ export async function middleware(request) {
     pathname.startsWith('/admin') ||
     pathname.includes('.')
   ) {
-    const duration = Date.now() - middlewareStartTime;
-    console.log(`[MIDDLEWARE] ⏭️  Skipping middleware (excluded path) - ${duration}ms`);
-    console.log(`[MIDDLEWARE] ========================================\n`);
     return NextResponse.next();
   }
 
@@ -138,86 +125,63 @@ export async function middleware(request) {
     // On cart page, preserve the existing storefront cookie (don't change it)
     const existingStorefront = request.cookies.get('storefront')?.value;
     storefront = existingStorefront || 'LUNERA';
-    console.log(`[MIDDLEWARE] 🛒 Cart page detected - preserving storefront: ${storefront}`);
   } else if (segments.length > 0 && !excludedSegments.includes(segments[0].toLowerCase())) {
     storefront = segments[0].toUpperCase();
-    console.log(`[MIDDLEWARE] 📍 Storefront detected from URL: ${storefront}`);
   } else {
     // For other excluded paths, use existing cookie or default
     const existingStorefront = request.cookies.get('storefront')?.value;
     storefront = existingStorefront || 'LUNERA';
-    console.log(`[MIDDLEWARE] 📍 Using existing storefront cookie or default: ${storefront}`);
-  }
-  
-  console.log(`[MIDDLEWARE] ✅ Final storefront: ${storefront}`); 
+  } 
 
   // Check if market is already set in cookie (memoization - skip detection if already set)
   const existingMarket = request.cookies.get('market')?.value;
-  const existingStorefrontCookie = request.cookies.get('storefront')?.value;
-  console.log(`[MIDDLEWARE] 🍪 Existing cookies - Market: ${existingMarket || 'none'}, Storefront: ${existingStorefrontCookie || 'none'}`);
-  
   let country = existingMarket; // Use existing market if available
   let shouldSetMarketCookie = false;
   
   // Only detect country if market cookie doesn't exist or is invalid
   if (!country || !SUPPORTED_MARKETS.includes(country)) {
-    console.log(`[MIDDLEWARE] 🌍 Market cookie missing or invalid (${country || 'none'}), detecting from IP...`);
-    
     // Try method 1: Next.js/Vercel Edge Runtime geo (works on Vercel directly, not Firebase App Hosting)
     let geoCountry = request.geo?.country;
+    let geoSource = null;
     
     // Try method 2: External IP geolocation API (works on Firebase App Hosting and when request.geo fails)
     if (!geoCountry) {
-      console.log(`[MIDDLEWARE] 🔍 request.geo not available (${request.geo ? 'object exists but no country' : 'undefined'}), trying external IP geolocation API...`);
-      
       const clientIP = getClientIP(request);
       const isDevelopment = process.env.NODE_ENV === 'development';
       
-      console.log(`[MIDDLEWARE] 🔍 Extracted client IP: ${clientIP || 'null'} (isDevelopment: ${isDevelopment})`);
-      
       if (clientIP) {
-        console.log(`[MIDDLEWARE] 🔍 Calling external IP geolocation API for IP: ${clientIP}...`);
         geoCountry = await getCountryFromIP(clientIP, isDevelopment);
-        if (geoCountry) {
-          console.log(`[MIDDLEWARE] ✅ External API detected country: ${geoCountry}`);
-        } else {
-          console.warn(`[MIDDLEWARE] ⚠️  External IP geolocation API failed for IP: ${clientIP} - will use fallback`);
+        geoSource = geoCountry ? 'external API' : null;
+        if (!geoCountry) {
+          console.warn(`[MIDDLEWARE] ⚠️  Geo-location API failed, using fallback: DE`);
         }
+      } else if (isDevelopment) {
+        // In development, use dev fallback
+        geoCountry = await getCountryFromIP(null, isDevelopment);
+        geoSource = geoCountry ? 'development fallback' : null;
       } else {
-        // In development, still try with null IP to get the dev fallback
-        if (isDevelopment) {
-          console.log(`[MIDDLEWARE] 🧪 Development mode - no client IP, using development fallback...`);
-          geoCountry = await getCountryFromIP(null, isDevelopment);
-          if (geoCountry) {
-            console.log(`[MIDDLEWARE] ✅ Development mode - using default country: ${geoCountry}`);
-          }
-        } else {
-          console.warn(`[MIDDLEWARE] ⚠️  Could not extract client IP address from headers - will use fallback`);
-        }
+        console.warn(`[MIDDLEWARE] ⚠️  Could not extract client IP, using fallback: DE`);
       }
     } else {
-      console.log(`[MIDDLEWARE] ✅ request.geo detected country: ${geoCountry}`);
+      geoSource = 'request.geo';
     }
     
     // Use detected country or fallback to 'DE' (Germany) if all methods fail
     country = geoCountry || 'DE';
     shouldSetMarketCookie = true; // Set cookie with detected country (or fallback)
-    console.log(`[MIDDLEWARE] 🌍 Final detected country: ${geoCountry || 'none'} (using: ${country})`);
+    
+    // Log successful geo-location detection
+    if (geoCountry && geoSource) {
+      console.log(`[MIDDLEWARE] ✅ Geo-location successful: ${geoCountry} (from ${geoSource})`);
+    }
     
     // Check if market is supported
     if (!SUPPORTED_MARKETS.includes(country)) {
-      console.log(`[MIDDLEWARE] ❌ Unsupported country detected: ${country}, redirecting to /unavailable`);
       const url = request.nextUrl.clone();
       url.pathname = '/unavailable';
       url.searchParams.set('country', country);
-      
-      const duration = Date.now() - middlewareStartTime;
-      console.log(`[MIDDLEWARE] 🔀 Redirecting to /unavailable (${duration}ms)`);
-      console.log(`[MIDDLEWARE] ========================================\n`);
       return NextResponse.redirect(url);
     }
-  } else {
-    console.log(`[MIDDLEWARE] ✅ Using existing market cookie: ${country}`);
   }
   
   // Set cookies (only if needed)
@@ -225,36 +189,25 @@ export async function middleware(request) {
   
   // Set market cookie (only if we detected it and it's not already set)
   if (shouldSetMarketCookie) {
-    console.log(`[MIDDLEWARE] 🍪 Setting market cookie: ${country} (30 days)`);
     response.cookies.set('market', country, {
       maxAge: 60 * 60 * 24 * 30, // 30 days
       path: '/',
       sameSite: 'lax'
     });
-  } else {
-    console.log(`[MIDDLEWARE] 🍪 Market cookie already set, skipping`);
   }
   
   // Set storefront cookie (only if it changed or doesn't exist, and we're not on cart page)
   // On cart page, we preserve the existing cookie and don't update it
   if (pathname !== '/cart' && !pathname.startsWith('/cart/')) {
+    const existingStorefrontCookie = request.cookies.get('storefront')?.value;
     if (existingStorefrontCookie !== storefront) {
-      console.log(`[MIDDLEWARE] 🍪 Setting storefront cookie: ${storefront} (was: ${existingStorefrontCookie || 'none'}, 30 days)`);
       response.cookies.set('storefront', storefront, {
         maxAge: 60 * 60 * 24 * 30, // 30 days
         path: '/',
         sameSite: 'lax'
       });
-    } else {
-      console.log(`[MIDDLEWARE] 🍪 Storefront cookie already set (${storefront}), skipping`);
     }
-  } else {
-    console.log(`[MIDDLEWARE] 🍪 Cart page - preserving existing storefront cookie (${storefront})`);
   }
-  
-  const duration = Date.now() - middlewareStartTime;
-  console.log(`[MIDDLEWARE] ✅ Middleware complete - Market: ${country}, Storefront: ${storefront} (${duration}ms)`);
-  console.log(`[MIDDLEWARE] ========================================\n`);
   
   return response;
 }
