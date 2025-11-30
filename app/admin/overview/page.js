@@ -33,6 +33,8 @@ function EcommerceOverviewContent() {
   const { selectedWebsite, availableWebsites, loading: websitesLoading } = useWebsite();
   const [loading, setLoading] = useState(true);
   const [selectedShopifyItem, setSelectedShopifyItem] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importStatus, setImportStatus] = useState(null);
   const LOW_STOCK_THRESHOLD = 10; // Fixed threshold
   const [datasets, setDatasets] = useState({
     products: [],
@@ -392,6 +394,48 @@ function EcommerceOverviewContent() {
     }
   };
 
+  const handleImportProducts = async () => {
+    if (importing) return;
+    
+    setImporting(true);
+    setImportStatus({ type: 'info', message: 'Starting import from Shopify...' });
+    
+    try {
+      const response = await fetch('/api/admin/import-shopify-products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setImportStatus({ 
+          type: 'success', 
+          message: data.message || 'Import triggered successfully. Products will be imported from Shopify.' 
+        });
+        // Reload data after a short delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 2000);
+      } else {
+        setImportStatus({ 
+          type: 'error', 
+          message: data.error || 'Failed to trigger import' 
+        });
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      setImportStatus({ 
+        type: 'error', 
+        message: 'Failed to trigger import. Please check server logs or run the script manually.' 
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-50 via-white to-zinc-100 text-zinc-900 transition-colors dark:from-black dark:via-zinc-950 dark:to-black dark:text-zinc-100">
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 py-12 sm:px-10">
@@ -566,6 +610,41 @@ function EcommerceOverviewContent() {
                   </span>
                 </Link>
               ))}
+              
+              {/* Import Products Button */}
+              <button
+                onClick={handleImportProducts}
+                disabled={importing}
+                className="group flex h-full flex-col justify-between rounded-2xl border border-zinc-200/70 px-4 py-5 transition hover:border-emerald-200 hover:bg-emerald-50/60 disabled:opacity-50 disabled:cursor-not-allowed dark:border-zinc-800/70 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/10"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Import from Shopify
+                  </p>
+                  <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    {importing ? 'Importing products...' : 'Fetch and import products from Shopify store.'}
+                  </p>
+                  {importStatus && (
+                    <p className={`mt-2 text-xs ${
+                      importStatus.type === 'success' 
+                        ? 'text-emerald-600 dark:text-emerald-400' 
+                        : importStatus.type === 'error'
+                        ? 'text-rose-600 dark:text-rose-400'
+                        : 'text-blue-600 dark:text-blue-400'
+                    }`}>
+                      {importStatus.message}
+                    </p>
+                  )}
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 transition group-hover:translate-x-1 dark:text-emerald-400">
+                  {importing ? 'Importing...' : 'Import'}
+                  {!importing && (
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                  )}
+                </span>
+              </button>
             </div>
           </div>
 
