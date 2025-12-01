@@ -38,8 +38,11 @@ export default function CookieConsent() {
 
   useEffect(() => {
     // Check if user has already given consent
+    // Check both localStorage and cookies for more robust detection
     const consent = localStorage.getItem(COOKIE_CONSENT_KEY);
-    if (!consent) {
+    const cookieConsent = document.cookie.split(';').some(cookie => cookie.trim().startsWith(`${COOKIE_CONSENT_KEY}=`));
+    
+    if (!consent && !cookieConsent) {
       // Load saved preferences if they exist
       const savedPrefs = localStorage.getItem(COOKIE_PREFERENCES_KEY);
       if (savedPrefs) {
@@ -74,6 +77,12 @@ export default function CookieConsent() {
   const saveConsent = (prefs) => {
     localStorage.setItem(COOKIE_CONSENT_KEY, 'true');
     localStorage.setItem(COOKIE_PREFERENCES_KEY, JSON.stringify(prefs));
+    
+    // Also set a cookie for server-side detection
+    const expiryDate = new Date();
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1); // 1 year expiry
+    document.cookie = `${COOKIE_CONSENT_KEY}=true; expires=${expiryDate.toUTCString()}; path=/; SameSite=Lax`;
+    
     setIsVisible(false);
     
     // Apply cookie preferences
@@ -107,95 +116,105 @@ export default function CookieConsent() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 shadow-2xl">
-      <div className="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex-1">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">
-              Cookie Preferences
-            </h3>
-            <p className="text-sm text-gray-600">
-              We use cookies to enhance your experience. Essential cookies (location and storefront) are required for the site to work.
-              {!showDetails && (
-                <button
-                  onClick={() => setShowDetails(true)}
-                  className="ml-1 text-primary hover:underline"
-                >
-                  Learn more
-                </button>
-              )}
-            </p>
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t-2 border-gray-300 shadow-2xl">
+      <div className="max-w-7xl mx-auto px-6 py-6 sm:px-8 lg:px-10">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="flex items-start gap-4 flex-1 w-full lg:w-auto">
+            {/* Blerinas Logo */}
+            <div className="flex-shrink-0">
+              <img
+                src="/Blerinas/Blerinas-logo-transparent2.png"
+                alt="Blerinas Logo"
+                className="h-12 w-auto object-contain"
+              />
+            </div>
             
-            {showDetails && (
-              <div className="mt-4 space-y-3">
-                {Object.entries(COOKIE_CATEGORIES).map(([key, category]) => (
-                  <div key={key} className="border border-gray-200 rounded-lg p-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-medium text-gray-900">
-                            {category.name}
-                            {category.required && (
-                              <span className="ml-2 text-xs text-gray-500">(Required)</span>
-                            )}
-                          </h4>
+            <div className="flex-1">
+              <h3 className="text-base font-semibold text-gray-900 mb-2">
+                Cookie Preferences
+              </h3>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                We use cookies to enhance your experience. Essential cookies (location and storefront) are required for the site to work.
+                {!showDetails && (
+                  <button
+                    onClick={() => setShowDetails(true)}
+                    className="ml-1 text-primary hover:underline font-medium"
+                  >
+                    Learn more
+                  </button>
+                )}
+              </p>
+            
+              {showDetails && (
+                <div className="mt-5 space-y-4">
+                  {Object.entries(COOKIE_CATEGORIES).map(([key, category]) => (
+                    <div key={key} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-semibold text-gray-900">
+                              {category.name}
+                              {category.required && (
+                                <span className="ml-2 text-xs text-gray-500 font-normal">(Required)</span>
+                              )}
+                            </h4>
+                          </div>
+                          <p className="text-xs text-gray-700 mt-2 leading-relaxed">{category.description}</p>
+                          <p className="text-xs text-gray-600 mt-2">
+                            Cookies: {category.cookies.join(', ')}
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-600 mt-1">{category.description}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Cookies: {category.cookies.join(', ')}
-                        </p>
+                        {!category.required && (
+                          <label className="relative inline-flex items-center cursor-pointer ml-4 flex-shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={preferences[key]}
+                              onChange={() => togglePreference(key)}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                          </label>
+                        )}
                       </div>
-                      {!category.required && (
-                        <label className="relative inline-flex items-center cursor-pointer ml-4">
-                          <input
-                            type="checkbox"
-                            checked={preferences[key]}
-                            onChange={() => togglePreference(key)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
-                      )}
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
-            {showDetails ? (
-              <>
-                <button
-                  onClick={handleSavePreferences}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-                >
-                  Save Preferences
-                </button>
-                <button
-                  onClick={() => setShowDetails(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={handleAcceptMinimal}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-                >
-                  Accept Essential Only
-                </button>
-                <button
-                  onClick={handleAcceptAll}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-medium"
-                >
-                  Accept All
-                </button>
-              </>
-            )}
-          </div>
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 w-full sm:w-auto flex-shrink-0">
+          {showDetails ? (
+            <>
+              <button
+                onClick={handleSavePreferences}
+                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold"
+              >
+                Save Preferences
+              </button>
+              <button
+                onClick={() => setShowDetails(false)}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-semibold"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleAcceptMinimal}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-semibold"
+              >
+                Accept Essential Only
+              </button>
+              <button
+                onClick={handleAcceptAll}
+                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold"
+              >
+                Accept All
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
