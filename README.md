@@ -15,8 +15,9 @@ This platform is designed for managing multiple e-commerce storefronts that sour
 - **Market Management**: Manage different products for different markets (e.g., Finland, Germany) with market-specific pricing and availability
 - **Country-Based Routing**: Products are automatically filtered and displayed based on the user's country/market detected from their IP address
 - **Payment & Checkout**: Integrated with Shopify's checkout system, leveraging Shopify's outstanding payment processing and global order tracking services
-- **Editable Content**: Essential website text can be altered from the admin overview without code changes
+- **Editable Content**: Essential website text can be altered from the admin overview without code changes. All content is rendered on the server before being sent as fully formed HTML to the client, ensuring optimal web crawler indexing and search engine optimization
 - **Real-Time Sync**: Webhooks synchronize Shopify backend information (shipping prices, stock levels, product updates) with the Next.js app in real-time
+- **Smart Server-Side Rendering (SSR)**: The application uses SSR strategically to ensure all product content, descriptions, and metadata are fully rendered as HTML on the server before delivery. This makes the content highly search-optimizable, as search engine crawlers can index all product information without executing JavaScript, significantly improving SEO rankings and discoverability
 
 ## Architecture
 
@@ -68,6 +69,15 @@ The admin dashboard provides comprehensive management capabilities:
 ## Webhook Integration
 
 The platform uses Shopify webhooks to maintain real-time synchronization between Shopify and the Next.js application. Webhooks automatically update product data, inventory levels, prices, shipping rates, and order information whenever changes occur in Shopify, ensuring the storefronts always display current information without manual intervention.
+
+## Production Website
+
+The production website is currently live and under continuous development:
+
+- **FIVESTARFINDS Storefront**: [https://blerinas.com/FIVESTARFINDS](https://blerinas.com/FIVESTARFINDS)
+- **LUNERA Storefront**: [https://blerinas.com/LUNERA](https://blerinas.com/LUNERA)
+- **Status**: Under construction and being developed continuously
+- **Current Status**: We currently have 2 storefronts. Products are only available in FIVESTARFINDS at this time.
 
 ## Current Development
 
