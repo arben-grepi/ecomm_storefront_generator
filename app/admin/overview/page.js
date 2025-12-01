@@ -9,6 +9,8 @@ import { getCollectionPath, getDocumentPath } from '@/lib/store-collections';
 import { useWebsite } from '@/lib/website-context';
 import EditSiteInfoButton from '@/components/admin/EditSiteInfoButton';
 import ProductModal from '@/components/admin/ProductModal';
+import ImportProductsModal from '@/components/admin/ImportProductsModal';
+import ImportLogsModal from '@/components/admin/ImportLogsModal';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 
 const QUICK_ACTIONS = [
@@ -33,8 +35,12 @@ function EcommerceOverviewContent() {
   const { selectedWebsite, availableWebsites, loading: websitesLoading } = useWebsite();
   const [loading, setLoading] = useState(true);
   const [selectedShopifyItem, setSelectedShopifyItem] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [showLogsModal, setShowLogsModal] = useState(false);
+  const [importId, setImportId] = useState(null);
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState(null);
+  const [importCompleted, setImportCompleted] = useState(false);
   const LOW_STOCK_THRESHOLD = 10; // Fixed threshold
   const [datasets, setDatasets] = useState({
     products: [],
@@ -146,6 +152,37 @@ function EcommerceOverviewContent() {
       isMounted = false;
     };
   }, [db, selectedWebsite, availableWebsites]);
+
+  // Function to refresh shopifyItems (can be called after import)
+  const refreshShopifyItems = async () => {
+    if (!db) return;
+    
+    try {
+      const shopifySnap = await getDocs(collection(db, ...getCollectionPath('shopifyItems'))).catch((error) => {
+        console.warn('Failed to load shopifyItems:', error.message);
+        return { docs: [] };
+      });
+      const shopifyItems = shopifySnap.docs.map((doc) => {
+        const itemData = doc.data();
+        const createdAt =
+          typeof itemData.createdAt?.toMillis === 'function'
+            ? itemData.createdAt.toMillis()
+            : itemData.createdAt?.seconds
+            ? itemData.createdAt.seconds * 1000
+            : 0;
+        return {
+          id: doc.id,
+          ...itemData,
+          createdAt,
+          processedStorefronts: Array.isArray(itemData.processedStorefronts) ? itemData.processedStorefronts : [],
+          storefronts: Array.isArray(itemData.storefronts) ? itemData.storefronts : [],
+        };
+      });
+      setDatasets((prev) => ({ ...prev, shopifyItems }));
+    } catch (error) {
+      console.error('Failed to refresh shopifyItems:', error);
+    }
+  };
 
   useEffect(() => {
     setViewMode('selected');
@@ -394,7 +431,7 @@ function EcommerceOverviewContent() {
     }
   };
 
-  const handleImportProducts = async () => {
+  const handleImportProducts = async (selectedItems) => {
     if (importing) return;
     
     setImporting(true);
@@ -406,6 +443,12 @@ function EcommerceOverviewContent() {
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          selectedItems: selectedItems.map((item) => ({
+            productId: item.productId,
+            variantIds: item.variantIds,
+          })),
+        }),
       });
       
       const data = await response.json();
@@ -415,10 +458,40 @@ function EcommerceOverviewContent() {
           type: 'success', 
           message: data.message || 'Import triggered successfully. Products will be imported from Shopify.' 
         });
-        // Reload data after a short delay
-        setTimeout(() => {
-          window.location.reload();
-        }, 2000);
+        
+        // Show logs modal if importId is provided
+        if (data.importId) {
+          setImportId(data.importId);
+          setShowLogsModal(true);
+          setImportCompleted(false);
+          
+          // Poll for completion status
+          const pollCompletion = setInterval(async () => {
+            try {
+              const statusResponse = await fetch(`/api/admin/import-shopify-products?importId=${data.importId}`);
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                if (statusData.completed) {
+                  setImportCompleted(true);
+                  setImportStatus({ 
+                    type: 'success', 
+                    message: 'Import completed successfully!' 
+                  });
+                  clearInterval(pollCompletion);
+                  // Refresh shopifyItems after completion
+                  refreshShopifyItems();
+                }
+              }
+            } catch (error) {
+              console.error('Failed to check import status:', error);
+            }
+          }, 3000); // Poll every 3 seconds
+          
+          // Stop polling after 10 minutes
+          setTimeout(() => {
+            clearInterval(pollCompletion);
+          }, 10 * 60 * 1000);
+        }
       } else {
         setImportStatus({ 
           type: 'error', 
@@ -613,16 +686,19 @@ function EcommerceOverviewContent() {
               
               {/* Import Products Button */}
               <button
-                onClick={handleImportProducts}
+                onClick={() => {
+                  setShowImportModal(true);
+                  setImportCompleted(false);
+                }}
                 disabled={importing}
                 className="group flex h-full flex-col justify-between rounded-2xl border border-zinc-200/70 px-4 py-5 transition hover:border-emerald-200 hover:bg-emerald-50/60 disabled:opacity-50 disabled:cursor-not-allowed dark:border-zinc-800/70 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/10"
               >
                 <div>
                   <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    Import from Shopify
+                    {importCompleted ? 'Import Complete ✓' : 'Import from Shopify'}
                   </p>
                   <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                    {importing ? 'Importing products...' : 'Fetch and import products from Shopify store.'}
+                    Select and import products from Shopify store.
                   </p>
                   {importStatus && (
                     <p className={`mt-2 text-xs ${
@@ -632,17 +708,20 @@ function EcommerceOverviewContent() {
                         ? 'text-rose-600 dark:text-rose-400'
                         : 'text-blue-600 dark:text-blue-400'
                     }`}>
-                      {importStatus.message}
+                      {importCompleted ? 'Import completed successfully!' : importStatus.message}
+                    </p>
+                  )}
+                  {importCompleted && (
+                    <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">
+                      ✓ Ready to import more products
                     </p>
                   )}
                 </div>
                 <span className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 transition group-hover:translate-x-1 dark:text-emerald-400">
-                  {importing ? 'Importing...' : 'Import'}
-                  {!importing && (
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                  )}
+                  Select Products
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
                 </span>
               </button>
             </div>
@@ -704,6 +783,27 @@ function EcommerceOverviewContent() {
             // Reload data
             window.location.reload();
           }}
+        />
+      )}
+
+      {/* Import Products Modal */}
+      {showImportModal && (
+        <ImportProductsModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImport={handleImportProducts}
+        />
+      )}
+      
+      {showLogsModal && (
+        <ImportLogsModal
+          isOpen={showLogsModal}
+          onClose={() => {
+            setShowLogsModal(false);
+            // Refresh shopifyItems when closing logs modal
+            refreshShopifyItems();
+          }}
+          importId={importId}
         />
       )}
     </div>

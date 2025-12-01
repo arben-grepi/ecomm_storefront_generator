@@ -275,6 +275,7 @@ async function enrichProductWithInventory(storeUrl, accessToken, product) {
     : {};
 
   // Enrich variants with inventory data
+  // IMPORTANT: Preserve variant.title - this is used by ProductModal to extract variantName (e.g., "White / M / 1pc")
   const enrichedVariants = product.variants.map(variant => {
     const inventoryItemId = variant.inventory_item_id;
     
@@ -288,6 +289,7 @@ async function enrichProductWithInventory(storeUrl, accessToken, product) {
       
       return {
         ...variant,
+        title: variant.title, // PRESERVE: Used by ProductModal to extract variantName (e.g., "White / M / 1pc")
         inventory_levels: locationInventoryLevels, // Store location-specific inventory
         inventory_quantity: totalAvailable, // Keep for backward compatibility
         inventoryQuantity: totalAvailable, // Keep for backward compatibility
@@ -299,6 +301,7 @@ async function enrichProductWithInventory(storeUrl, accessToken, product) {
       // No inventory item ID or no inventory data found
       return {
         ...variant,
+        title: variant.title, // PRESERVE: Used by ProductModal to extract variantName (e.g., "White / M / 1pc")
         inventory_quantity: 0,
         inventoryQuantity: 0,
         inventory_levels: [],
@@ -908,6 +911,41 @@ async function updateStorefrontProducts(shopifyId, updateData) {
   return updatedCount;
 }
 
+/**
+ * Fetch specific products by ID from Shopify Admin API
+ */
+async function fetchProductsByIds(storeUrl, accessToken, productIds) {
+  const products = [];
+  
+  // Fetch products in parallel (Shopify allows this)
+  const fetchPromises = productIds.map(async (productId) => {
+    try {
+      const url = `https://${storeUrl}/admin/api/2025-10/products/${productId}.json`;
+      const response = await fetch(url, {
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.warn(`⚠️  Failed to fetch product ${productId}: ${response.status} ${response.statusText}`);
+        return null;
+      }
+      
+      const data = await response.json();
+      return data.product || null;
+    } catch (error) {
+      console.warn(`⚠️  Error fetching product ${productId}:`, error.message);
+      return null;
+    }
+  });
+  
+  const results = await Promise.all(fetchPromises);
+  return results.filter(Boolean); // Remove null results
+}
+
 async function fetchAllShopifyProducts(storeUrl, accessToken) {
   const products = [];
   let pageInfo = null;
@@ -950,8 +988,6 @@ async function fetchAllShopifyProducts(storeUrl, accessToken) {
         hasNextPage = false;
       }
       
-      console.log(`  • Fetched ${pageProducts.length} products (total: ${products.length})`);
-      
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
       console.error(`Error fetching products:`, error);
@@ -970,25 +1006,34 @@ async function importProducts() {
     throw new Error('Missing required environment variables: SHOPIFY_STORE_URL and SHOPIFY_ACCESS_TOKEN');
   }
   
-  console.log(`\n🛍️  Fetching products from Shopify store: ${storeUrl}`);
-  console.log('This may take a while depending on the number of products...\n');
+  // Check if specific products/variants were selected for import
+  let selectedItems = null;
+  if (process.env.SELECTED_SHOPIFY_ITEMS_JSON) {
+    try {
+      selectedItems = JSON.parse(process.env.SELECTED_SHOPIFY_ITEMS_JSON);
+      console.log(`📋 Importing ${selectedItems.length} selected product(s)`);
+    } catch (error) {
+      // Silent fail - proceed with full import
+    }
+  }
   
   // Fetch shipping rates once at the start (shared across all products)
-  console.log(`\n🚚 Fetching shipping rates from Shopify Admin API...`);
   const shippingRates = await fetchShippingRatesFromAdmin(storeUrl, accessToken);
   
-  if (shippingRates) {
-    console.log(`✅ Shipping rates fetched:`);
-    Object.entries(shippingRates).forEach(([country, rates]) => {
-      console.log(`  ${country}: Standard €${rates.standard}, Express €${rates.express}`);
-    });
+  // Fetch only selected products if specified, otherwise fetch all
+  let shopifyProducts = [];
+  if (selectedItems && selectedItems.length > 0) {
+    const selectedProductIds = selectedItems.map(item => item.productId?.toString());
+    console.log(`🛍️  Fetching ${selectedProductIds.length} selected product(s) from Shopify...`);
+    shopifyProducts = await fetchProductsByIds(storeUrl, accessToken, selectedProductIds);
+    console.log(`✅ Fetched ${shopifyProducts.length} product(s) from Shopify`);
   } else {
-    console.log(`  ⚠️  Could not fetch shipping rates, will use market config estimates`);
+    console.log(`🛍️  Fetching all products from Shopify...`);
+    shopifyProducts = await fetchAllShopifyProducts(storeUrl, accessToken);
+    console.log(`✅ Fetched ${shopifyProducts.length} products from Shopify`);
   }
-  console.log('');
   
-  const shopifyProducts = await fetchAllShopifyProducts(storeUrl, accessToken);
-  console.log(`\n✅ Fetched ${shopifyProducts.length} products from Shopify\n`);
+  const productsToImport = shopifyProducts;
   
   const shopifyCollection = db.collection('shopifyItems');
   let totalUpserted = 0;
@@ -996,7 +1041,24 @@ async function importProducts() {
   let matchedCount = 0;
   const unmatchedProducts = [];
   
-  for (const product of shopifyProducts) {
+  for (const product of productsToImport) {
+    // If specific variants were selected, filter them
+    const selectedItem = selectedItems?.find(item => item.productId?.toString() === product.id.toString());
+    const selectedVariantIds = selectedItem?.variantIds ? new Set(selectedItem.variantIds.map(id => id.toString())) : null;
+    
+    // Filter variants if specific ones were selected
+    if (selectedVariantIds && product.variants) {
+      const originalVariantCount = product.variants.length;
+      product.variants = product.variants.filter(variant => 
+        selectedVariantIds.has(variant.id.toString())
+      );
+      if (product.variants.length === 0) {
+        console.log(`  ⏭️  SKIPPING - No selected variants for product ${product.id}`);
+        totalSkipped += 1;
+        continue;
+      }
+      console.log(`  📦 Importing ${product.variants.length} selected variant(s) out of ${originalVariantCount} total`);
+    }
     const documentId = generateDocumentId(product);
     const docRef = shopifyCollection.doc(documentId);
     
@@ -1004,15 +1066,10 @@ async function importProducts() {
     const isExisting = existingDoc.exists;
     
     // Query markets and publication status for both new and existing products
-    console.log(`\n📋 Processing: ${product.title} (Shopify ID: ${product.id})`);
-    console.log(`  📍 Firestore Path: shopifyItems/${documentId}`);
-    
     const { markets, publishedToOnlineStore } = await getProductMarkets(storeUrl, accessToken, product.id);
     
     // Check Storefront API accessibility - REQUIRED for import
     // Only import products that are both published AND indexed in Storefront API
-    let storefrontAccessible = false;
-    let storefrontVariantsCount = 0;
     let storefrontIndexed = false;
     
     if (publishedToOnlineStore) {
@@ -1022,49 +1079,24 @@ async function importProducts() {
         if (graphqlModule?.checkProductStorefrontAccessibility) {
           const productGid = `gid://shopify/Product/${product.id}`;
           const accessibilityCheck = await graphqlModule.checkProductStorefrontAccessibility(productGid);
-          storefrontAccessible = accessibilityCheck.accessible || false;
-          storefrontVariantsCount = accessibilityCheck.variants?.length || 0;
           storefrontIndexed = accessibilityCheck.accessible || false;
         }
       } catch (error) {
-        console.warn(`  ⚠️  Failed to check Storefront API accessibility: ${error.message}`);
-        storefrontAccessible = false;
+        // Silent fail - assume not indexed
       }
     }
     
-    // Comprehensive logging
-    console.log(`  🌍 Market Assignment:`);
-    if (markets.length > 0) {
-      markets.forEach(market => {
-        const marketNames = { FI: 'Finland', DE: 'Germany' };
-        console.log(`    ✓ ${market} (${marketNames[market] || market})`);
-      });
-      console.log(`    ℹ️  Product will be visible in storefronts for these markets`);
-    } else {
-      console.log(`    ⚠️  No markets assigned - product will NOT appear in any storefront`);
-      console.log(`    💡 Tip: Assign markets in Shopify Admin → Markets → [Market] → Products`);
-    }
-    
-    console.log(`  📤 Publication Status:`);
-    console.log(`    Blerinas Catalog: ${publishedToOnlineStore ? '✅ Published' : '❌ Not Published'}`);
-    if (publishedToOnlineStore) {
-      if (storefrontIndexed) {
-        console.log(`    Storefront API Indexed: ✅ Yes (ready for import)`);
-        console.log(`    Accessible Variants: ${storefrontVariantsCount} variant(s) ready for checkout`);
-      } else {
-        console.log(`    Storefront API Indexed: ⏳ Not yet indexed`);
-        console.log(`    Accessible Variants: ${storefrontVariantsCount} variant(s) (still indexing)`);
-        console.log(`    ⏭️  SKIPPING IMPORT - Product not yet indexed in Storefront API`);
-        console.log(`    💡 Action: Wait 2-3 minutes after publishing, then re-run import script`);
-        totalSkipped += 1;
-        continue; // Skip this product - not ready for import
-      }
-    } else {
-      console.log(`    ⚠️  Product NOT published to Blerinas catalog`);
-      console.log(`    ⏭️  SKIPPING IMPORT - Product must be published before importing`);
-      console.log(`    💡 Action: Publish product in Shopify Admin → Products → [Product] → Sales channels → Blerinas`);
+    // Simplified logging - check if product is ready
+    if (!publishedToOnlineStore) {
+      console.log(`❌ "${product.title}" is not published (if you just published, wait 2-3 min)`);
       totalSkipped += 1;
-      continue; // Skip this product - not published
+      continue;
+    }
+    
+    if (!storefrontIndexed) {
+      console.log(`⏳ "${product.title}" is published but not yet indexed (wait 2-3 min after publishing)`);
+      totalSkipped += 1;
+      continue;
     }
     
     if (isExisting) {
@@ -1074,152 +1106,54 @@ async function importProducts() {
       // Only update if product is published AND indexed
       // Don't update if product becomes unindexed or unpublished
       if (!publishedToOnlineStore || !storefrontIndexed) {
-        console.log(`  ⏭️  SKIPPING UPDATE - Product exists but is not published/indexed`);
-        console.log(`    💡 Publish and wait 2-3 minutes, then re-run import to update`);
         totalSkipped += 1;
         continue;
       }
       
-      // Check if update is needed:
-      // 1. Missing markets/publication data
-      // 2. Markets changed
-      // 3. Publication status changed
-      // 4. Storefront indexed status changed
-      // 5. Prices or shipping rates may have changed (always update marketsObject to ensure latest data)
+      // Check if update is needed
       const needsUpdate = !existingData.markets || existingData.markets.length === 0 || 
                          existingData.publishedToOnlineStore === undefined ||
                          existingData.publishedToOnlineStore !== publishedToOnlineStore ||
                          (existingData.storefrontIndexed !== undefined && existingData.storefrontIndexed !== storefrontIndexed) ||
-                         !existingData.marketsObject || // Always update if marketsObject is missing
-                         JSON.stringify(existingData.markets || []) !== JSON.stringify(markets); // Markets changed
+                         !existingData.marketsObject ||
+                         JSON.stringify(existingData.markets || []) !== JSON.stringify(markets);
       
-      // Always update marketsObject to ensure prices and shipping rates are current
-      // This handles price changes, shipping rate changes, and availability changes
       const shouldUpdateMarketsObject = true; // Always update to get latest prices/shipping
       
       if (needsUpdate || shouldUpdateMarketsObject) {
-        const updateReason = needsUpdate ? 'market/publication data' : 'prices/shipping rates';
-        console.log(`  🔄 Updating existing product (${updateReason})...`);
-        
-        // Enrich with inventory data first (using batched GraphQL queries)
-        const inventoryItemCount = product.variants?.filter(v => v.inventory_item_id).length || 0;
-        if (inventoryItemCount > 0) {
-          console.log(`  📦 Updating inventory data for ${inventoryItemCount} item(s) via GraphQL batch query...`);
-        }
         const enrichedProduct = await enrichProductWithInventory(storeUrl, accessToken, product);
         const categorySlug = existingData.matchedCategorySlug || matchProductToCategory(enrichedProduct);
         const updatePayload = await buildShopifyDocument(enrichedProduct, categorySlug, markets, publishedToOnlineStore, storefrontIndexed, shippingRates);
         
-        // Merge update to preserve existing fields (like storefronts, processedStorefronts)
         await docRef.set({
           ...updatePayload,
-          storefrontIndexed: true, // Mark as indexed since we verified it before update
+          storefrontIndexed: true,
           slug: documentId,
           updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
         
-        // Update storefront products if they exist
-        const storefrontUpdates = await updateStorefrontProducts(product.id, updatePayload);
-        if (storefrontUpdates.length > 0) {
-          console.log(`  🔄 Updated ${storefrontUpdates.length} storefront product(s):`);
-          storefrontUpdates.forEach(({ storefront, productId }) => {
-            console.log(`    - ${storefront}/products/items/${productId}`);
-          });
-        }
-        
-        // Log import destination
-        console.log(`  📦 Import Destination:`);
-        console.log(`    Collection: shopifyItems`);
-        console.log(`    Document ID: ${documentId}`);
-        console.log(`    Matched Category: ${categorySlug || 'None (unmatched)'}`);
-        console.log(`    Storefront Indexed: ✅ ${storefrontIndexed ? 'Yes' : 'No'} (${storefrontVariantsCount} variants accessible)`);
-        console.log(`    Storefronts Array: ${existingData.storefronts?.length || 0} storefront(s)`);
-        if (existingData.storefronts && existingData.storefronts.length > 0) {
-          existingData.storefronts.forEach(sf => console.log(`      - ${sf}`));
-          console.log(`    ℹ️  This product has been processed and assigned to storefronts`);
-        } else {
-          console.log(`    ℹ️  Product not yet processed to storefronts (use ProductModal to assign)`);
-        }
-        
-        // Log what was updated
-        if (shouldUpdateMarketsObject && !needsUpdate) {
-          console.log(`  💰 Updated prices and shipping rates (marketsObject refreshed)`);
-          if (updatePayload.marketsObject) {
-            Object.entries(updatePayload.marketsObject).forEach(([market, data]) => {
-              const existingMarketData = existingData.marketsObject?.[market];
-              const priceChanged = existingMarketData?.price !== data.price;
-              const shippingChanged = existingMarketData?.shippingEstimate !== data.shippingEstimate;
-              if (priceChanged || shippingChanged) {
-                console.log(`    ${market}: ${priceChanged ? `Price: ${existingMarketData?.price || 'N/A'} → ${data.price}` : ''} ${shippingChanged ? `Shipping: ${existingMarketData?.shippingEstimate || 'N/A'} → ${data.shippingEstimate}` : ''}`);
-              }
-            });
-          }
-        }
-        
-        console.log(`  ✅ Updated and stored successfully`);
+        await updateStorefrontProducts(product.id, updatePayload);
+        console.log(`✅ Updated: "${product.title}"`);
         totalUpserted += 1;
       }
       continue;
     }
     
-    // Verify product is ready for import (published AND indexed)
-    if (!publishedToOnlineStore || !storefrontIndexed) {
-      console.log(`  ⏭️  SKIPPING IMPORT - Product not ready`);
-      if (!publishedToOnlineStore) {
-        console.log(`    ❌ Not published to Blerinas catalog`);
-      }
-      if (!storefrontIndexed) {
-        console.log(`    ⏳ Not yet indexed in Storefront API`);
-      }
-      console.log(`    💡 Action: Publish product and wait 2-3 minutes, then re-run import`);
-      totalSkipped += 1;
-      continue;
-    }
-    
-    console.log(`  🆕 Importing new product (published and indexed)...`);
-    
-    // Enrich product with inventory data using batched GraphQL queries
-    const variantCount = product.variants?.length || 0;
-    const inventoryItemCount = product.variants?.filter(v => v.inventory_item_id).length || 0;
-    console.log(`  📦 Fetching inventory data for ${inventoryItemCount} inventory item(s) via GraphQL batch query...`);
-    console.log(`    ℹ️  Using batched queries to avoid rate limits (1-2 calls instead of ${inventoryItemCount} calls)`);
-    
+    // Import new product
     const enrichedProduct = await enrichProductWithInventory(storeUrl, accessToken, product);
-    
-    // Log inventory summary (using enriched product properties)
-    const totalStock = enrichedProduct.variants?.reduce((sum, v) => sum + (v.inventory_quantity || 0), 0) || 0;
-    const locationCount = enrichedProduct.variants?.[0]?.inventory_levels?.length || 0;
-    console.log(`  📊 Inventory Summary:`);
-    console.log(`    Variants in stock: ${enrichedProduct.inStockVariantCount || 0}/${enrichedProduct.totalVariantCount || 0}`);
-    console.log(`    Total units: ${totalStock}`);
-    console.log(`    Location-specific data: ${locationCount} location(s)`);
-    console.log(`    Product has in-stock variants: ${enrichedProduct.hasInStockVariants ? '✅ Yes' : '❌ No'}`);
-    
     const categorySlug = matchProductToCategory(enrichedProduct);
     if (categorySlug) {
       matchedCount += 1;
-      console.log(`  🏷️  Category Match: ${categorySlug}`);
     } else {
       unmatchedProducts.push(enrichedProduct);
-      console.log(`  ⚠️  Category Match: None (product_type: ${product.product_type || 'N/A'}, tags: ${product.tags || 'N/A'})`);
     }
     
-    console.log(`  🌐 Fetching market-specific data from Storefront API...`);
     const payload = await buildShopifyDocument(enrichedProduct, categorySlug, markets, publishedToOnlineStore, storefrontIndexed, shippingRates);
     
-    // Log market data
-    if (payload.marketsObject && Object.keys(payload.marketsObject).length > 0) {
-      console.log(`  📊 Market Data:`);
-      Object.entries(payload.marketsObject).forEach(([market, data]) => {
-        console.log(`    ${market}: ${data.available ? '✅ Available' : '❌ Not Available'} - ${data.price} ${data.currency} (Shipping: ${data.shippingEstimate || 'N/A'} ${data.currency})`);
-      });
-    }
-    
-    // Add storefrontIndexed flag to indicate product is ready for checkout
     await docRef.set(
       {
         ...payload,
-        storefrontIndexed: true, // Mark as indexed since we verified it before import
+        storefrontIndexed: true,
         slug: documentId,
         fetchedAt: FieldValue.serverTimestamp(),
         createdAt: FieldValue.serverTimestamp(),
@@ -1228,60 +1162,13 @@ async function importProducts() {
       { merge: true }
     );
     
-    // Log import destination
-    console.log(`  📦 Import Destination:`);
-    console.log(`    Collection: shopifyItems`);
-    console.log(`    Document ID: ${documentId}`);
-    console.log(`    Document Path: shopifyItems/${documentId}`);
-    console.log(`    Matched Category: ${categorySlug || 'None (unmatched)'}`);
-    console.log(`    Storefront Indexed: ✅ Yes (${storefrontVariantsCount} variants accessible)`);
-    console.log(`    Storefronts Array: [] (empty - this is expected)`);
-    console.log(`    ℹ️  Products are imported to shopifyItems first, then processed to storefronts via ProductModal`);
-    console.log(`    💡 Next step: Process this product in admin panel to assign it to storefronts (LUNERA, etc.)`);
-    console.log(`    ✅ Product is ready for checkout - variants are accessible in Storefront API`);
-    
-    console.log(`  ✅ Successfully imported to Firestore`);
+    console.log(`✅ Imported: "${product.title}"`);
     totalUpserted += 1;
   }
   
-  console.log(`\n📊 Matching summary:`);
-  console.log(`  • Category guess available: ${matchedCount} products`);
-  console.log(`  • No category guess: ${unmatchedProducts.length} products`);
-  
-  if (unmatchedProducts.length > 0) {
-    console.log('Unmatched products (first 10):');
-    unmatchedProducts.slice(0, 10).forEach((p) => {
-      console.log(`  - ${p.title} (Type: ${p.product_type || 'N/A'}, Tags: ${p.tags || 'N/A'})`);
-    });
-    if (unmatchedProducts.length > 10) {
-      console.log(`  ... and ${unmatchedProducts.length - 10} more`);
-    }
-  }
-  
-  console.log(`\n✅ Shopify sync complete!`);
-  console.log(`  • Imported: ${totalUpserted} new/updated products (published and indexed)`);
-  console.log(`  • Skipped: ${totalSkipped} products (not published, not indexed, or already up-to-date)`);
-  console.log(`  • Total processed: ${totalUpserted + totalSkipped} products`);
-  
-  if (totalUpserted > 0) {
-    console.log(`\n📝 Next Steps:`);
-    console.log(`  1. Process products via ProductModal to assign them to storefronts`);
-    console.log(`  2. Products are ready for checkout - Storefront API accessibility verified`);
-    console.log(`\n💡 Note: Products imported to shopifyItems are NOT yet visible in storefronts.`);
-    console.log(`   They must be processed through the admin panel (ProductModal) first.`);
-  }
-  
-  if (totalSkipped > 0) {
-    console.log(`\n⏭️  Skipped Products:`);
-    console.log(`  • These products were not imported because they're either:`);
-    console.log(`    - Not published to Blerinas catalog`);
-    console.log(`    - Published but not yet indexed in Storefront API (wait 2-3 minutes after publishing)`);
-    console.log(`    - Already imported with up-to-date information`);
-    console.log(`\n💡 To import skipped products:`);
-    console.log(`  1. Publish them in Shopify Admin → Products → [Product] → Sales channels → Blerinas`);
-    console.log(`  2. Wait 2-3 minutes for Storefront API indexing to complete`);
-    console.log(`  3. Re-run this import script`);
-  }
+  console.log(`\n✅ Import complete!`);
+  console.log(`  • Imported: ${totalUpserted} product(s)`);
+  console.log(`  • Skipped: ${totalSkipped} product(s)`);
 }
 
 async function main() {

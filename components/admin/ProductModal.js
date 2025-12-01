@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { doc, getDoc, getDocs, setDoc, serverTimestamp, collection, addDoc, updateDoc, query, where, limit, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
@@ -225,6 +225,8 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   // Form state
   const [selectedImages, setSelectedImages] = useState([]);
   const [selectedVariants, setSelectedVariants] = useState([]);
+  // Track the item ID to prevent resetting variants when category changes
+  const initializedItemIdRef = useRef(null);
   const [displayName, setDisplayName] = useState('');
   const [displayDescription, setDisplayDescription] = useState('');
   const [bulletPoints, setBulletPoints] = useState([]);
@@ -444,12 +446,24 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     }
     
     const parsedBasePrice = basePriceInput ? parseFloat(basePriceInput) : 0;
+    const variantColor = newVariantForm.hasColor ? newVariantForm.color.trim() : null;
+    const variantType = !newVariantForm.hasColor ? newVariantForm.type.trim() : null;
+    const variantSize = newVariantForm.size.trim();
+    
+    // Construct variantName for display (e.g., "Black / M")
+    const nameParts = [];
+    if (variantColor) nameParts.push(variantColor);
+    if (variantType) nameParts.push(variantType);
+    if (variantSize) nameParts.push(variantSize);
+    const variantName = nameParts.length > 0 ? nameParts.join(' / ') : null;
+    
     const newVariant = {
       id: `temp-${Date.now()}-${Math.random()}`,
       shopifyId: `temp-${Date.now()}-${Math.random()}`,
-      color: newVariantForm.hasColor ? newVariantForm.color.trim() : null,
-      type: !newVariantForm.hasColor ? newVariantForm.type.trim() : null,
-      size: newVariantForm.size.trim(), // Store as string
+      color: variantColor,
+      type: variantType,
+      size: variantSize, // Store as string
+      variantName: variantName, // Save display name
       stock: parseInt(newVariantForm.stock, 10) || 0,
       priceOverride: newVariantForm.priceOverride ? parseFloat(newVariantForm.priceOverride) : null,
       sku: newVariantForm.sku.trim() || null,
@@ -558,6 +572,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
           type: v.type,
           stock: v.stock || 0,
           images: v.images || [],
+          variantName: v.variantName || null, // Preserve variantName for display
         }));
 
         setManualVariants(convertedVariants);
@@ -629,26 +644,42 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   }, [mode, existingProduct, db]);
 
   // Initialize Shopify item data
+  // Only reset variants when the item ID changes, not when category or other dependencies change
   useEffect(() => {
     if (mode !== 'shopify' || !item) return;
 
-    console.log('🔍 Shopify Item Modal - Item data:', {
-      id: item.id,
-      title: item.title,
-      imageUrls: item.imageUrls,
-      images: item.images,
-      variants: item.variants,
-      rawProduct: item.rawProduct ? 'exists' : 'missing',
-      rawProductVariants: item.rawProduct?.variants?.length || 0,
-    });
+    // Check if this is a new item (different ID)
+    const isNewItem = initializedItemIdRef.current !== item.id;
+    
+    if (isNewItem) {
+      console.log('🔍 Shopify Item Modal - Item data:', {
+        id: item.id,
+        title: item.title,
+        imageUrls: item.imageUrls,
+        images: item.images,
+        variants: item.variants,
+        rawProduct: item.rawProduct ? 'exists' : 'missing',
+        rawProductVariants: item.rawProduct?.variants?.length || 0,
+      });
 
-    const images = item.imageUrls || item.images || [];
-    console.log('📸 Available images:', images);
-    setSelectedImages([]);
+      const images = item.imageUrls || item.images || [];
+      console.log('📸 Available images:', images);
+      setSelectedImages([]);
 
+      const variants = sortedVariants;
+      console.log('🎨 Available variants:', variants.length, variants);
+      setSelectedVariants([]);
+      
+      // Mark this item as initialized
+      initializedItemIdRef.current = item.id;
+    } else {
+      // Same item - preserve variant selections
+      // Don't reset selectedVariants - preserve user selections
+      return; // Early return to skip the rest of initialization
+    }
+
+    // Only runs for new items
     const variants = sortedVariants;
-    console.log('🎨 Available variants:', variants.length, variants);
-    setSelectedVariants([]);
 
     const initialExpanded = new Set();
     const initialVariantImages = {};
@@ -703,10 +734,8 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     });
     setVariantPriceOverrides(initialPriceOverrides);
 
-    if (item.matchedCategorySlug) {
-      loadCategoryId(item.matchedCategorySlug);
-    }
-  }, [item, sortedVariants, mode, basePriceInput]);
+    // Don't automatically set category - let user choose manually
+  }, [item?.id, mode]); // Only depend on item ID and mode, not sortedVariants or basePriceInput
 
   const loadCategoryId = async (slug) => {
     if (!db || !slug) return;
@@ -891,14 +920,14 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
     setLoading(true);
     try {
-      // Ensure at least one storefront is selected (default to selectedWebsite)
-      const selectedStorefronts = storefrontSelections.length > 0 ? storefrontSelections : [selectedWebsite];
-      
-      if (selectedStorefronts.length === 0) {
+      // Require explicit storefront selection
+      if (storefrontSelections.length === 0) {
         setToastMessage({ type: 'error', text: 'Please select at least one storefront.' });
         setLoading(false);
         return;
       }
+      
+      const selectedStorefronts = storefrontSelections;
       
       // Note: productsCollection is not used directly - we create per-storefront collections in the loop below
       
@@ -1252,6 +1281,28 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
           ? getVariantSize(variant)
           : (variant.size || null);
 
+        // Get the variant display name - this is what we show in the UI (same logic as line 1923)
+        // This is the exact name that appears when processing Shopify items
+        let variantName = null;
+        if (mode === 'shopify') {
+          // For Shopify: use title, name, or construct from selectedOptions
+          variantName = variant.title || variant.name || null;
+          if (!variantName && variant.selectedOptions && Array.isArray(variant.selectedOptions) && variant.selectedOptions.length > 0) {
+            variantName = variant.selectedOptions.map((opt) => opt.value).join(' / ');
+          }
+        } else {
+          // For manual/edit mode: construct from color/size/type
+          const nameParts = [];
+          if (normalizedColor) nameParts.push(normalizedColor);
+          if (variant.type) nameParts.push(variant.type);
+          if (normalizedSize) nameParts.push(normalizedSize);
+          variantName = nameParts.length > 0 ? nameParts.join(' / ') : null;
+        }
+        // Preserve existing variantName if it exists (from previous save)
+        if (!variantName && variant.variantName) {
+          variantName = variant.variantName;
+        }
+
         // Preserve location-specific inventory levels for market-based availability checks
         const inventoryLevels = mode === 'shopify' && variant.inventory_levels
           ? variant.inventory_levels // From Shopify import (location-specific)
@@ -1260,6 +1311,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         const variantData = {
           size: normalizedSize || null,
           color: normalizedColor || null,
+          variantName: variantName || null, // Save the display name (e.g., "Black / M") - this is what shows in Shopify mode
           sku: variant.sku || null,
           stock: variant.inventory_quantity || variant.inventoryQuantity || variant.stock || 0,
           inventory_levels: inventoryLevels.length > 0 ? inventoryLevels : undefined, // Store location-specific inventory
@@ -1508,25 +1560,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     });
   };
 
-  // Initialize storefront selections based on mode
-  // Preselect the storefront that was used to open the admin overview panel
-  useEffect(() => {
-    if (mode !== 'edit') {
-      // Preselect the current selectedWebsite (cached in localStorage from admin overview)
-      // This ensures the storefront used to open admin is preselected
-      if (availableWebsites.length > 0) {
-        if (selectedWebsite && availableWebsites.includes(selectedWebsite)) {
-          setStorefrontSelections([selectedWebsite]);
-        } else {
-          // Fallback to first available website if selectedWebsite not in list
-          setStorefrontSelections([availableWebsites[0]]);
-        }
-      } else {
-        // While loading, default to LUNERA (will update when availableWebsites loads)
-        setStorefrontSelections(['LUNERA']);
-      }
-    }
-  }, [mode, selectedWebsite, availableWebsites]);
+  // Don't preselect storefronts - let user choose manually
 
   return (
     <>
@@ -1920,7 +1954,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                                 </div>
                                 <label htmlFor={`variant-${variantId}`} className="flex flex-col text-sm">
                                   <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                                    {variant.title || variant.name || variant.selectedOptions?.map((opt) => opt.value).join(' / ') || 'Unnamed variant'}
+                                    {variant.variantName || variant.title || variant.name || variant.selectedOptions?.map((opt) => opt.value).join(' / ') || 'Unnamed variant'}
                                   </span>
                                   <span className="flex flex-wrap gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                                     {selectedAttributeLabels.map((attr) => (

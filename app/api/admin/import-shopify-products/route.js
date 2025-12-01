@@ -11,42 +11,159 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { randomUUID } from 'crypto';
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// In-memory store for import logs (in production, use Redis or a database)
+const importLogs = new Map();
+
 /**
  * Trigger the Shopify product import by executing the script
+ * Can accept selectedItems to import only specific products/variants
  */
 export async function POST(request) {
   try {
-    console.log('[Import API] 🚀 Starting Shopify product import...');
+    let selectedItems = null;
+    try {
+      const body = await request.json();
+      selectedItems = body.selectedItems;
+    } catch (error) {
+      // No body provided - import all products (backward compatibility)
+      selectedItems = null;
+    }
+    
+    // Generate unique import ID
+    const importId = randomUUID();
+    
+    // Initialize logs storage
+    importLogs.set(importId, {
+      logs: [],
+      completed: false,
+      startTime: Date.now(),
+    });
+    
+    console.log('[Import API] 🚀 Starting Shopify product import...', { importId });
+    if (selectedItems && selectedItems.length > 0) {
+      console.log(`[Import API] Importing ${selectedItems.length} selected product(s)`);
+    } else {
+      console.log('[Import API] Importing all products (no selection provided)');
+    }
     
     // Get the script path
     const scriptPath = path.join(process.cwd(), 'scripts', 'import-shopify-products.js');
     
-    // Execute the script asynchronously (don't wait for it to complete)
-    // This allows the API to return immediately while the import runs in the background
-    execAsync(`node "${scriptPath}"`, {
-      cwd: process.cwd(),
-      env: process.env,
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large output
-    })
-      .then(({ stdout, stderr }) => {
-        console.log('[Import API] ✅ Import completed');
-        if (stdout) console.log('[Import API] Output:', stdout);
-        if (stderr) console.warn('[Import API] Warnings:', stderr);
-      })
-      .catch((error) => {
-        console.error('[Import API] ❌ Import failed:', error);
-      });
+    // Build environment variables
+    const env = { ...process.env };
+    if (selectedItems && selectedItems.length > 0) {
+      env.SELECTED_SHOPIFY_ITEMS_JSON = JSON.stringify(selectedItems);
+    }
     
-    // Return immediately - import runs in background
+    // Helper to add log line
+    const addLog = (line) => {
+      const logData = importLogs.get(importId);
+      if (logData) {
+        logData.logs.push(line);
+        // Keep only last 1000 lines to prevent memory issues
+        if (logData.logs.length > 1000) {
+          logData.logs = logData.logs.slice(-1000);
+        }
+      }
+    };
+    
+    // Execute the script and capture output in real-time
+    const childProcess = exec(`node "${scriptPath}"`, {
+      cwd: process.cwd(),
+      env: env,
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large output
+    });
+    
+    // Capture stdout line by line
+    childProcess.stdout?.on('data', (data) => {
+      const lines = data.toString().split('\n');
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        // Filter out dotenv messages, Node.js warnings, and other noise
+        if (trimmed && 
+            !trimmed.includes('[dotenv@') && 
+            !trimmed.includes('injecting env') &&
+            !trimmed.includes('audit secrets') &&
+            !trimmed.includes('tip:') &&
+            !trimmed.includes('suppress all logs') &&
+            !trimmed.includes('MODULE_TYPELESS_PACKAGE_JSON') &&
+            !trimmed.includes('Reparsing as ES module') &&
+            !trimmed.includes('To eliminate this warning') &&
+            !trimmed.includes('Use `node --trace-warnings') &&
+            !trimmed.includes('(node:') &&
+            !trimmed.includes('[WARNING]')) {
+          addLog(trimmed);
+          console.log(`[Import ${importId}]`, trimmed);
+        }
+      });
+    });
+    
+    // Capture stderr line by line
+    childProcess.stderr?.on('data', (data) => {
+      const lines = data.toString().split('\n');
+      lines.forEach((line) => {
+        const trimmed = line.trim();
+        // Filter out dotenv messages, Node.js warnings, and other noise
+        if (trimmed && 
+            !trimmed.includes('[dotenv@') && 
+            !trimmed.includes('injecting env') &&
+            !trimmed.includes('audit secrets') &&
+            !trimmed.includes('tip:') &&
+            !trimmed.includes('suppress all logs') &&
+            !trimmed.includes('MODULE_TYPELESS_PACKAGE_JSON') &&
+            !trimmed.includes('Reparsing as ES module') &&
+            !trimmed.includes('To eliminate this warning') &&
+            !trimmed.includes('Use `node --trace-warnings') &&
+            !trimmed.includes('(node:')) {
+          addLog(`[WARNING] ${trimmed}`);
+          console.warn(`[Import ${importId}]`, trimmed);
+        }
+      });
+    });
+    
+    // Handle completion
+    childProcess.on('close', (code) => {
+      const logData = importLogs.get(importId);
+      if (logData) {
+        logData.completed = true;
+        logData.endTime = Date.now();
+        if (code === 0) {
+          addLog('✅ Import completed successfully');
+        } else {
+          addLog(`❌ Import failed with exit code ${code}`);
+        }
+        
+        // Clean up after 1 hour
+        setTimeout(() => {
+          importLogs.delete(importId);
+        }, 60 * 60 * 1000);
+      }
+    });
+    
+    // Handle errors
+    childProcess.on('error', (error) => {
+      addLog(`❌ Import error: ${error.message}`);
+      const logData = importLogs.get(importId);
+      if (logData) {
+        logData.completed = true;
+        logData.endTime = Date.now();
+      }
+      console.error('[Import API] ❌ Import failed:', error);
+    });
+    
+    // Return immediately with import ID
+    const itemCount = selectedItems?.length || 'all';
     return NextResponse.json({
       success: true,
-      message: 'Import started. The import process is running in the background. Check server logs for progress.',
-      note: 'This may take several minutes depending on the number of products. Refresh the page to see updated products.',
+      importId,
+      message: `Import started for ${itemCount} product(s). The import process is running in the background.`,
+      note: 'This may take several minutes depending on the number of products.',
     });
   } catch (error) {
     console.error('[Import API] ❌ Error:', error);
@@ -61,12 +178,48 @@ export async function POST(request) {
 }
 
 /**
- * GET endpoint to check import status
+ * GET endpoint to check import status and get logs
  */
-export async function GET() {
-  return NextResponse.json({
-    message: 'Shopify product import API endpoint',
-    note: 'Use POST to trigger import. The import runs asynchronously in the background.',
-  });
+export async function GET(request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const importId = searchParams.get('importId');
+    
+    if (importId) {
+      const logData = importLogs.get(importId);
+      if (logData) {
+        return NextResponse.json({
+          logs: logData.logs,
+          completed: logData.completed,
+          startTime: logData.startTime,
+          endTime: logData.endTime,
+        });
+      } else {
+        // Return empty logs instead of 404 to prevent errors in the modal
+        return NextResponse.json({
+          logs: [],
+          completed: false,
+          error: 'Import ID not found. The import may not have started yet or logs were cleared.',
+        });
+      }
+    }
+    
+    return NextResponse.json({
+      message: 'Shopify product import API endpoint',
+      note: 'Use POST to trigger import. The import runs asynchronously in the background.',
+      usage: 'Use GET with ?importId=<id> to get import logs and status.',
+    });
+  } catch (error) {
+    console.error('[Import API] GET error:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to get import status',
+        message: error.message || 'Unknown error',
+        logs: [],
+        completed: false,
+      },
+      { status: 500 }
+    );
+  }
 }
 

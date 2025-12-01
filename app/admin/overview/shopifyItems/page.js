@@ -24,7 +24,7 @@ export default function ShopifyItemsPage() {
     }
 
     loadShopifyItems();
-  }, [db]);
+  }, [db, selectedWebsite]); // Reload when website changes
 
   const loadShopifyItems = async () => {
     if (!db) return;
@@ -37,20 +37,15 @@ export default function ShopifyItemsPage() {
       const snapshot = await getDocs(itemsQuery);
       const itemsData = snapshot.docs.map((doc) => {
         const data = doc.data();
-        console.log(`📦 Loaded Shopify item: ${doc.id}`, {
-          title: data.title,
-          imageUrls: data.imageUrls,
-          images: data.images,
-          rawProduct: data.rawProduct ? 'exists' : 'missing',
-          variants: data.variants,
-          rawProductVariants: data.rawProduct?.variants?.length || 0,
-        });
+        const processedStorefronts = Array.isArray(data.processedStorefronts) ? data.processedStorefronts : [];
+        // Hide item if it's been processed for ANY storefront (not just the selected one)
+        // Users can edit the product later to add more storefronts if needed
+        const processedForStorefront = processedStorefronts.length > 0;
+        
         return {
           id: doc.id,
           ...data,
-          processedForStorefront: Array.isArray(data.processedStorefronts)
-            ? data.processedStorefronts.includes(selectedWebsite)
-            : false,
+          processedForStorefront,
         };
       });
       console.log(`✅ Loaded ${itemsData.length} Shopify items total`);
@@ -266,9 +261,11 @@ export default function ShopifyItemsPage() {
             key={selectedItem.id || 'shopify-modal'}
             item={selectedItem}
             onClose={() => setSelectedItem(null)}
-            onSaved={() => {
+            onSaved={async () => {
               setSelectedItem(null);
-              loadShopifyItems();
+              // Small delay to ensure Firestore has updated
+              await new Promise(resolve => setTimeout(resolve, 500));
+              await loadShopifyItems();
             }}
           />
         )}
