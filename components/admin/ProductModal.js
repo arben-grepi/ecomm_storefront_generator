@@ -238,6 +238,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const [defaultVariantId, setDefaultVariantId] = useState(null);
   const [defaultVariantPhotos, setDefaultVariantPhotos] = useState({}); // Map variantId -> default photo URL
   const [variantPriceOverrides, setVariantPriceOverrides] = useState({}); // Map variantId -> price override
+  const [variantPriceErrors, setVariantPriceErrors] = useState({}); // Map variantId -> error message
   const [editModeShopifyItem, setEditModeShopifyItem] = useState(null); // Store shopifyItem when editing
   
   // Manual mode: image URLs and variant creation
@@ -465,11 +466,17 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       size: variantSize, // Store as string
       variantName: variantName, // Save display name
       stock: parseInt(newVariantForm.stock, 10) || 0,
+      // Ensure variant price is at least equal to base price
       priceOverride: newVariantForm.priceOverride ? parseFloat(newVariantForm.priceOverride) : null,
       sku: newVariantForm.sku.trim() || null,
-      price: newVariantForm.priceOverride
-        ? parseFloat(newVariantForm.priceOverride)
-        : parsedBasePrice,
+      price: (() => {
+        if (newVariantForm.priceOverride) {
+          const variantPrice = parseFloat(newVariantForm.priceOverride);
+          // If variant price is less than base price, use base price
+          return !isNaN(variantPrice) && variantPrice >= parsedBasePrice ? variantPrice : parsedBasePrice;
+        }
+        return parsedBasePrice;
+      })(),
     };
     
     setManualVariants((prev) => [...prev, newVariant]);
@@ -652,23 +659,23 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     const isNewItem = initializedItemIdRef.current !== item.id;
     
     if (isNewItem) {
-      console.log('🔍 Shopify Item Modal - Item data:', {
-        id: item.id,
-        title: item.title,
-        imageUrls: item.imageUrls,
-        images: item.images,
-        variants: item.variants,
-        rawProduct: item.rawProduct ? 'exists' : 'missing',
-        rawProductVariants: item.rawProduct?.variants?.length || 0,
-      });
+    console.log('🔍 Shopify Item Modal - Item data:', {
+      id: item.id,
+      title: item.title,
+      imageUrls: item.imageUrls,
+      images: item.images,
+      variants: item.variants,
+      rawProduct: item.rawProduct ? 'exists' : 'missing',
+      rawProductVariants: item.rawProduct?.variants?.length || 0,
+    });
 
-      const images = item.imageUrls || item.images || [];
-      console.log('📸 Available images:', images);
-      setSelectedImages([]);
+    const images = item.imageUrls || item.images || [];
+    console.log('📸 Available images:', images);
+    setSelectedImages([]);
 
-      const variants = sortedVariants;
-      console.log('🎨 Available variants:', variants.length, variants);
-      setSelectedVariants([]);
+    const variants = sortedVariants;
+    console.log('🎨 Available variants:', variants.length, variants);
+    setSelectedVariants([]);
       
       // Mark this item as initialized
       initializedItemIdRef.current = item.id;
@@ -736,6 +743,28 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
     // Don't automatically set category - let user choose manually
   }, [item?.id, mode]); // Only depend on item ID and mode, not sortedVariants or basePriceInput
+
+  // Automatically adjust variant prices when base price changes
+  // If a variant price is less than the new base price, set it to the base price
+  useEffect(() => {
+    const basePrice = basePriceInput ? parseFloat(basePriceInput) : 0;
+    if (isNaN(basePrice) || basePrice <= 0) return;
+
+    setVariantPriceOverrides((prev) => {
+      const updated = { ...prev };
+      let hasChanges = false;
+
+      Object.keys(updated).forEach((variantId) => {
+        const variantPrice = parseFloat(updated[variantId]);
+        if (!isNaN(variantPrice) && variantPrice < basePrice) {
+          updated[variantId] = basePrice.toString();
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? updated : prev;
+    });
+  }, [basePriceInput]);
 
   const loadCategoryId = async (slug) => {
     if (!db || !slug) return;
@@ -1793,10 +1822,31 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                           min="0"
                           step="0.01"
                           value={newVariantForm.priceOverride}
-                          onChange={(e) => setNewVariantForm((prev) => ({ ...prev, priceOverride: e.target.value }))}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setNewVariantForm((prev) => ({ ...prev, priceOverride: value }));
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value;
+                            const basePrice = basePriceInput ? parseFloat(basePriceInput) : 0;
+                            const variantPrice = value ? parseFloat(value) : null;
+
+                            // Validate that variant price is not less than base price
+                            if (value && !isNaN(variantPrice) && !isNaN(basePrice) && basePrice > 0 && variantPrice < basePrice) {
+                              // Automatically adjust to base price
+                              setNewVariantForm((prev) => ({ ...prev, priceOverride: basePrice.toString() }));
+                              setToastMessage({
+                                type: 'error',
+                                text: `Variant price cannot be less than base price (€${basePrice.toFixed(2)}). Adjusted to base price.`,
+                              });
+                            }
+                          }}
                           className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                           placeholder="Optional"
                         />
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                          Must be at least equal to base price (€{basePriceInput || '0.00'})
+                        </p>
                       </label>
                       <label className="flex flex-col gap-1">
                         <span className="text-xs text-zinc-600 dark:text-zinc-400">SKU</span>
@@ -2021,6 +2071,14 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                                            value={variantPriceOverrides[variantId] !== undefined ? variantPriceOverrides[variantId] : (variant.price || variant.priceOverride || '')}
                                            onChange={(e) => {
                                              const value = e.target.value;
+                                             // Clear error when user starts typing
+                                             if (variantPriceErrors[variantId]) {
+                                               setVariantPriceErrors((prev) => {
+                                                 const updated = { ...prev };
+                                                 delete updated[variantId];
+                                                 return updated;
+                                               });
+                                             }
                                              setVariantPriceOverrides((prev) => {
                                                if (value === '' || value === (variant.price || variant.priceOverride || '').toString()) {
                                                  // Remove override if empty or same as original
@@ -2031,8 +2089,47 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                                                return { ...prev, [variantId]: value };
                                              });
                                            }}
+                                           onBlur={(e) => {
+                                             const value = e.target.value;
+                                             const basePrice = basePriceInput ? parseFloat(basePriceInput) : 0;
+                                             const variantPrice = value ? parseFloat(value) : null;
+
+                                             // Clear error if input is empty (will use base price)
+                                             if (!value || value === '') {
+                                               setVariantPriceErrors((prev) => {
+                                                 const updated = { ...prev };
+                                                 delete updated[variantId];
+                                                 return updated;
+                                               });
+                                               return;
+                                             }
+
+                                             // Validate that variant price is not less than base price
+                                             if (!isNaN(variantPrice) && !isNaN(basePrice) && basePrice > 0 && variantPrice < basePrice) {
+                                               setVariantPriceErrors((prev) => ({
+                                                 ...prev,
+                                                 [variantId]: `Variant price (€${variantPrice.toFixed(2)}) cannot be less than base price (€${basePrice.toFixed(2)})`,
+                                               }));
+                                               // Automatically adjust to base price
+                                               setVariantPriceOverrides((prev) => ({
+                                                 ...prev,
+                                                 [variantId]: basePrice.toString(),
+                                               }));
+                                             } else {
+                                               // Clear error if valid
+                                               setVariantPriceErrors((prev) => {
+                                                 const updated = { ...prev };
+                                                 delete updated[variantId];
+                                                 return updated;
+                                               });
+                                             }
+                                           }}
                                            placeholder={variant.price || variant.priceOverride || basePriceInput || '0.00'}
-                                           className="w-32 rounded-lg border border-zinc-200 px-2 py-1 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                           className={`w-32 rounded-lg border px-2 py-1 text-xs focus:outline-none dark:bg-zinc-800 dark:text-zinc-100 ${
+                                             variantPriceErrors[variantId]
+                                               ? 'border-red-400 focus:border-red-500 dark:border-red-600'
+                                               : 'border-zinc-200 focus:border-emerald-400 dark:border-zinc-700'
+                                           }`}
                                          />
                                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
                                            {variantPriceOverrides[variantId] !== undefined 
@@ -2042,8 +2139,13 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                                                : `(Inherits base price: €${basePriceInput || '0.00'})`}
                                          </span>
                                        </div>
+                                       {variantPriceErrors[variantId] && (
+                                         <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                                           {variantPriceErrors[variantId]}
+                                         </p>
+                                       )}
                                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                         Leave empty to use Shopify price or base price. Override to set a custom price for this variant.
+                                         Leave empty to use Shopify price or base price. Override to set a custom price for this variant. Variant price must be at least equal to base price.
                                        </p>
                                      </div>
                                    )}
@@ -2207,7 +2309,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                                 className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-0 dark:border-zinc-600 dark:bg-zinc-800"
                               />
                               <span className="flex-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                                {storefront}
+                              {storefront}
                               </span>
                               {isSelected && (
                                 <svg className="h-5 w-5 text-emerald-600 dark:text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
@@ -2252,18 +2354,18 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                           
                           return (
                             <div key={market} className="flex flex-col gap-1">
-                              <span
+                            <span
                                 className={`inline-flex items-center rounded-lg border px-3 py-1.5 text-sm font-medium ${
                                   isAvailable
                                     ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                     : 'border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                                 }`}
-                              >
-                                {market} ({marketNames[market] || market})
+                            >
+                              {market} ({marketNames[market] || market})
                                 {isAvailable ? (
                                   <svg className="ml-1.5 h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                  </svg>
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
                                 ) : (
                                   <svg className="ml-1.5 h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
