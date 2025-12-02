@@ -1,37 +1,56 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 import { useStorefront } from '@/lib/storefront-context';
 
-export default function CategoryCarousel({ align = 'center', categories = [], products = [], storefront: storefrontProp = null }) {
-  const pathname = usePathname();
+export default function CategoryCarousel({ 
+  align = 'center', 
+  categories = [], 
+  products = [], 
+  storefront: storefrontProp = null,
+  selectedCategory = null, // null = "All Categories"
+  onCategorySelect = null,
+  onAllCategories = null,
+}) {
   const storefrontFromContext = useStorefront(); // Get current storefront from context
   const storefront = storefrontProp || storefrontFromContext || 'LUNERA'; // Use prop if provided, otherwise context, fallback to LUNERA
 
   const navItems = useMemo(() => {
     // Filter categories that have products
     const categoriesWithProducts = categories.filter((category) =>
-      products.some((product) => product.categoryId === category.id)
+      products.some((product) => 
+        product.categoryId === category.id || 
+        (product.categoryIds && product.categoryIds.includes(category.id))
+      )
     );
 
-    // Use current storefront for navigation links
-    const storefrontPath = storefront || 'LUNERA'; // Fallback to LUNERA if not available
-
     return [
-      { href: `/${storefrontPath}`, value: 'all', label: 'All Categories' },
+      { value: 'all', label: 'All Categories', id: null },
       ...categoriesWithProducts.map((category) => ({
-        href: `/${storefrontPath}/${category.slug}`,
         value: category.slug,
         label: category.label,
+        id: category.id,
       })),
     ];
-  }, [categories, products, storefront]);
+  }, [categories, products]);
 
   const isActive = (item) => {
-    const storefrontPath = storefront || 'LUNERA';
-    return (item.value === 'all' && pathname === `/${storefrontPath}`) || pathname === item.href;
+    if (item.value === 'all') {
+      return selectedCategory === null;
+    }
+    return selectedCategory === item.id;
+  };
+
+  const handleClick = (item) => {
+    if (item.value === 'all') {
+      if (onAllCategories) {
+        onAllCategories();
+      }
+    } else {
+      if (onCategorySelect) {
+        onCategorySelect(item.id);
+      }
+    }
   };
 
   const containerAlignment =
@@ -40,31 +59,34 @@ export default function CategoryCarousel({ align = 'center', categories = [], pr
   return (
     <div className="relative">
       <div
-        className="-mx-2 flex overflow-x-auto scroll-smooth px-2 sm:mx-0 sm:px-4 lg:px-6 hide-scrollbar"
+        className="flex flex-wrap items-center gap-0"
         aria-label="Browse categories"
       >
-        <ul className={`flex w-full min-w-max flex-nowrap items-center gap-2 ${containerAlignment}`}>
-          {navItems.map((item) => {
+        <ul className={`flex w-full flex-wrap items-center gap-0 ${containerAlignment}`}>
+          {navItems.map((item, index) => {
+            const active = isActive(item);
             return (
-              <li key={item.value} className="flex-none">
-                <Link
-                  href={item.href}
-                  className={`inline-flex items-center rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    isActive(item)
-                      ? 'border-primary/50 bg-white shadow-sm text-primary'
-                      : 'border-transparent bg-white/70 text-slate-500 hover:border-primary/30 hover:text-primary'
+              <li key={item.value} className="flex-none flex items-center">
+                {/* Breadcrumb separator */}
+                {index > 0 && (
+                  <span className="mx-2 text-primary/40 text-xl font-medium sm:text-2xl">/</span>
+                )}
+                <button
+                  onClick={() => handleClick(item)}
+                  className={`inline-flex items-center px-4 py-2 text-xl font-medium transition sm:text-2xl ${
+                    active
+                      ? 'text-primary font-semibold'
+                      : 'text-slate-500 hover:text-primary'
                   }`}
+                  aria-current={active ? 'page' : undefined}
                 >
                   {item.label}
-                </Link>
+                </button>
               </li>
             );
           })}
         </ul>
       </div>
-
-      <div className="pointer-events-none absolute inset-y-0 left-0 w-6 bg-gradient-to-r from-white via-white/60 to-transparent sm:w-8" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-white via-white/60 to-transparent sm:w-8" />
     </div>
   );
 }

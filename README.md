@@ -74,10 +74,16 @@ The platform uses Shopify webhooks to maintain real-time synchronization between
 
 The production website is currently live and under continuous development:
 
-- **FIVESTARFINDS Storefront**: [https://blerinas.com/FIVESTARFINDS](https://blerinas.com/FIVESTARFINDS)
-- **LUNERA Storefront**: [https://blerinas.com/LUNERA](https://blerinas.com/LUNERA)
+- **LUNERA Storefront** (Default): [https://blerinas.com](https://blerinas.com) - Served at the root URL
+- **FIVESTARFINDS Storefront**: [https://blerinas.com/FIVESTARFINDS](https://blerinas.com/FIVESTARFINDS) - Served at `/FIVESTARFINDS`
 - **Status**: Under construction and being developed continuously
 - **Current Status**: We currently have 2 storefronts. Products are only available in FIVESTARFINDS at this time.
+
+### Storefront Routing
+
+- **Root URL** (`/` or `blerinas.com`): Serves the **LUNERA** storefront (default)
+- **Other Storefronts**: Accessible via `/STOREFRONT_NAME` (e.g., `/FIVESTARFINDS`)
+- In development: `http://localhost:3000` serves LUNERA, `http://localhost:3000/FIVESTARFINDS` serves FIVESTARFINDS
 
 ## Current Development
 
@@ -124,6 +130,8 @@ We are currently working closely with **Andreas Konge** to optimize the applicat
    ```
 
 5. **Open [http://localhost:3000](http://localhost:3000)** in your browser
+   - Root URL (`http://localhost:3000`) serves the **LUNERA** storefront (default)
+   - Other storefronts are accessible at `http://localhost:3000/STOREFRONT_NAME` (e.g., `http://localhost:3000/FIVESTARFINDS`)
 
 ## Deployment
 

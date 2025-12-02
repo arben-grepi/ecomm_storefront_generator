@@ -64,22 +64,13 @@ export default function CategoriesAdminPage() {
           .map((snapshotDoc) => ({ id: snapshotDoc.id, ...snapshotDoc.data() }))
           .filter((product) => product.active !== false);
 
-        // Fetch variants for each product to calculate total stock
-        const productsWithStock = await Promise.all(
-          productsData.map(async (product) => {
-            try {
-              const variantsSnapshot = await getDocs(
-                collection(db, ...getDocumentPath('products', product.id, selectedWebsite), 'variants')
-              );
-              const variants = variantsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-              const totalStock = variants.reduce((sum, variant) => sum + (variant.stock || 0), 0);
-              return { ...product, totalStock, variants };
-            } catch (error) {
-              console.warn(`Failed to load variants for product ${product.id}`, error);
-              return { ...product, totalStock: 0, variants: [] };
-            }
-          })
-        );
+        // Use product-level stock data instead of loading variants for all products (optimization)
+        // Variants will be loaded on-demand when viewing/editing a product
+        const productsWithStock = productsData.map((product) => {
+          // Use product-level stock data if available (set by webhooks/imports)
+          const totalStock = product.totalStock || 0;
+          return { ...product, totalStock, variants: [] }; // Don't load variants - load on demand
+        });
 
         setProducts(productsWithStock);
       },

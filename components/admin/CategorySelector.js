@@ -7,51 +7,143 @@ import { getCollectionPath } from '@/lib/store-collections';
 import { useWebsite } from '@/lib/website-context';
 import CategoryModalButton from '@/components/admin/CreateCategoryButton';
 
-export default function CategorySelector({ value, onChange }) {
+export default function CategorySelector({ value, onChange, storefronts }) {
   const db = getFirebaseDb();
   const { selectedWebsite } = useWebsite();
-  const [categories, setCategories] = useState([]);
+  const [categoriesByStorefront, setCategoriesByStorefront] = useState({});
   const [loading, setLoading] = useState(true);
 
+  // Determine which storefronts to load categories from
+  const storefrontsToLoad = useMemo(() => {
+    if (storefronts && Array.isArray(storefronts) && storefronts.length > 0) {
+      return storefronts;
+    }
+    return selectedWebsite ? [selectedWebsite] : [];
+  }, [storefronts, selectedWebsite]);
+
+  // Merge categories from all storefronts
+  const categories = useMemo(() => {
+    const mergedMap = new Map();
+    Object.values(categoriesByStorefront).forEach((cats) => {
+      if (Array.isArray(cats)) {
+        cats.forEach((cat) => {
+          if (!mergedMap.has(cat.id)) {
+            mergedMap.set(cat.id, cat);
+          }
+        });
+      }
+    });
+    return Array.from(mergedMap.values()).sort((a, b) => 
+      (a.name || '').localeCompare(b.name || '')
+    );
+  }, [categoriesByStorefront]);
+
+  // Track loading state based on whether all storefronts have data
   useEffect(() => {
-    if (!db) {
+    if (storefrontsToLoad.length === 0) {
       setLoading(false);
+      return;
+    }
+    
+    // Check if all storefronts have loaded (have entries in categoriesByStorefront)
+    const allLoaded = storefrontsToLoad.every((storefront) => 
+      storefront in categoriesByStorefront
+    );
+    
+    if (allLoaded && loading) {
+      setLoading(false);
+    }
+  }, [categoriesByStorefront, storefrontsToLoad, loading]);
+
+  useEffect(() => {
+    if (!db || storefrontsToLoad.length === 0) {
+      setLoading(false);
+      setCategoriesByStorefront({});
       return undefined;
     }
 
-    const categoriesQuery = query(
-      collection(db, ...getCollectionPath('categories', selectedWebsite)),
-      orderBy('name', 'asc')
-    );
-    const unsubscribe = onSnapshot(
-      categoriesQuery,
-      (snapshot) => {
-        const next = snapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        setCategories(next);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Failed to fetch categories', error);
-        setCategories([]);
-        setLoading(false);
-      }
-    );
+    setLoading(true);
+    // Clear previous data for storefronts that are no longer in the list
+    setCategoriesByStorefront((prev) => {
+      const updated = { ...prev };
+      // Remove entries for storefronts not in storefrontsToLoad
+      Object.keys(updated).forEach((sf) => {
+        if (!storefrontsToLoad.includes(sf)) {
+          delete updated[sf];
+        }
+      });
+      return updated;
+    });
+    
+    const unsubscribes = storefrontsToLoad.map((storefront) => {
+      const categoriesQuery = query(
+        collection(db, ...getCollectionPath('categories', storefront)),
+        orderBy('name', 'asc')
+      );
+      return onSnapshot(
+        categoriesQuery,
+        (snapshot) => {
+          const storefrontCategories = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          
+          setCategoriesByStorefront((prev) => ({
+            ...prev,
+            [storefront]: storefrontCategories,
+          }));
+        },
+        (error) => {
+          console.error(`[CategorySelector] ❌ Failed to fetch categories from "${storefront}"`, error);
+          setCategoriesByStorefront((prev) => ({
+            ...prev,
+            [storefront]: [],
+          }));
+        }
+      );
+    });
 
-    return () => unsubscribe();
-  }, [db, selectedWebsite]);
+    return () => {
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
+    };
+  }, [db, storefrontsToLoad.join(',')]); // Use join to create stable dependency
 
   const activeCategories = useMemo(() => categories.filter((category) => category.active !== false), [categories]);
 
   const handleCreated = (category) => {
-    setCategories((prev) => {
-      const exists = prev.some((item) => item.id === category.id);
-      if (exists) {
-        return prev;
+    // Add the new category to all storefronts it belongs to
+    if (category.storefronts && Array.isArray(category.storefronts)) {
+      setCategoriesByStorefront((prev) => {
+        const updated = { ...prev };
+        category.storefronts.forEach((storefront) => {
+          if (!updated[storefront]) {
+            updated[storefront] = [];
+          }
+          // Check if category already exists in this storefront
+          const exists = updated[storefront].some((item) => item.id === category.id);
+          if (!exists) {
+            updated[storefront] = [...updated[storefront], category];
+          }
+        });
+        return updated;
+      });
+    } else {
+      // Fallback: add to the first storefront in storefrontsToLoad
+      if (storefrontsToLoad.length > 0) {
+        const firstStorefront = storefrontsToLoad[0];
+        setCategoriesByStorefront((prev) => {
+          const updated = { ...prev };
+          if (!updated[firstStorefront]) {
+            updated[firstStorefront] = [];
+          }
+          const exists = updated[firstStorefront].some((item) => item.id === category.id);
+          if (!exists) {
+            updated[firstStorefront] = [...updated[firstStorefront], category];
+          }
+          return updated;
+        });
       }
-      return [...prev, category];
-    });
+    }
     if (onChange) {
       onChange(category.id);
     }

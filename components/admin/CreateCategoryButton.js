@@ -45,16 +45,8 @@ export default function CategoryModalButton({
       }
     } else {
       setForm({ name: '', description: '', imageUrl: '' });
-      // Initialize storefront selections for create mode
-      if (availableWebsites.length > 0) {
-        if (selectedWebsite && availableWebsites.includes(selectedWebsite)) {
-          setStorefrontSelections([selectedWebsite]);
-        } else {
-          setStorefrontSelections([availableWebsites[0]]);
-        }
-      } else {
-        setStorefrontSelections(['LUNERA']);
-      }
+      // Initialize storefront selections for create mode - start with empty array (no preselection)
+      setStorefrontSelections([]);
     }
   }, [mode, category, open, selectedWebsite, availableWebsites]);
 
@@ -86,7 +78,7 @@ export default function CategoryModalButton({
       const newSlug = slugify(trimmedName);
 
       // Get selected storefronts (must have at least one)
-      const selectedStorefronts = storefrontSelections.length > 0 ? storefrontSelections : [selectedWebsite];
+      const selectedStorefronts = storefrontSelections;
       
       if (selectedStorefronts.length === 0) {
         setError('Please select at least one storefront.');

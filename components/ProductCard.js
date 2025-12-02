@@ -29,10 +29,15 @@ function ProductCard({ product, categorySlug }) {
     setTimeout(() => setIsNavigating(false), 2000);
   };
 
+  // LUNERA is the default storefront at root path
+  const productPath = storefront === 'LUNERA' 
+    ? `/${categorySlug}/${product.slug}`
+    : `/${storefront}/${categorySlug}/${product.slug}`;
+
   return (
     <div className="relative">
       <Link
-        href={`/${storefront}/${categorySlug}/${product.slug}`}
+        href={productPath}
         onClick={handleClick}
         className="group flex w-full flex-col overflow-hidden rounded-2xl bg-white/90 shadow-sm ring-1 ring-secondary/70 transition hover:-translate-y-1 hover:shadow-xl sm:rounded-3xl"
         prefetch
@@ -45,6 +50,7 @@ function ProductCard({ product, categorySlug }) {
             fill
             sizes="(max-width: 768px) 50vw, 33vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
+            loading="eager"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-secondary">

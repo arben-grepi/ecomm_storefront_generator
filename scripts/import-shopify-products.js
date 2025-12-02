@@ -702,6 +702,13 @@ const buildShopifyDocument = async (product, matchedCategorySlug, markets = [], 
     });
   }
 
+  // Filter markets array to only include markets where available !== false
+  // This ensures we only save markets where the product is executable in Shopify
+  const availableMarkets = Object.keys(marketsObject).filter(market => {
+    const marketData = marketsObject[market];
+    return marketData && marketData.available !== false;
+  });
+
   return {
     shopifyId: product.id,
     title: product.title,
@@ -710,7 +717,7 @@ const buildShopifyDocument = async (product, matchedCategorySlug, markets = [], 
     vendor: product.vendor || null,
     productType: product.product_type || null,
     tags,
-    markets: finalMarkets, // Array of market codes (for backward compatibility and filtering)
+    markets: availableMarkets.length > 0 ? availableMarkets : finalMarkets, // Only include available markets (for backward compatibility and filtering)
     marketsObject, // Object with market-specific data (new format with Shopify Markets)
     publishedToOnlineStore, // Store Online Store publication status
     storefrontIndexed, // Store Storefront API indexing status
@@ -719,6 +726,7 @@ const buildShopifyDocument = async (product, matchedCategorySlug, markets = [], 
     rawProduct: product, // This now includes enriched variants with inventory data
     storefronts: suggestedStorefronts, // Suggested from tags (can be overridden in admin)
     processedStorefronts: [],
+    hasProcessedStorefronts: false, // Boolean flag for efficient querying of unprocessed items
     // Product-level stock status (calculated from variants)
     hasInStockVariants: product.hasInStockVariants || false, // True if at least one variant is available
     inStockVariantCount: product.inStockVariantCount || 0, // Count of in-stock variants
@@ -829,8 +837,12 @@ async function updateStorefrontProducts(shopifyId, updateData) {
         // Update marketsObject if it changed
         if (updateData.marketsObject) {
           storefrontUpdate.marketsObject = updateData.marketsObject;
-          // Also update markets array from marketsObject keys
-          storefrontUpdate.markets = Object.keys(updateData.marketsObject);
+          // Also update markets array - only include markets where available !== false
+          // This ensures we only save markets where the product is executable in Shopify
+          storefrontUpdate.markets = Object.keys(updateData.marketsObject).filter(market => {
+            const marketData = updateData.marketsObject[market];
+            return marketData && marketData.available !== false;
+          });
         } else if (updateData.markets) {
           // Fallback: update markets array if marketsObject not available
           storefrontUpdate.markets = updateData.markets;
@@ -1125,8 +1137,16 @@ async function importProducts() {
         const categorySlug = existingData.matchedCategorySlug || matchProductToCategory(enrichedProduct);
         const updatePayload = await buildShopifyDocument(enrichedProduct, categorySlug, markets, publishedToOnlineStore, storefrontIndexed, shippingRates);
         
+        // Preserve hasProcessedStorefronts if item was already processed
+        // Only set to false if processedStorefronts is empty
+        const existingProcessedStorefronts = existingData.processedStorefronts || [];
+        const hasProcessedStorefronts = existingProcessedStorefronts.length > 0 
+          ? true 
+          : false; // Always false for unprocessed items
+        
         await docRef.set({
           ...updatePayload,
+          hasProcessedStorefronts, // Preserve or set based on processedStorefronts
           storefrontIndexed: true,
           slug: documentId,
           updatedAt: FieldValue.serverTimestamp(),

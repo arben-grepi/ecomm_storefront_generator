@@ -475,7 +475,7 @@ function CartPageContent() {
       <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-4 sm:px-6 lg:px-8">
           <Link 
-            href={`/${storefront}`} 
+            href={storefront === 'LUNERA' ? '/' : `/${storefront}`} 
             className="flex items-center transition-opacity hover:opacity-80"
             aria-label={`Return to ${storefront} homepage`}
           >
@@ -695,7 +695,7 @@ function CartPageContent() {
 
               {/* Continue Shopping */}
               <Link
-                href={`/${storefront}`}
+                href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
                 className="mt-3 block w-full rounded-full bg-white px-6 py-3 text-center font-semibold transition hover:bg-slate-50"
                 style={{
                   borderColor: theme.borderColor,

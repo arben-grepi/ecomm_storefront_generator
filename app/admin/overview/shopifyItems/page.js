@@ -1,18 +1,24 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import Link from 'next/link';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, where, limit, startAfter, QueryDocumentSnapshot } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import { getCollectionPath } from '@/lib/store-collections';
 import ShopifyItemModal from '@/components/admin/ShopifyItemModal';
 import { useWebsite } from '@/lib/website-context';
 
+const ITEMS_PER_PAGE = 30;
+
 export default function ShopifyItemsPage() {
   const db = getFirebaseDb();
   const { selectedWebsite } = useWebsite();
   const [items, setItems] = useState([]);
+  const [allItems, setAllItems] = useState([]); // Store all loaded items for filtering
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMarket, setSelectedMarket] = useState('all'); // 'all' | 'FI' | 'DE' | etc.
@@ -23,44 +29,124 @@ export default function ShopifyItemsPage() {
       return;
     }
 
-    loadShopifyItems();
+    loadShopifyItems(true);
   }, [db, selectedWebsite]); // Reload when website changes
 
-  const loadShopifyItems = async () => {
+  const loadShopifyItems = useCallback(async (reset = true) => {
     if (!db) return;
 
     try {
-      const itemsQuery = query(
-        collection(db, ...getCollectionPath('shopifyItems')),
-        orderBy('createdAt', 'desc')
-      );
-      const snapshot = await getDocs(itemsQuery);
-      const itemsData = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        const processedStorefronts = Array.isArray(data.processedStorefronts) ? data.processedStorefronts : [];
-        // Hide item if it's been processed for ANY storefront (not just the selected one)
-        // Users can edit the product later to add more storefronts if needed
-        const processedForStorefront = processedStorefronts.length > 0;
+      if (reset) {
+        setLoading(true);
+        setItems([]);
+        setAllItems([]);
+        setLastDoc(null);
+        setHasMore(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      // Query for items that haven't been processed yet with pagination
+      let itemsQuery;
+      try {
+        // Build query with pagination
+        const queryConstraints = [
+          where('hasProcessedStorefronts', '==', false),
+          orderBy('createdAt', 'desc'),
+          limit(ITEMS_PER_PAGE)
+        ];
         
-        return {
-          id: doc.id,
-          ...data,
-          processedForStorefront,
-        };
-      });
-      console.log(`✅ Loaded ${itemsData.length} Shopify items total`);
-      setItems(itemsData);
+        // Add startAfter for pagination if we have a last document and not resetting
+        if (lastDoc && !reset) {
+          queryConstraints.push(startAfter(lastDoc));
+        }
+        
+        itemsQuery = query(
+          collection(db, ...getCollectionPath('shopifyItems')),
+          ...queryConstraints
+        );
+        
+        const snapshot = await getDocs(itemsQuery);
+        
+        // Check if there are more items
+        setHasMore(snapshot.docs.length === ITEMS_PER_PAGE);
+        
+        // Store last document for next page
+        if (snapshot.docs.length > 0) {
+          setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+        }
+        
+        const itemsData = snapshot.docs.map((doc) => {
+          const data = doc.data();
+          const processedStorefronts = Array.isArray(data.processedStorefronts) ? data.processedStorefronts : [];
+          const processedForStorefront = processedStorefronts.length > 0;
+          
+          return {
+            id: doc.id,
+            ...data,
+            processedForStorefront,
+          };
+        });
+        
+        if (reset) {
+          setAllItems(itemsData);
+          setItems(itemsData);
+          console.log(`✅ Loaded ${itemsData.length} unprocessed Shopify items (page 1, using hasProcessedStorefronts filter)`);
+        } else {
+          setAllItems((prev) => {
+            const updated = [...prev, ...itemsData];
+            console.log(`✅ Loaded ${itemsData.length} more items (total: ${updated.length})`);
+            return updated;
+          });
+          setItems((prev) => [...prev, ...itemsData]);
+        }
+      } catch (indexError) {
+        // If the index doesn't exist or query fails, fall back to loading all and filtering
+        console.warn('hasProcessedStorefronts index may not exist, falling back to full query:', indexError.message);
+        
+        // Fallback: Load all items and filter client-side (no pagination in fallback)
+        const allItemsQuery = query(
+          collection(db, ...getCollectionPath('shopifyItems')),
+          orderBy('createdAt', 'desc')
+        );
+        const snapshot = await getDocs(allItemsQuery);
+        const itemsData = snapshot.docs
+          .map((doc) => {
+            const data = doc.data();
+            const processedStorefronts = Array.isArray(data.processedStorefronts) ? data.processedStorefronts : [];
+            const processedForStorefront = processedStorefronts.length > 0;
+            
+            return {
+              id: doc.id,
+              ...data,
+              processedForStorefront,
+            };
+          })
+          .filter((item) => !item.processedForStorefront);
+        
+        setAllItems(itemsData);
+        setItems(itemsData);
+        setHasMore(false);
+        console.log(`✅ Loaded ${itemsData.length} unprocessed Shopify items (client-side filtered from ${snapshot.docs.length} total)`);
+      }
     } catch (error) {
       console.error('❌ Failed to load Shopify items:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, [db, lastDoc]);
+  
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore && !loading) {
+      loadShopifyItems(false);
+    }
+  }, [loadShopifyItems, loadingMore, hasMore, loading]);
 
-  // Extract available markets from items
+  // Extract available markets from all loaded items (not just current page)
   const availableMarkets = useMemo(() => {
     const markets = new Set();
-    items.forEach((item) => {
+    allItems.forEach((item) => {
       if (item.marketsObject && typeof item.marketsObject === 'object') {
         Object.keys(item.marketsObject).forEach((market) => markets.add(market));
       } else if (Array.isArray(item.markets)) {
@@ -68,11 +154,11 @@ export default function ShopifyItemsPage() {
       }
     });
     return Array.from(markets).sort();
-  }, [items]);
+  }, [allItems]);
 
   const filteredItems = useMemo(
     () =>
-      items
+      allItems
         .filter((item) =>
           item.title?.toLowerCase().includes(searchTerm.toLowerCase())
         )
@@ -93,7 +179,7 @@ export default function ShopifyItemsPage() {
           return false;
         })
         .filter((item) => !item.processedForStorefront),
-    [items, searchTerm, selectedMarket]
+    [allItems, searchTerm, selectedMarket]
   );
 
   const getStatusBadge = (item) => {
@@ -180,8 +266,9 @@ export default function ShopifyItemsPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredItems.map((item) => (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredItems.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
@@ -253,7 +340,30 @@ export default function ShopifyItemsPage() {
                 </div>
               </button>
             ))}
-          </div>
+            </div>
+            
+            {/* Load More Button */}
+            {hasMore && !loadingMore && (
+              <div className="flex justify-center">
+                <button
+                  onClick={loadMore}
+                  className="rounded-full border border-emerald-200 bg-emerald-50/60 px-6 py-3 text-sm font-semibold text-emerald-600 transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:border-emerald-400"
+                >
+                  Load More Items
+                </button>
+              </div>
+            )}
+            
+            {loadingMore && (
+              <div className="py-8 text-center text-zinc-500">Loading more items...</div>
+            )}
+            
+            {!hasMore && allItems.length > 0 && (
+              <div className="py-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                All items loaded ({allItems.length} total)
+              </div>
+            )}
+          </>
         )}
 
         {selectedItem && (

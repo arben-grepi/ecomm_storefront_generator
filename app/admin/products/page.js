@@ -67,45 +67,27 @@ export default function ProductsListPage() {
       async (snapshot) => {
         const productsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
 
-        // Fetch variants for each product to calculate total stock
-        const productsWithStock = await Promise.all(
-          productsData.map(async (product) => {
-            try {
-              const variantsSnapshot = await getDocs(
-                collection(db, ...getDocumentPath('products', product.id, selectedWebsite), 'variants')
-              );
-              const variants = variantsSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-              const totalStock = variants.reduce((sum, variant) => sum + (variant.stock || 0), 0);
-              const lowStockVariants = variants.filter((v) => (v.stock || 0) < lowStockThreshold).length;
-              // Check if product is filtered out (no in-stock variants)
-              // hasInStockVariants can be from shopifyItems (webhook-updated) or calculated from variants
-              const hasInStockVariants = product.hasInStockVariants !== undefined 
-                ? product.hasInStockVariants 
-                : variants.some(v => (v.stock || 0) > 0 || v.inventory_policy === 'continue');
-              const inStockVariantCount = variants.filter(v => (v.stock || 0) > 0 || v.inventory_policy === 'continue').length;
-              return { 
-                ...product, 
-                totalStock, 
-                variants, 
-                lowStockVariants,
-                hasInStockVariants,
-                inStockVariantCount,
-                totalVariantCount: variants.length
-              };
-            } catch (error) {
-              console.warn(`Failed to load variants for product ${product.id}`, error);
-              return { 
-                ...product, 
-                totalStock: 0, 
-                variants: [], 
-                lowStockVariants: 0,
-                hasInStockVariants: false,
-                inStockVariantCount: 0,
-                totalVariantCount: 0
-              };
-            }
-          })
-        );
+        // Use product-level stock data instead of loading variants for all products (optimization)
+        // Variants will be loaded on-demand when viewing/editing a product
+        const productsWithStock = productsData.map((product) => {
+          // Use product-level stock data if available (set by webhooks/imports)
+          const totalStock = product.totalStock || 0;
+          const hasInStockVariants = product.hasInStockVariants !== undefined 
+            ? product.hasInStockVariants 
+            : totalStock > 0; // Default to true if totalStock > 0
+          
+          // Note: lowStockVariants and inStockVariantCount require variant data
+          // These will be calculated on-demand when needed, or use product-level data if available
+          return { 
+            ...product, 
+            totalStock, 
+            variants: [], // Don't load variants - load on demand
+            lowStockVariants: product.lowStockVariants || 0, // Use product-level data if available
+            hasInStockVariants,
+            inStockVariantCount: product.inStockVariantCount || (hasInStockVariants ? 1 : 0), // Estimate or use product-level data
+            totalVariantCount: product.totalVariantCount || 0 // Use product-level data if available
+          };
+        });
 
         setProducts(
           productsWithStock.sort((a, b) => {

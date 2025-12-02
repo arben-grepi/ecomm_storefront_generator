@@ -1,15 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import SettingsMenu from '@/components/SettingsMenu';
-import CategoryCard from '@/components/CategoryCard';
 import CategoryCarousel from '@/components/CategoryCarousel';
 import ProductCard from '@/components/ProductCard';
-import SkeletonCard from '@/components/SkeletonCard';
 import SkeletonProductCard from '@/components/SkeletonProductCard';
-import { useCategories, useAllProducts } from '@/lib/firestore-data';
+import { useCategories, useAllProducts, useProductsByCategory } from '@/lib/firestore-data';
 import { useCart } from '@/lib/cart';
 import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
@@ -28,14 +27,54 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   const storefront = storefrontProp || storefrontFromContext;
   const theme = getStorefrontTheme(storefront); // Get theme for cart badge
   
-  // Use real-time updates from Firebase, but start with server-rendered data
-  // Pass initial data and storefront to hooks to avoid double-fetching
-  const { categories: realtimeCategories, loading: categoriesLoading } = useCategories(initialCategories, storefront);
-  const { products: realtimeProducts, loading: productsLoading } = useAllProducts(initialProducts, storefront);
-  const { getCartItemCount } = useCart();
+  // Get category from URL parameter if present (needed before hooks)
+  const searchParams = useSearchParams();
+  const categoryParam = searchParams?.get('category');
+  
+  // Category filtering state (only for root/LUNERA storefront)
+  // Initialize from URL parameter if present
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    // Try to find category by ID or slug from URL parameter
+    if (categoryParam && initialCategories.length > 0) {
+      const category = initialCategories.find(
+        (cat) => cat.id === categoryParam || cat.slug === categoryParam
+      );
+      return category ? category.id : null;
+    }
+    return null;
+  });
+  const [isFiltering, setIsFiltering] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const [showSkeletons, setShowSkeletons] = useState(true);
-  const [minDisplayTimeElapsed, setMinDisplayTimeElapsed] = useState(false);
+  const [shouldStartRealTimeListeners, setShouldStartRealTimeListeners] = useState(false);
+  
+  // Use real-time updates from Firebase, but start with server-rendered data
+  // Pass initial data and storefront to hooks to avoid double-fetching
+  // Delay real-time listeners until after initial render for better performance
+  const { categories: realtimeCategories, loading: categoriesLoading } = useCategories(
+    initialCategories, 
+    storefront,
+    shouldStartRealTimeListeners
+  );
+  
+  // Use category-specific hook when category is selected, otherwise use all products
+  // Only call useProductsByCategory when we actually have a category to avoid unnecessary hook calls
+  const allProductsHook = useAllProducts(
+    selectedCategory === null ? initialProducts : [], 
+    storefront,
+    shouldStartRealTimeListeners
+  );
+  const categoryProductsHook = useProductsByCategory(
+    selectedCategory || null, // Pass null instead of undefined to avoid hook being called unnecessarily
+    selectedCategory ? initialProducts : [],
+    storefront,
+    shouldStartRealTimeListeners
+  );
+  
+  // Select the appropriate hook based on whether a category is selected
+  const { products: realtimeProducts, loading: productsLoading, hasMore: hasMoreProducts, loadMore: loadMoreProducts } = 
+    selectedCategory === null ? allProductsHook : categoryProductsHook;
+  const { getCartItemCount } = useCart();
 
   // Use ref to track start time (only set once on mount, avoids hydration mismatch)
   const componentStartTimeRef = useRef(null);
@@ -45,20 +84,26 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       componentStartTimeRef.current = Date.now();
     }
     setHasMounted(true);
-    // Ensure skeletons show for at least 500ms for better UX
-    const timer = setTimeout(() => {
-      setMinDisplayTimeElapsed(true);
-    }, 500);
-    return () => clearTimeout(timer);
+    
+    // Delay real-time listeners until after initial render is complete
+    // This improves initial render performance by not competing with SSR data
+    const timer = requestAnimationFrame(() => {
+      // Wait for next frame to ensure initial render is complete
+      setTimeout(() => {
+        setShouldStartRealTimeListeners(true);
+      }, 100);
+    });
+    return () => cancelAnimationFrame(timer);
   }, []);
 
   // Use real-time data if available (after hydration), otherwise use initial server data
   const categories = realtimeCategories.length > 0 ? realtimeCategories : initialCategories;
   const products = realtimeProducts.length > 0 ? realtimeProducts : initialProducts;
 
-  // Hide skeletons once we have categories AND hooks have finished loading AND minimum display time has elapsed
+  // Hide skeletons once we have categories AND hooks have finished loading
+  // No minimum display time - show until we get actual data
   useEffect(() => {
-    const canHideSkeletons = categories.length > 0 && !categoriesLoading && !productsLoading && minDisplayTimeElapsed;
+    const canHideSkeletons = categories.length > 0 && !categoriesLoading && !productsLoading;
     
     if (canHideSkeletons) {
       // Small delay to ensure smooth transition
@@ -67,7 +112,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [categories.length, categoriesLoading, productsLoading, minDisplayTimeElapsed]);
+  }, [categories.length, categoriesLoading, productsLoading]);
 
   // Show loading skeletons if:
   // - We're still showing skeletons (initial load), OR
@@ -99,63 +144,81 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     console.warn('[HomeClient] ⚠️  Filtered out error message from heroMainHeading');
   }
 
-  const categoryPreviews = useMemo(() => {
-    // Don't compute previews if we're loading and have no data
-    if (loading && categories.length === 0) {
-      return [];
+  
+  // Memoize "All Categories" product list (sorted by viewCount) to avoid recalculation
+  const allProductsSorted = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    
+    return [...products].sort((a, b) => {
+      // Use viewCount (new field) first, fall back to metrics.totalViews for backward compatibility
+      const aViews = a.viewCount ?? a.metrics?.totalViews ?? 0;
+      const bViews = b.viewCount ?? b.metrics?.totalViews ?? 0;
+      return bViews - aViews; // Highest first
+    });
+  }, [products]);
+  
+  // Create a map of category ID to category slug for quick lookup
+  const categorySlugMap = useMemo(() => {
+    const map = new Map();
+    categories.forEach((category) => {
+      map.set(category.id, category.slug || category.id);
+    });
+    return map;
+  }, [categories]);
+  
+  // When a category is selected, products are already filtered server-side by useProductsByCategory
+  // So we just need to sort them, no additional filtering needed
+  const filteredProducts = useMemo(() => {
+    if (selectedCategory === null) {
+      // "All Categories" - use memoized sorted list
+      return allProductsSorted;
     }
+    
+    // Category is selected - products are already filtered by useProductsByCategory hook
+    // Just sort by viewCount
+    return [...products].sort((a, b) => {
+      const aViews = a.viewCount ?? a.metrics?.totalViews ?? 0;
+      const bViews = b.viewCount ?? b.metrics?.totalViews ?? 0;
+      return bViews - aViews;
+    });
+  }, [selectedCategory, allProductsSorted, products]);
+  
+  // Update selectedCategory when URL parameter changes (e.g., when navigating from product page)
+  useEffect(() => {
+    if (categoryParam && categories.length > 0) {
+      const category = categories.find(
+        (cat) => cat.id === categoryParam || cat.slug === categoryParam
+      );
+      if (category && category.id !== selectedCategory) {
+        setSelectedCategory(category.id);
+      }
+    } else if (!categoryParam && selectedCategory !== null) {
+      // URL parameter removed, clear selection
+      setSelectedCategory(null);
+    }
+  }, [categoryParam, categories, selectedCategory]);
 
-    const filtered = categories
-      .map((category) => {
-        // Use previewProductIds if set, otherwise fall back to top products
-        let categoryProducts = [];
-        if (category.previewProductIds && category.previewProductIds.length > 0) {
-          // Get products by their IDs in the order specified
-          categoryProducts = category.previewProductIds
-            .map((productId) => products.find((p) => p.id === productId))
-            .filter(Boolean)
-            .map((product) => ({
-              id: product.id,
-              image: product.image, // Use the image from the product
-            }));
-        } else {
-          // Fallback: get top products by views, but only include those with images
-          // Support both categoryId (single) and categoryIds (array) for backward compatibility
-          categoryProducts = products
-            .filter((product) => {
-              const matchesCategory = product.categoryId === category.id || 
-                                     (product.categoryIds && product.categoryIds.includes(category.id));
-              return matchesCategory && product.image;
-            })
-            .sort((a, b) => {
-              const aViews = a.metrics?.totalViews || 0;
-              const bViews = b.metrics?.totalViews || 0;
-              return bViews - aViews;
-            })
-            .slice(0, 4)
-            .map((product) => ({
-              id: product.id,
-              image: product.image, // Only include products with actual images
-            }));
-        }
-
-        // Check if category has any products at all (not just preview products)
-        // Support both categoryId (single) and categoryIds (array) for backward compatibility
-        const hasAnyProducts = products.some((product) => 
-          product.categoryId === category.id || 
-          (product.categoryIds && product.categoryIds.includes(category.id))
-        );
-
-        return {
-          category,
-          products: categoryProducts,
-          hasAnyProducts,
-        };
-      })
-      .filter(({ hasAnyProducts }) => hasAnyProducts);
-
-    return filtered;
-  }, [categories, products, loading]);
+  // Handle category selection with ghost card effect
+  const handleCategorySelect = (categoryId) => {
+    setIsFiltering(true);
+    setSelectedCategory(categoryId);
+    
+    // Simulate filtering delay for ghost card effect
+    setTimeout(() => {
+      setIsFiltering(false);
+    }, 300);
+  };
+  
+  // Handle "All Categories" selection
+  const handleAllCategories = () => {
+    setIsFiltering(true);
+    setSelectedCategory(null);
+    
+    // Simulate filtering delay for ghost card effect
+    setTimeout(() => {
+      setIsFiltering(false);
+    }, 100); // Shorter delay since we're using memoized data
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
@@ -165,7 +228,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
               {/* Mobile: Logo, Desktop: Full branding */}
               <div className="flex flex-col sm:flex-col">
-                <Link href={`/${storefront}`} className="flex items-center">
+                <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center">
                   <Image
                     src="/Blerinas/Blerinas-logo-transparent2.png"
                     alt={siteInfo.companyName || 'Blerinas'}
@@ -228,11 +291,6 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             </div>
           </header>
 
-      {/* Category carousel - hidden on mobile */}
-      <section className="hidden px-4 pt-4 sm:block sm:px-6 lg:px-8">
-        <CategoryCarousel categories={categories} products={products} storefront={storefront} />
-      </section>
-
       {/* Hero Section */}
       <section className="px-4 py-10 sm:px-6 sm:py-16">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
@@ -252,45 +310,63 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
         </div>
       </section>
 
-      {/* Category Cards or Products Grid */}
+      {/* Products Grid */}
       <main id="collection" className="mx-auto max-w-7xl px-3 pb-16 sm:px-6 lg:px-8">
         <div className="mb-8 flex flex-col gap-2 text-center sm:mb-12 sm:text-left">
-          <h3 className="text-xl font-medium text-primary sm:text-2xl">{siteInfo.categorySectionHeading}</h3>
-          <p className="text-sm text-slate-600 sm:text-base">
-            {siteInfo.categorySectionDescription}
-          </p>
+          <CategoryCarousel 
+            categories={categories} 
+            products={products} 
+            storefront={storefront}
+            selectedCategory={selectedCategory}
+            onCategorySelect={handleCategorySelect}
+            onAllCategories={handleAllCategories}
+          />
+          {siteInfo.categorySectionDescription && (
+            <p className="text-sm text-slate-600 sm:text-base mt-2">
+              {siteInfo.categorySectionDescription}
+            </p>
+          )}
         </div>
-        {loading ? (
-          <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <SkeletonCard key={i} className="w-full sm:w-[calc(50%-0.75rem)] xl:w-[calc(33.333%-1rem)] max-w-sm" />
-            ))}
-          </div>
-        ) : categoryPreviews.length > 0 ? (
-          // Show categories if we have them
-          <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
-            {categoryPreviews.map(({ category, products }) => (
-              <div key={category.id} className="w-full sm:w-[calc(50%-0.75rem)] xl:w-[calc(33.333%-1rem)] max-w-sm">
-                <CategoryCard category={category} products={products} />
-              </div>
-            ))}
-          </div>
-        ) : products.length > 0 ? (
-          // Fallback: Show products directly if we have products but no categories
+        {loading || isFiltering ? (
+          // Show ghost cards while loading or filtering
           <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
-            {products.map((product) => (
-              <div key={product.id} className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)] md:w-[calc(25%-0.938rem)] max-w-xs">
-                <ProductCard
-                  product={product}
-                  categorySlug={product.categoryIds?.[0] || product.categoryId || 'all'}
-                />
-              </div>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <SkeletonProductCard key={i} className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)] md:w-[calc(25%-0.938rem)] max-w-xs" />
             ))}
+          </div>
+        ) : filteredProducts.length > 0 ? (
+          // Show filtered products (sorted by viewCount)
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
+            {filteredProducts.map((product) => {
+              // Get category slug from category ID
+              const categoryId = product.categoryIds?.[0] || product.categoryId;
+              const categorySlug = categoryId ? (categorySlugMap.get(categoryId) || categoryId) : 'all';
+              return (
+                <div key={product.id} className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)] md:w-[calc(25%-0.938rem)] max-w-xs">
+                  <ProductCard
+                    product={product}
+                    categorySlug={categorySlug}
+                  />
+                </div>
+              );
+            })}
           </div>
         ) : (
-          // No products or categories
+          // No products
           <div className="rounded-3xl border border-secondary/70 bg-white/80 p-6 text-center text-slate-500">
-            Products will appear here soon. Check back shortly.
+            {selectedCategory ? 'No products found in this category.' : 'Products will appear here soon. Check back shortly.'}
+          </div>
+        )}
+        {/* Load More button - only show if not filtering by category and has more products */}
+        {!selectedCategory && hasMoreProducts && !loading && (
+          <div className="mt-8 flex justify-center">
+            <button
+              onClick={loadMoreProducts}
+              disabled={productsLoading}
+              className="rounded-full border border-primary/30 bg-white/80 px-6 py-3 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {productsLoading ? 'Loading...' : 'Load More Products'}
+            </button>
           </div>
         )}
       </main>

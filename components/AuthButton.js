@@ -43,7 +43,9 @@ export default function AuthButton() {
       await signOutUser();
       // Get storefront from cache to navigate back to the correct storefront
       const storefront = getStorefront();
-      router.push(`/${storefront}`);
+      // LUNERA is the default storefront at root path
+      const redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
+      router.push(redirectPath);
     } catch (error) {
       console.error('Sign out error:', error);
     }

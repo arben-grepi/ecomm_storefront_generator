@@ -4,12 +4,12 @@
  * This file contains styles that apply to ALL pages across the entire application.
  * It's imported in the root layout (app/layout.js).
  * 
- * Storefront-specific theme colors are defined in:
- * - app/LUNERA/globals.css (pink theme)
+ * Root uses LUNERA theme (pink) as default.
+ * Other storefront-specific theme colors are defined in:
  * - app/FIVESTARFINDS/globals.css (turquoise theme)
  * 
- * Each storefront layout imports its own theme CSS, which overrides the CSS variables
- * defined here (if any).
+ * Other storefront layouts import their own theme CSS, which overrides the CSS variables
+ * defined here.
  */
 
 /* Import Tailwind CSS - this gives us utility classes like flex, grid, text-center, etc. */
@@ -25,9 +25,9 @@
 :root {
   --background: #ffffff;
   --foreground: #1f2937;
-  /* Default colors (will be overridden by storefront-specific CSS) */
-  --primary: #ec4899; /* Default to LUNERA's pink, but each storefront overrides this */
-  --secondary: #fdf2f8;
+  /* Default colors - LUNERA theme (root storefront) */
+  --primary: #ec4899; /* LUNERA pink */
+  --secondary: #fdf2f8; /* LUNERA pink background */
 }
 
 /**

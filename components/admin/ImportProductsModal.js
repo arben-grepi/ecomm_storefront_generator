@@ -19,6 +19,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
   const [selectedVariants, setSelectedVariants] = useState(new Set()); // Selected variant IDs (format: productId-variantId)
   const [importing, setImporting] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const MAX_SELECTABLE_PRODUCTS = 20; // Maximum number of products that can be selected
 
   // Fetch products from Shopify API and check which products exist
   useEffect(() => {
@@ -61,7 +62,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
           shopifyId: product.id,
           title: product.title,
           handle: product.handle,
-          status: product.status,
+          status: product.status, // 'active', 'archived', 'draft'
           vendor: product.vendor,
           productType: product.productType,
           tags: product.tags,
@@ -86,24 +87,75 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
     loadData();
   }, [isOpen, db, availableWebsites]);
 
-  // Separate products into existing and new
-  const { newProducts, existingProductsList } = useMemo(() => {
-    const newProds = [];
+  // Separate products into published, unpublished, existing, and new
+  const { publishedProducts, unpublishedProducts, existingProductsList } = useMemo(() => {
+    const published = [];
+    const unpublished = [];
     const existingProds = [];
 
     shopifyItems.forEach((item) => {
       const shopifyId = item.shopifyId?.toString();
       const exists = shopifyId && existingProducts.includes(shopifyId);
       
+      // Normalize status for comparison (handle case sensitivity, null, undefined)
+      const rawStatus = item.status;
+      const status = rawStatus ? String(rawStatus).toLowerCase().trim() : '';
+      const isActive = status === 'active';
+      // Check both: product must be active AND published to Online Store
+      const publishedToOnlineStore = item.publishedToOnlineStore === true;
+      const isPublished = isActive && publishedToOnlineStore;
+      
       if (exists) {
+        // Products already in database go to existing list
         existingProds.push(item);
+      } else if (isPublished) {
+        // Only published (active + publishedToOnlineStore) products can be imported
+        published.push(item);
       } else {
-        newProds.push(item);
+        // All other products (not active, not published to Online Store, or both) go to unpublished
+        unpublished.push(item);
       }
     });
 
+    console.log('[ImportModal] Product separation:', {
+      total: shopifyItems.length,
+      published: published.length,
+      unpublished: unpublished.length,
+      existing: existingProds.length,
+      publishedStatuses: [...new Set(published.map(p => p.status))],
+      unpublishedStatuses: [...new Set(unpublished.map(p => p.status))]
+    });
+
+    // Debug logging to help identify filtering issues
+    if (shopifyItems.length > 0) {
+      const statusBreakdown = {};
+      const publicationBreakdown = { published: 0, unpublished: 0, missing: 0 };
+      shopifyItems.forEach(item => {
+        const status = item.status ? String(item.status).toLowerCase().trim() : 'undefined';
+        statusBreakdown[status] = (statusBreakdown[status] || 0) + 1;
+        if (item.publishedToOnlineStore === true) {
+          publicationBreakdown.published++;
+        } else if (item.publishedToOnlineStore === false) {
+          publicationBreakdown.unpublished++;
+        } else {
+          publicationBreakdown.missing++;
+        }
+      });
+      console.log('[ImportModal] 📊 Product Status Breakdown:', statusBreakdown);
+      console.log('[ImportModal] 📊 Publication Status Breakdown:', publicationBreakdown);
+      console.log('[ImportModal] 📦 Separation Results:', {
+        total: shopifyItems.length,
+        published: published.length,
+        unpublished: unpublished.length,
+        existing: existingProds.length,
+        publishedStatuses: [...new Set(published.map(p => p.status))],
+        unpublishedStatuses: [...new Set(unpublished.map(p => p.status))]
+      });
+    }
+
     return {
-      newProducts: newProds,
+      publishedProducts: published,
+      unpublishedProducts: unpublished,
       existingProductsList: existingProds,
     };
   }, [shopifyItems, existingProducts]);
@@ -154,6 +206,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
     setSelectedProducts((prev) => {
       const next = new Set(prev);
       if (next.has(productId)) {
+        // Deselecting
         next.delete(productId);
         // Deselect all variants for this product
         setSelectedVariants((prevVariants) => {
@@ -165,6 +218,15 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
           return nextVariants;
         });
       } else {
+        // Check if we've reached the limit
+        if (next.size >= MAX_SELECTABLE_PRODUCTS) {
+          setToastMessage({
+            type: 'error',
+            text: `You can only select up to ${MAX_SELECTABLE_PRODUCTS} products at a time. Please deselect some products first.`,
+          });
+          return prev; // Don't add, return previous state
+        }
+        // Selecting
         next.add(productId);
         // Auto-select all variants for this product
         setSelectedVariants((prevVariants) => {
@@ -186,6 +248,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
     setSelectedVariants((prev) => {
       const next = new Set(prev);
       if (next.has(variantKey)) {
+        // Deselecting variant
         next.delete(variantKey);
         // If all variants are deselected, deselect the product
         const item = shopifyItems.find((i) => i.id === productId);
@@ -201,24 +264,47 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
           }
         }
       } else {
-        next.add(variantKey);
-        // If any variant is selected, select the product
-        setSelectedProducts((prev) => {
-          const next = new Set(prev);
-          next.add(productId);
-          return next;
-        });
+        // Selecting variant - check if product is already selected
+        const item = shopifyItems.find((i) => i.id === productId);
+        if (item) {
+          const variants = getProductVariants(item);
+          const isProductSelected = selectedProducts.has(productId);
+          
+          // If product is not selected, check if we can add it
+          if (!isProductSelected && selectedProducts.size >= MAX_SELECTABLE_PRODUCTS) {
+            setToastMessage({
+              type: 'error',
+              text: `You can only select up to ${MAX_SELECTABLE_PRODUCTS} products at a time. Please deselect some products first.`,
+            });
+            return prev; // Don't add variant, return previous state
+          }
+          
+          // Add variant
+          next.add(variantKey);
+          
+          // If product is not selected, select it
+          if (!isProductSelected) {
+            setSelectedProducts((prev) => {
+              const nextProds = new Set(prev);
+              nextProds.add(productId);
+              return nextProds;
+            });
+          }
+        }
       }
       return next;
     });
   };
 
-  // Select all new products
-  const selectAllNewProducts = () => {
-    setSelectedProducts(new Set(newProducts.map((item) => item.id)));
+  // Select all published products (up to the limit)
+  const selectAllPublishedProducts = () => {
+    const productsToSelect = publishedProducts.slice(0, MAX_SELECTABLE_PRODUCTS);
+    const remainingCount = publishedProducts.length - productsToSelect.length;
+    
+    setSelectedProducts(new Set(productsToSelect.map((item) => item.id)));
     setSelectedVariants((prev) => {
       const next = new Set(prev);
-      newProducts.forEach((item) => {
+      productsToSelect.forEach((item) => {
         const variants = getProductVariants(item);
         variants.forEach((variant) => {
           next.add(`${item.id}-${variant.id}`);
@@ -226,6 +312,13 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
       });
       return next;
     });
+    
+    if (remainingCount > 0) {
+      setToastMessage({
+        type: 'warning',
+        text: `Selected ${productsToSelect.length} products (limit: ${MAX_SELECTABLE_PRODUCTS}). ${remainingCount} more products available.`,
+      });
+    }
   };
 
   // Deselect all
@@ -276,8 +369,10 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
   if (!isOpen) return null;
 
   const selectedCount = selectedProducts.size;
-  const totalNewProducts = newProducts.length;
+  const totalPublishedProducts = publishedProducts.length;
+  const totalUnpublishedProducts = unpublishedProducts.length;
   const totalExistingProducts = existingProductsList.length;
+  const canSelectMore = selectedCount < MAX_SELECTABLE_PRODUCTS;
 
   return createPortal(
     <div
@@ -335,11 +430,11 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
             <div className="mb-6 flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={selectAllNewProducts}
-                  disabled={totalNewProducts === 0 || importing}
+                  onClick={selectAllPublishedProducts}
+                  disabled={totalPublishedProducts === 0 || importing}
                   className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
                 >
-                  Select All ({totalNewProducts})
+                  Select All Published ({totalPublishedProducts})
                 </button>
                 <button
                   onClick={deselectAll}
@@ -349,27 +444,36 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                   Deselect All
                 </button>
               </div>
-              <div className="text-sm text-zinc-600 dark:text-zinc-400">
-                {selectedCount} product{selectedCount !== 1 ? 's' : ''} selected
+              <div className="flex items-center gap-3">
+                <div className={`text-sm font-medium ${canSelectMore ? 'text-zinc-600 dark:text-zinc-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                  {selectedCount} / {MAX_SELECTABLE_PRODUCTS} products selected
+                </div>
+                {!canSelectMore && (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">
+                    (Limit reached)
+                  </span>
+                )}
               </div>
             </div>
 
             {/* Empty State */}
-            {newProducts.length === 0 && existingProductsList.length === 0 && !loading && (
+            {publishedProducts.length === 0 && unpublishedProducts.length === 0 && existingProductsList.length === 0 && !loading && (
               <div className="py-12 text-center text-zinc-500 dark:text-zinc-400">
                 <p className="text-lg font-medium">No products found</p>
                 <p className="mt-2 text-sm">No products available in your Shopify store.</p>
               </div>
             )}
 
-            {/* New Products Section */}
-            {newProducts.length > 0 && (
-              <div className="mb-6">
+            {/* Published Products Section */}
+            {publishedProducts.length > 0 && (
+              <div className="mb-10">
                 <h3 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-                  New Products ({newProducts.length})
+                  Published Products ({publishedProducts.length})
                 </h3>
                 <div className="max-h-[32rem] space-y-2 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900/50">
-                  {newProducts.map((item) => {
+                  {publishedProducts
+                    .filter((item) => item.status === 'active') // Double-check: only show active products
+                    .map((item) => {
                     const productId = item.id;
                     const isExpanded = expandedProducts.has(productId);
                     const isSelected = selectedProducts.has(productId);
@@ -393,8 +497,8 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                             type="checkbox"
                             checked={isSelected}
                             onChange={() => toggleProductSelection(productId, item)}
-                            disabled={importing}
-                            className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                            disabled={importing || (!canSelectMore && !isSelected)}
+                            className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                           <div className="flex-1">
                             <div className="flex items-center justify-between">
@@ -407,6 +511,12 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                                   {isSelected && selectedVariantCount < variants.length && (
                                     <span className="ml-2 text-emerald-600">
                                       ({selectedVariantCount}/{variants.length} selected)
+                                    </span>
+                                  )}
+                                  {/* Debug: Show status if not active (shouldn't happen) */}
+                                  {item.status !== 'active' && (
+                                    <span className="ml-2 text-red-600 font-semibold">
+                                      [Status: {item.status || 'undefined'}]
                                     </span>
                                   )}
                                 </p>
@@ -464,8 +574,8 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                                             type="checkbox"
                                             checked={isVariantSelected}
                                             onChange={() => toggleVariantSelection(productId, variantId)}
-                                            disabled={importing}
-                                            className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500"
+                                            disabled={importing || (!canSelectMore && !isVariantSelected && !selectedProducts.has(productId))}
+                                            className="h-4 w-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                           />
                                           <div className="flex-1">
                                             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
@@ -493,7 +603,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
 
             {/* Existing Products Section */}
             {existingProductsList.length > 0 && (
-              <div className="mb-6">
+              <div className="mb-10">
                 <h3 className="mb-4 text-lg font-semibold text-zinc-500 dark:text-zinc-400">
                   Already Imported ({existingProductsList.length})
                 </h3>
@@ -511,6 +621,63 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
                           {variants.length} variant{variants.length !== 1 ? 's' : ''} • Already in database
                         </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Unpublished Products Section */}
+            {unpublishedProducts.length > 0 && (
+              <div className="mb-10">
+                <div className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <svg className="h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                    These products are not published in Shopify and cannot be imported.
+                  </p>
+                </div>
+                <div className="max-h-[16rem] space-y-2 overflow-y-auto rounded-xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-700 dark:bg-zinc-800/30">
+                  {unpublishedProducts.map((item) => {
+                    const variants = getProductVariants(item);
+                    const status = item.status ? String(item.status).toLowerCase().trim() : '';
+                    const isActive = status === 'active';
+                    const publishedToOnlineStore = item.publishedToOnlineStore === true;
+                    
+                    // Determine status label
+                    let statusLabel = 'Unpublished';
+                    if (status === 'draft') {
+                      statusLabel = 'Draft';
+                    } else if (status === 'archived') {
+                      statusLabel = 'Archived';
+                    } else if (isActive && !publishedToOnlineStore) {
+                      statusLabel = 'Active (Not Published)';
+                    } else if (!isActive && publishedToOnlineStore) {
+                      statusLabel = 'Published (Inactive)';
+                    } else {
+                      statusLabel = 'Unpublished';
+                    }
+                    
+                    return (
+                      <div
+                        key={item.id}
+                        className="rounded-lg border border-zinc-200 bg-white p-3 opacity-60 dark:border-zinc-700 dark:bg-zinc-800/50"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-zinc-600 dark:text-zinc-400">
+                              {item.title || 'Untitled Product'}
+                            </p>
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                              {variants.length} variant{variants.length !== 1 ? 's' : ''} • {statusLabel} in Shopify
+                            </p>
+                          </div>
+                          <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-400">
+                            {statusLabel}
+                          </span>
+                        </div>
                       </div>
                     );
                   })}

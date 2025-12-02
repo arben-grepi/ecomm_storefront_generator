@@ -5,18 +5,20 @@
  * It runs on the SERVER (Node.js runtime), so you CAN debug it with breakpoints.
  * 
  * IMPORTANT: This file is executed for EVERY page request, before any route-specific layouts.
- * Execution order: middleware.js → app/layout.js → app/LUNERA/layout.js → app/LUNERA/page.js
+ * Execution order: middleware.js → app/layout.js → app/page.js (LUNERA storefront at root)
  */
 
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 // Import shared global CSS (common styles for all pages)
-// Storefront-specific theme colors are imported in each storefront's layout:
-// - app/LUNERA/layout.js imports app/LUNERA/globals.css (pink theme)
+// Root uses LUNERA theme (pink) as default
+// Other storefronts import their own theme CSS in their layouts:
 // - app/FIVESTARFINDS/layout.js imports app/FIVESTARFINDS/globals.css (turquoise theme)
 import "./globals.css";
 // PageTransitionBar removed - wasn't working/visible. Can be re-added if needed.
 import UnderConstructionBanner from "@/components/UnderConstructionBanner";
 import CookieConsent from "@/components/CookieConsent";
+import { StorefrontProvider } from '@/lib/storefront-context';
+import { getServerSideInfo } from '@/lib/firestore-server';
 
 /**
  * FONT LOADING (Next.js Font Optimization)
@@ -48,31 +50,45 @@ const inter = Inter({
 /**
  * METADATA (SEO & Browser Information)
  * 
- * This object defines HTML <head> tags that are used by:
- * 1. Search engines (Google, Bing) - for SEO (Search Engine Optimization)
- * 2. Social media platforms (Facebook, Twitter) - when sharing links
- * 3. Browsers - for bookmarks, tabs, and history
- * 
- * This root metadata defaults to FIVESTARFINDS since it's the main storefront.
- * Admin routes have their own metadata in app/admin/layout.js.
+ * Root layout now serves LUNERA as the default storefront.
+ * Metadata is generated dynamically from the LUNERA Info document.
  */
-export const metadata = {
-  // Default to FIVESTARFINDS (main storefront) - trending, highly-rated, top-selling products
-  title: "Five-Star Finds - Top Rated. Always.",
-  description: "Discover top-rated products at Five-Star Finds. Curated selection of trending, highly-rated, top-selling products people need with worldwide shipping.",
+export async function generateMetadata() {
+  const storefront = 'LUNERA';
+  const info = await getServerSideInfo('en', storefront);
   
-  // Note: robots meta tag is handled per-route in storefront layouts
-  // Storefront routes (e.g., /LUNERA/*) should allow indexing
-  // Admin routes should block indexing (handled in admin layout)
-
-  icons: {
-    icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' }, // Modern SVG favicon (scalable)
-      { url: '/favicon.ico', sizes: 'any' }, // Fallback for older browsers
-    ],
-   
-  },
-};
+  // Generate metadata from Info document
+  const title = info.companyName 
+    ? `${info.companyName}${info.companyTagline ? ` - ${info.companyTagline}` : ''}`
+    : 'Blerinas - Premium Fashion & Accessories';
+  
+  const description = info.heroDescription || info.companyTagline || 
+    'Discover premium fashion and accessories at Blerinas. Shop the latest collections with worldwide shipping.';
+  
+  return {
+    title,
+    description,
+    robots: {
+      index: false, // TEMPORARY: Block indexing while site is under construction
+      follow: false, // TEMPORARY: Block following links while site is under construction
+    },
+    openGraph: {
+      title,
+      description,
+      type: 'website',
+      url: 'https://www.blerinas.com',
+    },
+    alternates: {
+      canonical: 'https://www.blerinas.com',
+    },
+    icons: {
+      icon: [
+        { url: '/icon.svg', type: 'image/svg+xml' },
+        { url: '/favicon.ico', sizes: 'any' },
+      ],
+    },
+  };
+}
 
 /**
  * ROOT LAYOUT COMPONENT
@@ -86,9 +102,10 @@ export const metadata = {
  */
 export default function RootLayout({ children }) {
   // 🔍 ROOT LAYOUT - Set breakpoint here in Cursor (Node.js debugger will work)
+  // Root layout now serves LUNERA as the default storefront
   
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       {/* 
         className applies the font CSS variables to the <body> tag
         This makes the fonts available to all child components via CSS variables
@@ -101,21 +118,23 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased`}
       >
-        {/* 
-          Global components that appear on every page:
-          - UnderConstructionBanner: Shows "under construction" message (if enabled)
-        */}
-        <UnderConstructionBanner />
-        
-            {/* 
-              {children} is where the actual page content gets rendered
-            */}
-            {children}
-            
-            {/* 
-              Cookie Consent Banner - appears at bottom until user gives consent
-            */}
-            <CookieConsent />
+        <StorefrontProvider>
+          {/* 
+            Global components that appear on every page:
+            - UnderConstructionBanner: Shows "under construction" message (if enabled)
+          */}
+          <UnderConstructionBanner />
+          
+          {/* 
+            {children} is where the actual page content gets rendered
+          */}
+          {children}
+          
+          {/* 
+            Cookie Consent Banner - appears at bottom until user gives consent
+          */}
+          <CookieConsent />
+        </StorefrontProvider>
       </body>
     </html>
   );

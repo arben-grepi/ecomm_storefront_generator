@@ -9,18 +9,18 @@
           "arrayConfig": "CONTAINS"
         },
         {
-          "fieldPath": "active",
-          "order": "ASCENDING"
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
         }
       ]
     },
     {
-      "collectionGroup": "items",
+      "collectionGroup": "shopifyItems",
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "categoryIds",
-          "arrayConfig": "CONTAINS"
+          "fieldPath": "hasProcessedStorefronts",
+          "order": "ASCENDING"
         },
         {
           "fieldPath": "createdAt",
@@ -33,12 +33,20 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "publishedToOnlineStore",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "storefronts",
           "arrayConfig": "CONTAINS"
         },
         {
-          "fieldPath": "active",
-          "order": "ASCENDING"
+          "fieldPath": "viewCount",
+          "order": "DESCENDING"
         }
       ]
     },
@@ -47,11 +55,19 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "storefronts",
+          "fieldPath": "categoryIds",
           "arrayConfig": "CONTAINS"
         },
         {
-          "fieldPath": "createdAt",
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "publishedToOnlineStore",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "viewCount",
           "order": "DESCENDING"
         }
       ]

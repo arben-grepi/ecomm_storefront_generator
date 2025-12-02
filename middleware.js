@@ -43,15 +43,10 @@ function getClientIP(request) {
  * @param {boolean} isDevelopment - Whether we're in development mode
  * @returns {Promise<string|null>} Country code (2 letters) or null if detection fails
  */
-async function getCountryFromIP(ip, isDevelopment = false) {
-  // In development, default to 'DE' for testing (can be overridden via env var)
-  if (isDevelopment && (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.'))) {
-    return process.env.NEXT_PUBLIC_DEV_COUNTRY || 'DE';
-  }
-  
-  // Skip localhost/private IPs in production (shouldn't happen, but safety check)
+async function getCountryFromIP(ip) {
+  // Skip localhost/private IPs - can't geolocate these
   if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.')) {
-    return null;
+    return { country: null, reason: `Cannot geolocate localhost/private IP: ${ip}` };
   }
 
   try {
@@ -66,9 +61,10 @@ async function getCountryFromIP(ip, isDevelopment = false) {
     if (response.ok) {
       const country = (await response.text()).trim();
       if (country && country.length === 2) {
-        return country.toUpperCase();
+        return { country: country.toUpperCase(), reason: null };
       }
     }
+    return { country: null, reason: `ipapi.co returned invalid response: ${response.status}` };
   } catch (error) {
     // If ipapi.co fails, try ip-api.com as fallback
     try {
@@ -82,15 +78,14 @@ async function getCountryFromIP(ip, isDevelopment = false) {
       if (fallbackResponse.ok) {
         const data = await fallbackResponse.json();
         if (data.countryCode && data.countryCode.length === 2) {
-          return data.countryCode.toUpperCase();
+          return { country: data.countryCode.toUpperCase(), reason: null };
         }
       }
+      return { country: null, reason: `ip-api.com returned invalid response: ${fallbackResponse.status}` };
     } catch (fallbackError) {
-      // Silently fail - will use fallback country
+      return { country: null, reason: `Both geolocation APIs failed: ${error.message}, ${fallbackError.message}` };
     }
   }
-  
-  return null;
 }
 
 export async function middleware(request) {
@@ -114,21 +109,25 @@ export async function middleware(request) {
   }
 
   // Extract storefront from URL path
+  // Root (/) is now LUNERA (default storefront)
+  // Other storefronts are at /FIVESTARFINDS, etc.
   const segments = pathname.split('/').filter(Boolean);
-  const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart'];
+  const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart', 'orders'];
   let storefront = null;
-  
-  // Don't log URL segments - could reveal internal structure
   
   // Check if we're on the cart page - if so, use existing storefront cookie or default
   if (pathname === '/cart' || pathname.startsWith('/cart/')) {
     // On cart page, preserve the existing storefront cookie (don't change it)
     const existingStorefront = request.cookies.get('storefront')?.value;
     storefront = existingStorefront || 'LUNERA';
+  } else if (segments.length === 0 || pathname === '/') {
+    // Root path (/) is LUNERA (default storefront)
+    storefront = 'LUNERA';
   } else if (segments.length > 0 && !excludedSegments.includes(segments[0].toLowerCase())) {
+    // First segment is a storefront name (e.g., /FIVESTARFINDS)
     storefront = segments[0].toUpperCase();
   } else {
-    // For other excluded paths, use existing cookie or default
+    // For excluded paths (order-confirmation, orders, etc.), use existing cookie or default to LUNERA
     const existingStorefront = request.cookies.get('storefront')?.value;
     storefront = existingStorefront || 'LUNERA';
   } 
@@ -140,39 +139,27 @@ export async function middleware(request) {
   
   // Only detect country if market cookie doesn't exist or is invalid
   if (!country || !SUPPORTED_MARKETS.includes(country)) {
-    // Try method 1: Next.js/Vercel Edge Runtime geo (works on Vercel directly, not Firebase App Hosting)
-    let geoCountry = request.geo?.country;
-    let geoSource = null;
+    const clientIP = getClientIP(request);
+    let geoCountry = null;
     
-    // Try method 2: External IP geolocation API (works on Firebase App Hosting and when request.geo fails)
-    if (!geoCountry) {
-      const clientIP = getClientIP(request);
-      const isDevelopment = process.env.NODE_ENV === 'development';
-      
-      if (clientIP) {
-        geoCountry = await getCountryFromIP(clientIP, isDevelopment);
-        geoSource = geoCountry ? 'external API' : null;
-        if (!geoCountry) {
-          console.warn(`[MIDDLEWARE] ⚠️  Geo-location API failed, using fallback: DE`);
-        }
-      } else if (isDevelopment) {
-        // In development, use dev fallback
-        geoCountry = await getCountryFromIP(null, isDevelopment);
-        geoSource = geoCountry ? 'development fallback' : null;
+    if (clientIP) {
+      const result = await getCountryFromIP(clientIP);
+      if (result.country) {
+        geoCountry = result.country;
+        console.log(`[MIDDLEWARE] ✅ Geo-location successful: ${geoCountry} (IP: ${clientIP})`);
       } else {
-        console.warn(`[MIDDLEWARE] ⚠️  Could not extract client IP, using fallback: DE`);
+        console.warn(`[MIDDLEWARE] ⚠️  Geo-location failed for IP ${clientIP}: ${result.reason}`);
       }
     } else {
-      geoSource = 'request.geo';
+      console.warn(`[MIDDLEWARE] ⚠️  Could not extract client IP`);
     }
     
     // Use detected country or fallback to 'DE' (Germany) if all methods fail
     country = geoCountry || 'DE';
-    shouldSetMarketCookie = true; // Set cookie with detected country (or fallback)
+    shouldSetMarketCookie = true;
     
-    // Log successful geo-location detection
-    if (geoCountry && geoSource) {
-      console.log(`[MIDDLEWARE] ✅ Geo-location successful: ${geoCountry} (from ${geoSource})`);
+    if (!geoCountry) {
+      console.log(`[MIDDLEWARE] ⚠️  Using default country: ${country} (geo-location failed)`);
     }
     
     // Check if market is supported

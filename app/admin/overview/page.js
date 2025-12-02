@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import { getCollectionPath, getDocumentPath } from '@/lib/store-collections';
 import { useWebsite } from '@/lib/website-context';
@@ -12,6 +12,7 @@ import ProductModal from '@/components/admin/ProductModal';
 import ImportProductsModal from '@/components/admin/ImportProductsModal';
 import ImportLogsModal from '@/components/admin/ImportLogsModal';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
+import { getCachedMetrics, setCachedMetrics } from '@/lib/metrics-cache';
 
 const QUICK_ACTIONS = [
   {
@@ -65,53 +66,75 @@ function EcommerceOverviewContent() {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Load products with variants to calculate stock
-        const productsSnap = await getDocs(collection(db, ...getCollectionPath('products', selectedWebsite)));
-        const productsPromises = productsSnap.docs.map(async (doc) => {
+        // Load products - limit to 100 for metrics calculation (we don't need all products)
+        // Use product-level stock data instead of loading variants (variants loaded on-demand when viewing product)
+        const productsQuery = query(
+          collection(db, ...getCollectionPath('products', selectedWebsite)),
+          orderBy('createdAt', 'desc'),
+          limit(100)
+        );
+        const productsSnap = await getDocs(productsQuery);
+        const products = productsSnap.docs.map((doc) => {
           const productData = { id: doc.id, ...doc.data() };
           
-          // Try to load variants to calculate total stock
-          try {
-            const variantsSnap = await getDocs(
-              collection(db, ...getDocumentPath('products', doc.id, selectedWebsite), 'variants')
-            );
-            const variants = variantsSnap.docs.map((v) => v.data());
-            const totalStock = variants.reduce((sum, variant) => sum + (variant.stock || 0), 0);
-            productData.totalStock = totalStock;
-            productData.hasInStockVariants = variants.some((v) => (v.stock || 0) > 0 || v.inventory_policy === 'continue');
-          } catch (error) {
-            // If variants can't be loaded, use product-level data if available
-            productData.totalStock = productData.totalStock || 0;
-            if (productData.hasInStockVariants === undefined) {
-              productData.hasInStockVariants = productData.totalStock > 0;
-            }
+          // Use product-level stock data if available (set by webhooks/imports)
+          // Variants will be loaded on-demand when viewing/editing the product
+          productData.totalStock = productData.totalStock || 0;
+          if (productData.hasInStockVariants === undefined) {
+            // Default to true if not set (backward compatibility)
+            productData.hasInStockVariants = productData.totalStock > 0;
           }
           
           return productData;
         });
-        const products = await Promise.all(productsPromises);
 
-        // Load shopify items
-        const shopifySnap = await getDocs(collection(db, ...getCollectionPath('shopifyItems'))).catch((error) => {
-          console.warn('Failed to load shopifyItems (may need admin auth):', error.message);
-          return { docs: [] };
-        });
-        const shopifyItems = shopifySnap.docs.map((doc) => {
-          const data = doc.data();
-          const createdAt =
-            typeof data.createdAt?.toMillis === 'function'
-              ? data.createdAt.toMillis()
-              : data.createdAt?.seconds
-              ? data.createdAt.seconds * 1000
-              : 0;
-          return {
-            id: doc.id,
-            ...data,
-            createdAt,
-            processedStorefronts: Array.isArray(data.processedStorefronts) ? data.processedStorefronts : [],
-            storefronts: Array.isArray(data.storefronts) ? data.storefronts : [],
-          };
-        });
+        // Load shopify items - only unprocessed ones for efficiency
+        let shopifySnap;
+        try {
+          // Try to query for unprocessed items first (most efficient)
+          const unprocessedQuery = query(
+            collection(db, ...getCollectionPath('shopifyItems')),
+            where('hasProcessedStorefronts', '==', false),
+            orderBy('createdAt', 'desc')
+          );
+          shopifySnap = await getDocs(unprocessedQuery);
+        } catch (indexError) {
+          // If index doesn't exist, fall back to loading all and filtering client-side
+          console.warn('hasProcessedStorefronts index may not exist, loading all items:', indexError.message);
+          const allItemsQuery = query(
+            collection(db, ...getCollectionPath('shopifyItems')),
+            orderBy('createdAt', 'desc')
+          );
+          shopifySnap = await getDocs(allItemsQuery).catch((error) => {
+            console.warn('Failed to load shopifyItems (may need admin auth):', error.message);
+            return { docs: [] };
+          });
+        }
+        
+        const shopifyItems = shopifySnap.docs
+          .map((doc) => {
+            const data = doc.data();
+            const createdAt =
+              typeof data.createdAt?.toMillis === 'function'
+                ? data.createdAt.toMillis()
+                : data.createdAt?.seconds
+                ? data.createdAt.seconds * 1000
+                : 0;
+            const processedStorefronts = Array.isArray(data.processedStorefronts) ? data.processedStorefronts : [];
+            const hasProcessedStorefronts = data.hasProcessedStorefronts !== undefined 
+              ? data.hasProcessedStorefronts 
+              : processedStorefronts.length > 0;
+            
+            return {
+              id: doc.id,
+              ...data,
+              createdAt,
+              processedStorefronts,
+              storefronts: Array.isArray(data.storefronts) ? data.storefronts : [],
+              hasProcessedStorefronts,
+            };
+          })
+          .filter((item) => !item.hasProcessedStorefronts); // Filter to only unprocessed items
 
         // Load orders from all storefronts
         const allStorefronts = availableWebsites.length > 0 ? availableWebsites : ['LUNERA', 'FIVESTARFINDS'];
@@ -158,26 +181,52 @@ function EcommerceOverviewContent() {
     if (!db) return;
     
     try {
-      const shopifySnap = await getDocs(collection(db, ...getCollectionPath('shopifyItems'))).catch((error) => {
-        console.warn('Failed to load shopifyItems:', error.message);
-        return { docs: [] };
-      });
-      const shopifyItems = shopifySnap.docs.map((doc) => {
-        const itemData = doc.data();
-        const createdAt =
-          typeof itemData.createdAt?.toMillis === 'function'
-            ? itemData.createdAt.toMillis()
-            : itemData.createdAt?.seconds
-            ? itemData.createdAt.seconds * 1000
-            : 0;
-        return {
-          id: doc.id,
-          ...itemData,
-          createdAt,
-          processedStorefronts: Array.isArray(itemData.processedStorefronts) ? itemData.processedStorefronts : [],
-          storefronts: Array.isArray(itemData.storefronts) ? itemData.storefronts : [],
-        };
-      });
+      let shopifySnap;
+      try {
+        // Try to query for unprocessed items first (most efficient)
+        const unprocessedQuery = query(
+          collection(db, ...getCollectionPath('shopifyItems')),
+          where('hasProcessedStorefronts', '==', false),
+          orderBy('createdAt', 'desc')
+        );
+        shopifySnap = await getDocs(unprocessedQuery);
+      } catch (indexError) {
+        // If index doesn't exist, fall back to loading all and filtering client-side
+        const allItemsQuery = query(
+          collection(db, ...getCollectionPath('shopifyItems')),
+          orderBy('createdAt', 'desc')
+        );
+        shopifySnap = await getDocs(allItemsQuery).catch((error) => {
+          console.warn('Failed to load shopifyItems:', error.message);
+          return { docs: [] };
+        });
+      }
+      
+      const shopifyItems = shopifySnap.docs
+        .map((doc) => {
+          const itemData = doc.data();
+          const createdAt =
+            typeof itemData.createdAt?.toMillis === 'function'
+              ? itemData.createdAt.toMillis()
+              : itemData.createdAt?.seconds
+              ? itemData.createdAt.seconds * 1000
+              : 0;
+          const processedStorefronts = Array.isArray(itemData.processedStorefronts) ? itemData.processedStorefronts : [];
+          const hasProcessedStorefronts = itemData.hasProcessedStorefronts !== undefined 
+            ? itemData.hasProcessedStorefronts 
+            : processedStorefronts.length > 0;
+          
+          return {
+            id: doc.id,
+            ...itemData,
+            createdAt,
+            processedStorefronts,
+            storefronts: Array.isArray(itemData.storefronts) ? itemData.storefronts : [],
+            hasProcessedStorefronts,
+          };
+        })
+        .filter((item) => !item.hasProcessedStorefronts); // Filter to only unprocessed items
+      
       setDatasets((prev) => ({ ...prev, shopifyItems }));
     } catch (error) {
       console.error('Failed to refresh shopifyItems:', error);
@@ -296,8 +345,16 @@ function EcommerceOverviewContent() {
   }, [datasets.products]);
 
   // Calculate metrics - memoized based on datasets and viewMode only
+  // Uses cache to avoid recalculating on every render
   const metrics = useMemo(() => {
     const store = viewMode === 'all' ? null : effectiveSelectedStorefront;
+    const cacheKey = `metrics_${viewMode}_${store || 'all'}`;
+    
+    // Try to get from cache first
+    const cached = getCachedMetrics(cacheKey);
+    if (cached) {
+      return cached;
+    }
     
     // Filter products by storefront if needed
     const filteredProducts = store
@@ -346,7 +403,7 @@ function EcommerceOverviewContent() {
       ordersByMarket[market] = (ordersByMarket[market] || 0) + 1;
     });
     
-    return {
+    const calculatedMetrics = {
       lowStockProducts: lowStockProducts.length,
       outOfStockProducts: outOfStockProducts.length,
       totalOrders,
@@ -355,6 +412,11 @@ function EcommerceOverviewContent() {
       ordersByStorefront,
       ordersByMarket,
     };
+    
+    // Cache the metrics
+    setCachedMetrics(cacheKey, calculatedMetrics);
+    
+    return calculatedMetrics;
   }, [productsWithStock, datasets.orders, viewMode, effectiveSelectedStorefront]);
 
   const pendingShopifyPreview = useMemo(() => {
@@ -576,61 +638,6 @@ function EcommerceOverviewContent() {
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
-                </div>
-              )}
-              {/* Quick Toggle (if only 2 storefronts, show as toggle buttons) */}
-              {allStorefronts.length === 2 && (
-                <div className="inline-flex rounded-full border border-zinc-200 bg-white/70 p-1 dark:border-zinc-700 dark:bg-zinc-900/60">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewMode('selected');
-                      setSelectedFilterStorefront(allStorefronts[0]);
-                      // URL will be updated by the useEffect above
-                    }}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                      viewMode === 'selected' && selectedFilterStorefront === allStorefronts[0]
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-zinc-600 hover:text-emerald-600 dark:text-zinc-300 dark:hover:text-emerald-400'
-                    }`}
-                  >
-                    {allStorefronts[0]}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewMode('selected');
-                      setSelectedFilterStorefront(allStorefronts[1]);
-                      // URL will be updated by the useEffect above
-                    }}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                      viewMode === 'selected' && selectedFilterStorefront === allStorefronts[1]
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-zinc-600 hover:text-emerald-600 dark:text-zinc-300 dark:hover:text-emerald-400'
-                    }`}
-                  >
-                    {allStorefronts[1]}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setViewMode('all');
-                      setSelectedFilterStorefront(null);
-                      // Update URL to remove storefront parameter
-                      if (typeof window !== 'undefined') {
-                        const currentUrl = new URL(window.location.href);
-                        currentUrl.searchParams.delete('storefront');
-                        window.history.replaceState({}, '', currentUrl.toString());
-                      }
-                    }}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                      viewMode === 'all'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-zinc-600 hover:text-emerald-600 dark:text-zinc-300 dark:hover:text-emerald-400'
-                    }`}
-                  >
-                    All
-                  </button>
                 </div>
               )}
             </div>

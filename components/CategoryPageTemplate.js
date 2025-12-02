@@ -108,7 +108,7 @@ export default function CategoryPageTemplate({ categoryId, category: categoryPro
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Link
-              href={`/${storefront || 'LUNERA'}`}
+              href={storefront === 'LUNERA' ? '/' : `/${storefront || 'LUNERA'}`}
               className="flex items-center text-primary transition hover:text-primary"
               aria-label="Back to home"
               onClick={() => {

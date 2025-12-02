@@ -17,6 +17,10 @@ service cloud.firestore {
     match /{storefront}/products/items/{productId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();
+      // Allow anyone (including unauthenticated) to update only viewCount
+      // Note: increment() operations are handled server-side, so we can't check the value
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewCount']);
+      // Allow authenticated users to update other fields (but not admin-only fields)
       allow update: if request.auth != null
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'name', 'slug', 'categoryIds', 'supplierId', 'basePrice', 'description', 'images', 'extraImages', 'tags', 'active', 'storefronts', 'createdAt'

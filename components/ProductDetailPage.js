@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCart } from '@/lib/cart';
@@ -9,6 +9,9 @@ import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getMarket } from '@/lib/get-market';
 import { getStorefrontTheme } from '@/lib/storefront-logos';
+import { getFirebaseDb } from '@/lib/firebase';
+import { doc, updateDoc, increment } from 'firebase/firestore';
+import { getDocumentPath } from '@/lib/store-collections';
 
 // Format price based on market (EUR for EU markets)
 import { isEUMarket, getMarketLocale, getMarketCurrency } from '@/lib/market-utils';
@@ -86,6 +89,61 @@ export default function ProductDetailPage({ category, product, variants, info = 
   // Cache market value to avoid parsing cookies on every render
   const market = useMemo(() => getMarket(), []);
   const isEU = isEUMarket(market);
+  
+  // Track if we've already incremented the view counter (prevent duplicate counts)
+  const viewCountedRef = useRef(false);
+  
+  // Increment product view counter in the background when page loads
+  useEffect(() => {
+    // Only count once per page load
+    if (viewCountedRef.current || !product?.id || !storefront) {
+      console.log('[ProductDetailPage] ⏭️  Skipping view count update', {
+        alreadyCounted: viewCountedRef.current,
+        hasProductId: !!product?.id,
+        productId: product?.id,
+        storefront,
+      });
+      return;
+    }
+    viewCountedRef.current = true;
+    
+    // Update view counter in background (non-blocking)
+    const updateViewCount = async () => {
+      try {
+        const db = getFirebaseDb();
+        if (!db) {
+          console.warn('[ProductDetailPage] ❌ No Firebase DB available for view count');
+          return;
+        }
+        
+        const productPath = getDocumentPath('products', product.id, storefront);
+        console.log('[ProductDetailPage] 📊 Updating view count', {
+          productId: product.id,
+          storefront,
+          path: productPath.join('/'),
+        });
+        
+        const productRef = doc(db, ...productPath);
+        await updateDoc(productRef, {
+          viewCount: increment(1),
+        });
+        
+        console.log('[ProductDetailPage] ✅ View count incremented successfully');
+      } catch (error) {
+        // Log all errors for debugging
+        console.error('[ProductDetailPage] ❌ Failed to update view count:', {
+          error: error.message,
+          code: error.code,
+          productId: product.id,
+          storefront,
+          path: getDocumentPath('products', product.id, storefront).join('/'),
+        });
+      }
+    };
+    
+    // Fire and forget - don't await
+    updateViewCount();
+  }, [product?.id, storefront]);
   
   // Use info from server (for SEO), with empty strings as fallback
   const siteInfo = info || {
@@ -419,7 +477,9 @@ export default function ProductDetailPage({ category, product, variants, info = 
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Link
-              href={`/${storefront}/${category.slug}`}
+              href={storefront === 'LUNERA' 
+                ? `/?category=${category.id}` 
+                : `/${storefront}?category=${category.id}`}
               className="flex items-center text-primary transition hover:text-primary"
               aria-label={`Back to ${category.label}`}
             >
@@ -434,7 +494,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
               </svg>
             </Link>
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-              <Link href={`/${storefront}`} className="flex items-center sm:hidden">
+              <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center sm:hidden">
                 <Image
                   src="/Blerinas/Blerinas-logo-transparent2.png"
                   alt={siteInfo.companyName || 'Blerinas'}
@@ -445,11 +505,16 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 />
               </Link>
               <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] text-primary sm:flex">
-                <Link href={`/${storefront}`} className="transition hover:text-primary">
+                <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="transition hover:text-primary">
                   Home
                 </Link>
                 <span>•</span>
-                <Link href={`/${storefront}/${category.slug}`} className="transition hover:text-primary">
+                <Link 
+                  href={storefront === 'LUNERA' 
+                    ? `/?category=${category.id}` 
+                    : `/${storefront}?category=${category.id}`} 
+                  className="transition hover:text-primary"
+                >
                   {category.label}
                 </Link>
                 <span>•</span>
