@@ -349,6 +349,18 @@ async function getProductMarkets(storeUrl, accessToken, productId) {
         title
         publishedInFI: publishedInContext(context: {country: FI})
         publishedInDE: publishedInContext(context: {country: DE})
+        publishedInSE: publishedInContext(context: {country: SE})
+        publishedInNO: publishedInContext(context: {country: NO})
+        publishedInDK: publishedInContext(context: {country: DK})
+        publishedInFR: publishedInContext(context: {country: FR})
+        publishedInIT: publishedInContext(context: {country: IT})
+        publishedInES: publishedInContext(context: {country: ES})
+        publishedInNL: publishedInContext(context: {country: NL})
+        publishedInBE: publishedInContext(context: {country: BE})
+        publishedInAT: publishedInContext(context: {country: AT})
+        publishedInCH: publishedInContext(context: {country: CH})
+        publishedInPL: publishedInContext(context: {country: PL})
+        publishedInIE: publishedInContext(context: {country: IE})
         resourcePublications(first: 10) {
           edges {
             node {
@@ -404,6 +416,18 @@ async function getProductMarkets(storeUrl, accessToken, productId) {
     const markets = [];
     if (product.publishedInFI) markets.push('FI');
     if (product.publishedInDE) markets.push('DE');
+    if (product.publishedInSE) markets.push('SE');
+    if (product.publishedInNO) markets.push('NO');
+    if (product.publishedInDK) markets.push('DK');
+    if (product.publishedInFR) markets.push('FR');
+    if (product.publishedInIT) markets.push('IT');
+    if (product.publishedInES) markets.push('ES');
+    if (product.publishedInNL) markets.push('NL');
+    if (product.publishedInBE) markets.push('BE');
+    if (product.publishedInAT) markets.push('AT');
+    if (product.publishedInCH) markets.push('CH');
+    if (product.publishedInPL) markets.push('PL');
+    if (product.publishedInIE) markets.push('IE');
     
     if (markets.length === 0) {
       console.warn(`  ⚠️  Product ${productId} (${product.title}) has no markets assigned`);
