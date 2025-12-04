@@ -11,6 +11,59 @@ function AdminLayoutContent({ children }) {
   const { selectedWebsite } = useWebsite();
   const [loading, setLoading] = useState(true);
 
+  // Capture and store the referrer/storefront when entering admin
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    // Check if we already have a stored referrer (don't overwrite it)
+    const existingReferrer = sessionStorage.getItem('admin_referrer');
+    if (existingReferrer) {
+      return; // Already captured, don't overwrite
+    }
+
+    // Try to get storefront from cookie (set by middleware when on storefront)
+    const cookies = document.cookie.split(';').map(c => c.trim());
+    const storefrontCookie = cookies.find(c => c.startsWith('storefront='));
+    
+    if (storefrontCookie) {
+      const storefront = storefrontCookie.split('=')[1];
+      if (storefront) {
+        // Store the storefront we came from
+        sessionStorage.setItem('admin_referrer', storefront);
+        return;
+      }
+    }
+
+    // Fallback: try to extract storefront from document.referrer
+    const referrer = document.referrer;
+    if (referrer) {
+      try {
+        const referrerUrl = new URL(referrer);
+        const referrerPath = referrerUrl.pathname;
+        const segments = referrerPath.split('/').filter(Boolean);
+        
+        // Check if referrer contains a storefront path
+        const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart', 'orders'];
+        if (segments.length > 0 && !excludedSegments.includes(segments[0].toLowerCase())) {
+          const storefront = segments[0].toUpperCase();
+          sessionStorage.setItem('admin_referrer', storefront);
+          return;
+        }
+      } catch (e) {
+        // Invalid URL, ignore
+      }
+    }
+
+    // Last fallback: use current storefront detection
+    const currentStorefront = getStorefront();
+    if (currentStorefront && currentStorefront !== 'LUNERA') {
+      sessionStorage.setItem('admin_referrer', currentStorefront);
+    } else {
+      // Default to LUNERA if we can't determine
+      sessionStorage.setItem('admin_referrer', 'LUNERA');
+    }
+  }, []);
+
   useEffect(() => {
     const unsubscribe = subscribeToAuth((user) => {
       if (!user || !isAdmin(user.email)) {
@@ -29,10 +82,29 @@ function AdminLayoutContent({ children }) {
 
   const handleSignOut = async () => {
     await signOutUser();
-    // Get storefront from cache to navigate back to the correct storefront
-    const storefront = getStorefront();
-    // LUNERA is the default storefront at root path
-    const redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
+    
+    // Get the stored referrer/storefront we came from
+    const storedReferrer = typeof window !== 'undefined' 
+      ? sessionStorage.getItem('admin_referrer') 
+      : null;
+    
+    // Clear the stored referrer after using it
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('admin_referrer');
+    }
+    
+    // Determine redirect path
+    let redirectPath = '/'; // Default to LUNERA (root)
+    
+    if (storedReferrer) {
+      // Use the storefront we came from
+      redirectPath = storedReferrer === 'LUNERA' ? '/' : `/${storedReferrer}`;
+    } else {
+      // Fallback to current storefront detection
+      const storefront = getStorefront();
+      redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
+    }
+    
     router.push(redirectPath);
   };
 
