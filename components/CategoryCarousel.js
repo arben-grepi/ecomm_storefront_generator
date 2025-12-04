@@ -25,11 +25,12 @@ export default function CategoryCarousel({
     );
 
     return [
-      { value: 'all', label: 'All Categories', id: null },
+      { value: 'all', label: 'All Categories', id: null, description: null },
       ...categoriesWithProducts.map((category) => ({
         value: category.slug,
         label: category.label,
         id: category.id,
+        description: category.description || null,
       })),
     ];
   }, [categories, products]);
@@ -73,9 +74,9 @@ export default function CategoryCarousel({
                 )}
                 <button
                   onClick={() => handleClick(item)}
-                  className={`inline-flex items-center px-4 py-2 text-xl font-medium transition sm:text-2xl ${
+                  className={`inline-flex items-center px-4 py-2 text-xl font-medium transition-all sm:text-2xl ${
                     active
-                      ? 'text-primary font-semibold'
+                      ? 'text-primary font-semibold underline underline-offset-4'
                       : 'text-slate-500 hover:text-primary'
                   }`}
                   aria-current={active ? 'page' : undefined}

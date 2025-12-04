@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import SettingsMenu from '@/components/SettingsMenu';
@@ -29,6 +29,8 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   
   // Get category from URL parameter if present (needed before hooks)
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const categoryParam = searchParams?.get('category');
   
   // Category filtering state (only for root/LUNERA storefront)
@@ -47,6 +49,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   const [hasMounted, setHasMounted] = useState(false);
   const [showSkeletons, setShowSkeletons] = useState(true);
   const [shouldStartRealTimeListeners, setShouldStartRealTimeListeners] = useState(false);
+  const [displayedProductsCount, setDisplayedProductsCount] = useState(20); // Show 20 products per page
   
   // Use real-time updates from Firebase, but start with server-rendered data
   // Pass initial data and storefront to hooks to avoid double-fetching
@@ -128,6 +131,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     heroDescription: '',
     categorySectionHeading: '',
     categorySectionDescription: '',
+    allCategoriesTagline: '',
     footerText: '',
   };
   
@@ -182,6 +186,14 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       return bViews - aViews;
     });
   }, [selectedCategory, allProductsSorted, products]);
+
+  // Limit displayed products to current page (20 products per page)
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.slice(0, displayedProductsCount);
+  }, [filteredProducts, displayedProductsCount]);
+
+  // Check if there are more products to load
+  const hasMoreProductsToShow = filteredProducts.length > displayedProductsCount;
   
   // Update selectedCategory when URL parameter changes (e.g., when navigating from product page)
   useEffect(() => {
@@ -191,10 +203,12 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       );
       if (category && category.id !== selectedCategory) {
         setSelectedCategory(category.id);
+        setDisplayedProductsCount(20); // Reset to first page when category changes
       }
     } else if (!categoryParam && selectedCategory !== null) {
       // URL parameter removed, clear selection
       setSelectedCategory(null);
+      setDisplayedProductsCount(20); // Reset to first page when clearing category
     }
   }, [categoryParam, categories, selectedCategory]);
 
@@ -202,6 +216,27 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   const handleCategorySelect = (categoryId) => {
     setIsFiltering(true);
     setSelectedCategory(categoryId);
+    setDisplayedProductsCount(20); // Reset to first page when category changes
+    
+    // Find the category to get its slug
+    const category = categories.find(cat => cat.id === categoryId);
+    if (category) {
+      // Update URL with category parameter
+      // Create new URLSearchParams from current search params (read-only, so we copy them)
+      const params = new URLSearchParams();
+      if (searchParams) {
+        searchParams.forEach((value, key) => {
+          if (key !== 'category') {
+            params.append(key, value);
+          }
+        });
+      }
+      params.set('category', categoryId);
+      
+      const queryString = params.toString();
+      const newUrl = queryString ? `${pathname}?${queryString}` : `${pathname}?category=${categoryId}`;
+      router.push(newUrl, { scroll: false });
+    }
     
     // Simulate filtering delay for ghost card effect
     setTimeout(() => {
@@ -213,11 +248,32 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   const handleAllCategories = () => {
     setIsFiltering(true);
     setSelectedCategory(null);
+    setDisplayedProductsCount(20); // Reset to first page when switching to All Categories
+    
+    // Remove category parameter from URL
+    // Create new URLSearchParams from current search params (read-only, so we copy them)
+    const params = new URLSearchParams();
+    if (searchParams) {
+      searchParams.forEach((value, key) => {
+        if (key !== 'category') {
+          params.append(key, value);
+        }
+      });
+    }
+    
+    const queryString = params.toString();
+    const newUrl = queryString ? `${pathname}?${queryString}` : pathname;
+    router.push(newUrl, { scroll: false });
     
     // Simulate filtering delay for ghost card effect
     setTimeout(() => {
       setIsFiltering(false);
     }, 100); // Shorter delay since we're using memoized data
+  };
+
+  // Handle loading more products (client-side pagination)
+  const handleLoadMore = () => {
+    setDisplayedProductsCount((prev) => prev + 20);
   };
 
   return (
@@ -320,11 +376,30 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             onCategorySelect={handleCategorySelect}
             onAllCategories={handleAllCategories}
           />
-          {siteInfo.categorySectionDescription && (
-            <p className="text-sm text-slate-600 sm:text-base mt-2">
-              {siteInfo.categorySectionDescription}
-            </p>
-          )}
+          {/* Show selected category description if available, or "All Categories" tagline */}
+          {(() => {
+            if (selectedCategory) {
+              const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
+              if (selectedCategoryData?.description) {
+                return (
+                  <p className="text-sm text-slate-600 sm:text-base mt-2">
+                    {selectedCategoryData.description}
+                  </p>
+                );
+              }
+              // If category is selected but has no description, show nothing
+              return null;
+            }
+            // Show "All Categories" tagline when no category is selected
+            if (siteInfo.allCategoriesTagline) {
+              return (
+                <p className="text-sm text-slate-600 sm:text-base mt-2">
+                  {siteInfo.allCategoriesTagline}
+                </p>
+              );
+            }
+            return null;
+          })()}
         </div>
         {loading || isFiltering ? (
           // Show ghost cards while loading or filtering
@@ -333,10 +408,10 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               <SkeletonProductCard key={i} className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)] md:w-[calc(25%-0.938rem)] max-w-xs" />
             ))}
           </div>
-        ) : filteredProducts.length > 0 ? (
-          // Show filtered products (sorted by viewCount)
+        ) : displayedProducts.length > 0 ? (
+          // Show filtered products (sorted by viewCount, limited to current page)
           <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
-            {filteredProducts.map((product) => {
+            {displayedProducts.map((product) => {
               // Get category slug from category ID
               const categoryId = product.categoryIds?.[0] || product.categoryId;
               const categorySlug = categoryId ? (categorySlugMap.get(categoryId) || categoryId) : 'all';
@@ -356,17 +431,33 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             {selectedCategory ? 'No products found in this category.' : 'Products will appear here soon. Check back shortly.'}
           </div>
         )}
-        {/* Load More button - only show if not filtering by category and has more products */}
-        {!selectedCategory && hasMoreProducts && !loading && (
-          <div className="mt-8 flex justify-center">
-            <button
-              onClick={loadMoreProducts}
-              disabled={productsLoading}
-              className="rounded-full border border-primary/30 bg-white/80 px-6 py-3 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {productsLoading ? 'Loading...' : 'Load More Products'}
-            </button>
-          </div>
+        {/* Load More button - show if we have more products to display (client-side pagination) or server-side pagination for All Categories */}
+        {!loading && !isFiltering && (
+          <>
+            {/* Client-side pagination for both All Categories and category views */}
+            {hasMoreProductsToShow && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={handleLoadMore}
+                  className="rounded-full border border-primary/30 bg-white/80 px-6 py-3 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Load More Products ({filteredProducts.length - displayedProductsCount} more)
+                </button>
+              </div>
+            )}
+            {/* Server-side pagination for All Categories (load more from Firestore) */}
+            {!selectedCategory && hasMoreProducts && !hasMoreProductsToShow && (
+              <div className="mt-8 flex justify-center">
+                <button
+                  onClick={loadMoreProducts}
+                  disabled={productsLoading}
+                  className="rounded-full border border-primary/30 bg-white/80 px-6 py-3 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {productsLoading ? 'Loading...' : 'Load More Products'}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </main>
 

@@ -85,6 +85,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
   const [addingToCart, setAddingToCart] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
+  const [isChangingVariant, setIsChangingVariant] = useState(false);
   const hasVariants = Array.isArray(variants) && variants.length > 0;
   // Cache market value to avoid parsing cookies on every render
   const market = useMemo(() => getMarket(), []);
@@ -403,6 +404,16 @@ export default function ProductDetailPage({ category, product, variants, info = 
     setActiveImage(primaryImage);
   }, [selectedGroup, galleryImages, product.images]);
 
+  // Fallback: Clear changing variant state after a timeout (in case image doesn't load or onLoad doesn't fire)
+  useEffect(() => {
+    if (isChangingVariant) {
+      const timeout = setTimeout(() => {
+        setIsChangingVariant(false);
+      }, 1500); // Max 1.5 seconds, should be cleared earlier by onLoad
+      return () => clearTimeout(timeout);
+    }
+  }, [isChangingVariant]);
+
   // Check if current variant is already in cart
   const currentCartItem = useMemo(() => {
     const variantId = selectedVariant?.id || null;
@@ -576,6 +587,19 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover"
                 priority
+                onLoad={() => {
+                  // Clear ghost effect once image is loaded
+                  if (isChangingVariant) {
+                    // Small delay to ensure smooth transition
+                    setTimeout(() => {
+                      setIsChangingVariant(false);
+                    }, 200);
+                  }
+                }}
+                onError={() => {
+                  // Also clear on error
+                  setIsChangingVariant(false);
+                }}
               />
             ) : (
               <div className="flex aspect-[3/4] items-center justify-center text-secondary">
@@ -587,6 +611,16 @@ export default function ProductDetailPage({ category, product, variants, info = 
                     d="M8 37l10-12a2 2 0 013 0l7 8 5-6a2 2 0 013 0l7 8M5 11a2 2 0 012-2h34a2 2 0 012 2v26a2 2 0 01-2 2H7a2 2 0 01-2-2V11z"
                   />
                 </svg>
+              </div>
+            )}
+            {/* Ghost skeleton overlay when changing variant */}
+            {isChangingVariant && (
+              <div className="absolute inset-0 z-10 overflow-hidden rounded-3xl bg-white/50 backdrop-blur-sm">
+                <div className="h-full w-full animate-pulse">
+                  <div className="aspect-[3/4] w-full bg-secondary/40 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -693,7 +727,10 @@ export default function ProductDetailPage({ category, product, variants, info = 
                         <button
                           key={group}
                           type="button"
-                          onClick={() => setSelectedGroup(group)}
+                          onClick={() => {
+                            setIsChangingVariant(true);
+                            setSelectedGroup(group);
+                          }}
                           className={`relative flex items-center gap-2 rounded-xl border-2 px-4 py-2 transition ${
                             isSelected
                               ? 'border-primary bg-white shadow-md'
@@ -738,7 +775,12 @@ export default function ProductDetailPage({ category, product, variants, info = 
                           <button
                             key={size}
                             type="button"
-                            onClick={() => setSelectedSize(size)}
+                            onClick={() => {
+                              if (!isOutOfStock) {
+                                setIsChangingVariant(true);
+                                setSelectedSize(size);
+                              }
+                            }}
                             disabled={isOutOfStock}
                             className={`flex flex-col items-center justify-center rounded-xl border-2 px-3 py-2 text-sm font-semibold transition ${
                               isSelected

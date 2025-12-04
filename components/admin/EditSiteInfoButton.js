@@ -18,6 +18,7 @@ export default function EditSiteInfoButton({ className = '' }) {
     heroDescription: '',
     categorySectionHeading: '',
     categorySectionDescription: '',
+    allCategoriesTagline: '',
     footerText: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -61,6 +62,7 @@ export default function EditSiteInfoButton({ className = '' }) {
           heroDescription: data.heroDescription || '',
           categorySectionHeading: data.categorySectionHeading || '',
           categorySectionDescription: data.categorySectionDescription || '',
+          allCategoriesTagline: data.allCategoriesTagline || '',
           footerText: data.footerText || '',
         });
       } else {
@@ -71,6 +73,7 @@ export default function EditSiteInfoButton({ className = '' }) {
           heroDescription: '',
           categorySectionHeading: '',
           categorySectionDescription: '',
+          allCategoriesTagline: '',
           footerText: '',
         });
       }
@@ -89,6 +92,7 @@ export default function EditSiteInfoButton({ className = '' }) {
       heroDescription: '',
       categorySectionHeading: '',
       categorySectionDescription: '',
+      allCategoriesTagline: '',
       footerText: '',
     });
     setSelectedStorefront(null);
@@ -115,6 +119,7 @@ export default function EditSiteInfoButton({ className = '' }) {
         heroDescription: form.heroDescription.trim() || '',
         categorySectionHeading: form.categorySectionHeading.trim() || '',
         categorySectionDescription: form.categorySectionDescription.trim() || '',
+        allCategoriesTagline: form.allCategoriesTagline.trim() || '',
         footerText: form.footerText.trim() || '',
         storefront: selectedStorefront,
         updatedAt: serverTimestamp(),
@@ -301,6 +306,24 @@ export default function EditSiteInfoButton({ className = '' }) {
                 rows={2}
                 maxLength={150}
               />
+            </div>
+
+            <div>
+              <label htmlFor="allCategoriesTagline" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                All Categories Tagline
+              </label>
+              <input
+                id="allCategoriesTagline"
+                type="text"
+                value={form.allCategoriesTagline}
+                onChange={(e) => setForm((prev) => ({ ...prev, allCategoriesTagline: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                placeholder="Choose a category to explore this week's top four bestsellers, refreshed daily."
+                maxLength={100}
+              />
+              <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                This text appears below the category breadcrumbs when "All Categories" is selected.
+              </p>
             </div>
 
             <div>

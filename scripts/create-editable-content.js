@@ -27,6 +27,7 @@ const STOREFRONT_CONTENT = {
       'From delicate lace to active-ready comfort. Discover the pieces that make you feel confident, effortless, and beautifully yourself.',
     categorySectionHeading: 'Shop by category',
     categorySectionDescription: "Choose a category to explore this week's top four bestsellers, refreshed daily.",
+    allCategoriesTagline: "Choose a category to explore this week's top four bestsellers, refreshed daily.",
     footerText: '© 2024 Lingerie Boutique. All rights reserved.',
   },
   FIVESTARFINDS: {
@@ -37,6 +38,7 @@ const STOREFRONT_CONTENT = {
       'Discover viral best sellers, five-star favorites, and the hottest items people love — all curated in one place.',
     categorySectionHeading: 'Shop by category',
     categorySectionDescription: 'Explore top-rated products, trending finds, and viral best sellers — updated daily with the hottest items.',
+    allCategoriesTagline: 'Explore top-rated products, trending finds, and viral best sellers — updated daily with the hottest items.',
     footerText: '© 2024 Five-Star Finds. All rights reserved.',
   },
 };
