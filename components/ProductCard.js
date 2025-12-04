@@ -7,16 +7,7 @@ import { getMarket } from '@/lib/get-market';
 import { useStorefront } from '@/lib/storefront-context';
 import { isEUMarket } from '@/lib/market-utils';
 
-const categoryLabels = {
-  lingerie: 'Lingerie',
-  underwear: 'Underwear',
-  sports: 'Activewear',
-  clothes: 'Clothing',
-  dresses: 'Dresses',
-};
-
 function ProductCard({ product, categorySlug }) {
-  const categoryLabel = categoryLabels[product.category] ?? 'Collection';
   // Cache market value to avoid parsing cookies on every render
   const market = useMemo(() => getMarket(), []);
   const isEU = isEUMarket(market);
@@ -73,10 +64,7 @@ function ProductCard({ product, categorySlug }) {
       </div>
       <div className="flex flex-1 flex-col gap-3 p-3 sm:p-5">
         <div>
-          <p className="text-[0.65rem] font-medium uppercase tracking-[0.25em] text-primary sm:text-xs">
-            {categoryLabel}
-          </p>
-          <h3 className="mt-2 text-sm font-medium text-slate-800 sm:text-base">
+          <h3 className="text-[0.65rem] font-medium uppercase tracking-[0.25em] text-primary sm:text-xs">
             {product.name}
           </h3>
         </div>

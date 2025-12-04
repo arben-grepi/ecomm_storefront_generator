@@ -10,8 +10,6 @@ import { getMarketConfig } from '@/lib/market-utils';
 import { useStorefront } from '@/lib/storefront-context';
 import { getStorefrontLogo, getStorefrontTheme } from '@/lib/storefront-logos';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
-import { getFirebaseDb } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
 
 // Format price based on market currency
 import { getMarketCurrency, getMarketLocale } from '@/lib/market-utils';
@@ -206,9 +204,8 @@ function CartPageContent() {
   const market = useMemo(() => getMarket(), []);
   const marketConfig = getMarketConfig(market);
   
-  // Address form state (minimal: Country, City - full address collected in Shopify checkout)
+  // Address form state (minimal: Country only - full address collected in Shopify checkout)
   const [shippingAddress, setShippingAddress] = useState({
-    city: '',
     country: marketConfig.name,
     countryCode: market,
   });
@@ -223,79 +220,38 @@ function CartPageContent() {
   // Get current market from selected country
   const currentMarket = shippingAddress.countryCode || market;
   
-  // Fetch products to get shipping estimates from marketsObject
-  const [productsData, setProductsData] = useState({});
+  // Simple: Fetch shipping rate from single document
+  const [shippingRate, setShippingRate] = useState(null);
+  const [loadingShipping, setLoadingShipping] = useState(true);
   
-  // Get unique product IDs from cart (stable reference)
-  const productIds = useMemo(() => {
-    return [...new Set(cart.map(item => item.productId))].sort();
-  }, [cart]);
-  
-  // Fetch products once when cart or market changes
   useEffect(() => {
-    const fetchProducts = async () => {
-      if (productIds.length === 0) {
-        setProductsData({});
-        return;
-      }
-      
-      const db = getFirebaseDb();
-      if (!db) {
-        setProductsData({});
-        return;
-      }
-      
-      const products = {};
-      
+    const fetchShippingRate = async () => {
+      setLoadingShipping(true);
       try {
-        for (const productId of productIds) {
-            try {
-              const productRef = doc(db, storefront, 'products', 'items', productId);
-              const productDoc = await getDoc(productRef);
-            
-            if (productDoc.exists()) {
-              products[productId] = productDoc.data();
-            }
-          } catch (error) {
-            console.error(`Failed to fetch product ${productId}:`, error);
-          }
-        }
-        
-        setProductsData(products);
+        const { getShippingRate } = await import('@/lib/shipping-rates');
+        const rate = await getShippingRate(currentMarket);
+        console.log(`[CART] 🚚 Fetched shipping rate for ${currentMarket}: ${rate} EUR`);
+        setShippingRate(rate);
       } catch (error) {
-        console.error('Failed to fetch products for shipping estimate:', error);
+        console.error(`[CART] ❌ Failed to fetch shipping rate:`, error);
+        // Fallback to market config
+        const marketConfig = getMarketConfig(currentMarket);
+        setShippingRate(parseFloat(marketConfig.shippingEstimate || '7.00'));
+      } finally {
+        setLoadingShipping(false);
       }
     };
     
-    fetchProducts();
-  }, [productIds.join(','), storefront]); // Only re-fetch if product IDs or storefront changes
+    if (currentMarket) {
+      fetchShippingRate();
+    }
+  }, [currentMarket]);
   
-  // Calculate shipping estimate from products' marketsObject
-  const shippingEstimatePrice = useMemo(() => {
-    const currentMarketConfig = getMarketConfig(currentMarket);
-    let maxShipping = 0;
-    
-    // Get shipping estimate from each product's marketsObject
-    for (const item of cart) {
-      const product = productsData[item.productId];
-      if (product?.marketsObject && typeof product.marketsObject === 'object') {
-        const marketData = product.marketsObject[currentMarket];
-        if (marketData?.shippingEstimate) {
-          const shipping = parseFloat(marketData.shippingEstimate) || 0;
-          if (shipping > maxShipping) {
-            maxShipping = shipping;
-          }
-        }
-      }
-    }
-    
-    // Fallback to market config if no shipping found in products
-    if (maxShipping === 0) {
-      return parseFloat(currentMarketConfig.shippingEstimate || '7.00');
-    }
-    
-    return maxShipping;
-  }, [productsData, cart, currentMarket]);
+  // Use fetched shipping rate or fallback
+  const shippingEstimatePrice = shippingRate || (() => {
+    const marketConfig = getMarketConfig(currentMarket);
+    return parseFloat(marketConfig.shippingEstimate || '7.00');
+  })();
   
   const tax = 0; // TODO: Calculate tax
   const estimatedTotal = subtotal + shippingEstimatePrice + tax;
@@ -317,10 +273,10 @@ function CartPageContent() {
     setValidationError(null);
 
     try {
-      // Validate country and city are entered (full address will be collected in Shopify checkout)
-      if (!shippingAddress.city || !shippingAddress.countryCode) {
-        console.error(`[CHECKOUT] ❌ Validation failed: Missing city or country`);
-        setValidationError('Please enter your country and city');
+      // Validate country is entered (full address will be collected in Shopify checkout)
+      if (!shippingAddress.countryCode) {
+        console.error(`[CHECKOUT] ❌ Validation failed: Missing country`);
+        setValidationError('Please select your country');
         setProcessing(false);
         return;
       }
@@ -434,7 +390,7 @@ function CartPageContent() {
         <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-4 sm:px-6 lg:px-8">
             <Link 
-              href={`/${storefront}`} 
+              href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
               className="flex items-center transition-opacity hover:opacity-80"
               aria-label={`Return to ${storefront} homepage`}
             >
@@ -453,7 +409,7 @@ function CartPageContent() {
           <h1 className="mb-4 text-2xl font-medium" style={{ color: theme.textColor }}>Your cart is empty</h1>
           <p className="mb-8 text-slate-600">Add some items to get started.</p>
           <Link
-            href={`/${storefront}`}
+            href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
             className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
             style={{ 
               backgroundColor: theme.primaryColor,
@@ -507,7 +463,7 @@ function CartPageContent() {
             <section className="rounded-xl border border-secondary/70 bg-white/90 p-6">
               <h2 className="mb-2 text-lg font-medium" style={{ color: theme.textColor }}>Shipping Location</h2>
               <p className="mb-4 text-sm text-slate-600">
-                Enter your country and city to check shipping availability. Full address will be collected on the checkout page.
+                Select your country to check shipping availability. Full address will be collected on the checkout page.
               </p>
               <div className="space-y-4">
                 {/* Country - At the top */}
@@ -545,32 +501,6 @@ function CartPageContent() {
                       </option>
                     ))}
                   </select>
-                </div>
-                
-                {/* City */}
-                <div>
-                  <label htmlFor="city" className="mb-1 block text-sm font-medium text-slate-700">
-                    City
-                  </label>
-                  <input
-                    id="city"
-                    name="city"
-                    type="text"
-                    required
-                    autoComplete="shipping address-level2"
-                    value={shippingAddress.city}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
-                    placeholder="Enter your city"
-                    className="w-full rounded-lg border border-secondary/70 px-4 py-2.5 focus:outline-none focus:ring-2"
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = theme.borderColor;
-                      e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.borderColor}33`;
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = '';
-                      e.currentTarget.style.boxShadow = '';
-                    }}
-                  />
                 </div>
               </div>
             </section>

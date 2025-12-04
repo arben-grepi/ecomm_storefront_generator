@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { validateCheckout } from '@/lib/shopify-shipping';
+import { getAdminDb } from '@/lib/firestore-server';
+import { getCollectionPath } from '@/lib/store-collections';
 
 /**
  * Validate checkout before order placement
  * Checks:
- * 1. Inventory availability for all cart items
- * 2. Shipping availability to the destination address
- * 3. Calculates real shipping rates
+ * 1. Product market availability (products must be available in selected market)
+ * 2. Inventory availability for all cart items
+ * 3. Shipping availability to the destination address
+ * 4. Calculates real shipping rates
  */
 export async function POST(request) {
   const apiStartTime = Date.now();
@@ -16,7 +19,7 @@ export async function POST(request) {
     const body = await request.json();
     const { cart, shippingAddress } = body;
 
-    console.log(`[API] 📦 Validation request - Cart items: ${cart?.length || 0}, Address: ${shippingAddress?.city || 'N/A'}, ${shippingAddress?.countryCode || shippingAddress?.country || 'N/A'}`);
+    console.log(`[API] 📦 Validation request - Cart items: ${cart?.length || 0}, Country: ${shippingAddress?.countryCode || shippingAddress?.country || 'N/A'}`);
     console.log(`[API] 📋 Cart details:`, cart?.map(item => ({
       productId: item.productId,
       variantId: item.variantId,
@@ -40,8 +43,9 @@ export async function POST(request) {
       );
     }
 
-    // Validate that at least country and city are provided
-    if (!shippingAddress.countryCode && !shippingAddress.country) {
+    // Validate that country is provided
+    const countryCode = shippingAddress.countryCode || shippingAddress.country;
+    if (!countryCode) {
       console.error(`[API] ❌ Invalid request: Country is missing`);
       return NextResponse.json(
         { error: 'Country is required for shipping validation' },
@@ -49,13 +53,85 @@ export async function POST(request) {
       );
     }
 
-    if (!shippingAddress.city) {
-      console.error(`[API] ❌ Invalid request: City is missing`);
+    // Validate product market availability first
+    console.log(`[API] 🔍 Validating product market availability for country: ${countryCode}...`);
+    const db = getAdminDb();
+    if (!db) {
+      console.error(`[API] ❌ Firebase Admin not initialized`);
       return NextResponse.json(
-        { error: 'City is required for shipping validation' },
-        { status: 400 }
+        { error: 'Server configuration error' },
+        { status: 500 }
       );
     }
+
+    // Get storefront from cart items (all items should be from same storefront)
+    const storefront = cart[0]?.storefront || 'LUNERA';
+    
+    // Fetch products to check market availability
+    const productsPath = getCollectionPath('products', storefront);
+    let productsRef = db;
+    productsPath.forEach((segment, index) => {
+      if (index % 2 === 0) {
+        productsRef = productsRef.collection(segment);
+      } else {
+        productsRef = productsRef.doc(segment);
+      }
+    });
+
+    const unavailableProducts = [];
+    for (const item of cart) {
+      try {
+        const productRef = productsRef.doc(item.productId);
+        const productDoc = await productRef.get();
+        
+        if (!productDoc.exists()) {
+          unavailableProducts.push({
+            productId: item.productId,
+            productName: item.productName || item.productId,
+            reason: 'Product not found'
+          });
+          continue;
+        }
+
+        const productData = productDoc.data();
+        
+        // Check if product is available in the selected market
+        let isAvailableInMarket = false;
+        if (productData.marketsObject && typeof productData.marketsObject === 'object') {
+          const marketData = productData.marketsObject[countryCode];
+          isAvailableInMarket = marketData && marketData.available !== false;
+        } else if (productData.markets && Array.isArray(productData.markets)) {
+          isAvailableInMarket = productData.markets.includes(countryCode);
+        }
+
+        if (!isAvailableInMarket) {
+          unavailableProducts.push({
+            productId: item.productId,
+            productName: item.productName || productData.name || item.productId,
+            reason: `Product is not available in ${countryCode}`
+          });
+        }
+      } catch (error) {
+        console.error(`[API] ❌ Error checking product ${item.productId}:`, error);
+        unavailableProducts.push({
+          productId: item.productId,
+          productName: item.productName || item.productId,
+          reason: 'Error checking product availability'
+        });
+      }
+    }
+
+    if (unavailableProducts.length > 0) {
+      console.error(`[API] ❌ ${unavailableProducts.length} product(s) not available in market ${countryCode}:`, unavailableProducts);
+      return NextResponse.json({
+        valid: false,
+        error: 'Some products are not available in the selected country',
+        errors: unavailableProducts.map(p => `${p.productName} is not available in ${countryCode}`),
+        unavailableProducts
+      });
+    }
+
+    console.log(`[API] ✅ All products are available in market ${countryCode}`);
 
     // Check if cart items have shopifyVariantId
     const missingShopifyIds = cart.filter(item => !item.shopifyVariantId);

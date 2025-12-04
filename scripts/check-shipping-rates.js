@@ -220,14 +220,47 @@ function displayShippingRates(data, filterCountry) {
     });
   });
 
+  // Check for countries with multiple zones (potential conflicts)
+  const countriesWithMultipleZones = {};
+  Object.entries(ratesByCountry).forEach(([countryCode, rates]) => {
+    if (rates.length > 1) {
+      // Check if all zones have the same standard rate
+      const standardPrices = rates
+        .map(r => r.standard?.price)
+        .filter(Boolean);
+      const uniquePrices = [...new Set(standardPrices)];
+      
+      countriesWithMultipleZones[countryCode] = {
+        zones: rates.length,
+        hasConflictingRates: uniquePrices.length > 1,
+        rates: rates
+      };
+    }
+  });
+
   // Display summary by country
   console.log('\n' + '='.repeat(80));
   console.log('\n📊 Summary by Country\n');
 
   if (filterCountry) {
     if (ratesByCountry[filterCountry]) {
-      console.log(`\n✅ ${filterCountry} - Found ${ratesByCountry[filterCountry].length} shipping zone(s):\n`);
-      ratesByCountry[filterCountry].forEach((rate, index) => {
+      const rates = ratesByCountry[filterCountry];
+      const hasMultipleZones = rates.length > 1;
+      const standardPrices = rates.map(r => r.standard?.price).filter(Boolean);
+      const uniquePrices = [...new Set(standardPrices)];
+      const hasConflictingRates = uniquePrices.length > 1;
+
+      if (hasMultipleZones) {
+        if (hasConflictingRates) {
+          console.log(`\n⚠️  ${filterCountry} - Found ${rates.length} shipping zone(s) with CONFLICTING rates:\n`);
+        } else {
+          console.log(`\n✅ ${filterCountry} - Found ${rates.length} shipping zone(s) with consistent rates:\n`);
+        }
+      } else {
+        console.log(`\n✅ ${filterCountry} - Found ${rates.length} shipping zone(s):\n`);
+      }
+
+      rates.forEach((rate, index) => {
         console.log(`  ${index + 1}. Zone: ${rate.zoneName}`);
         if (rate.standard) {
           console.log(`     Standard Shipping: ${rate.standard.name} - ${rate.standard.price.toFixed(2)} ${rate.standard.currency}`);
@@ -239,6 +272,19 @@ function displayShippingRates(data, filterCountry) {
         }
         console.log('');
       });
+
+      // Show which rate would be used (last one wins in current implementation)
+      if (hasMultipleZones) {
+        const lastRate = rates[rates.length - 1];
+        console.log(`  📌 Current Implementation: The LAST zone processed will be used`);
+        if (lastRate.standard) {
+          console.log(`     → Will use: ${lastRate.standard.name} - ${lastRate.standard.price.toFixed(2)} ${lastRate.standard.currency} from zone "${lastRate.zoneName}"\n`);
+        }
+        if (hasConflictingRates) {
+          console.log(`  ⚠️  WARNING: This country has ${uniquePrices.length} different standard shipping rates!`);
+          console.log(`     Consider consolidating to a single zone with one standard rate.\n`);
+        }
+      }
     } else {
       console.log(`\n❌ ${filterCountry} - No shipping zones found for this country.\n`);
       console.log('To add shipping for this country:');
@@ -255,13 +301,33 @@ function displayShippingRates(data, filterCountry) {
       const rates = ratesByCountry[countryCode] || [];
       if (rates.length === 0) return;
 
-      console.log(`\n📍 ${countryCode} - ${rates.length} zone(s):`);
+      const hasMultipleZones = rates.length > 1;
+      const standardPrices = rates.map(r => r.standard?.price).filter(Boolean);
+      const uniquePrices = [...new Set(standardPrices)];
+      const hasConflictingRates = uniquePrices.length > 1;
+
+      if (hasMultipleZones && hasConflictingRates) {
+        console.log(`\n⚠️  ${countryCode} - ${rates.length} zone(s) [CONFLICTING RATES]:`);
+      } else if (hasMultipleZones) {
+        console.log(`\n📍 ${countryCode} - ${rates.length} zone(s) [consistent]:`);
+      } else {
+        console.log(`\n📍 ${countryCode} - ${rates.length} zone(s):`);
+      }
+
       rates.forEach((rate, index) => {
         console.log(`   ${index + 1}. ${rate.zoneName}`);
         if (rate.standard) {
           console.log(`      Standard: ${rate.standard.name} - ${rate.standard.price.toFixed(2)} ${rate.standard.currency}`);
         }
       });
+
+      // Show which rate would be used
+      if (hasMultipleZones) {
+        const lastRate = rates[rates.length - 1];
+        if (lastRate.standard) {
+          console.log(`      → Will use: ${lastRate.standard.price.toFixed(2)} ${lastRate.standard.currency} (from last zone)`);
+        }
+      }
     });
 
     console.log('\n' + '='.repeat(80));
@@ -269,7 +335,20 @@ function displayShippingRates(data, filterCountry) {
     console.log(`   • Total Delivery Profiles: ${data.deliveryProfiles.edges.length}`);
     console.log(`   • Total Shipping Zones: ${totalZones}`);
     console.log(`   • Total Countries Covered: ${totalCountries}`);
-    console.log(`   • All Countries: ${Array.from(allCountries).sort().join(', ')}\n`);
+    console.log(`   • All Countries: ${Array.from(allCountries).sort().join(', ')}`);
+    
+    // Show countries with multiple zones
+    const multiZoneCountries = Object.keys(countriesWithMultipleZones);
+    if (multiZoneCountries.length > 0) {
+      const conflictingCountries = multiZoneCountries.filter(
+        code => countriesWithMultipleZones[code].hasConflictingRates
+      );
+      console.log(`   • Countries in Multiple Zones: ${multiZoneCountries.length} (${multiZoneCountries.join(', ')})`);
+      if (conflictingCountries.length > 0) {
+        console.log(`   ⚠️  Countries with Conflicting Rates: ${conflictingCountries.length} (${conflictingCountries.join(', ')})`);
+      }
+    }
+    console.log('');
   }
 
   // Check for standard shipping first
@@ -289,6 +368,20 @@ function displayShippingRates(data, filterCountry) {
   const configuredCountries = Array.from(allCountries).sort();
   const isSimplified = totalZones === 1 && hasStandardShipping;
   
+  // Check for countries with conflicting rates
+  const conflictingCountries = Object.keys(countriesWithMultipleZones).filter(
+    code => countriesWithMultipleZones[code].hasConflictingRates
+  );
+  
+  if (conflictingCountries.length > 0) {
+    console.log('⚠️  CRITICAL: Countries with conflicting shipping rates detected!');
+    console.log(`   • ${conflictingCountries.length} countr${conflictingCountries.length === 1 ? 'y has' : 'ies have'} multiple zones with different standard rates`);
+    console.log(`   • Affected countries: ${conflictingCountries.join(', ')}`);
+    console.log('   • Current implementation uses the LAST zone processed (may be inconsistent)');
+    console.log('   • RECOMMENDATION: Consolidate each country to a single zone with one standard rate');
+    console.log('   • Action: Go to Shopify Admin → Shipping and delivery → Remove duplicate zones\n');
+  }
+  
   if (isSimplified) {
     console.log('✅ Your shipping setup is simplified!');
     console.log(`   • One unified shipping zone covering ${configuredCountries.length} countr${configuredCountries.length === 1 ? 'y' : 'ies'}: ${configuredCountries.join(', ')}`);
@@ -298,6 +391,10 @@ function displayShippingRates(data, filterCountry) {
     console.log('⚠️  No "standard" shipping method found. Consider:');
     console.log('   1. Renaming your primary shipping method to include "standard" in the name');
     console.log('   2. Or ensuring you have a clear standard shipping option\n');
+  } else if (totalZones > 1 && conflictingCountries.length === 0) {
+    console.log('✅ Multiple zones detected but rates are consistent across zones');
+    console.log('   • All countries have consistent standard shipping rates');
+    console.log('   • However, consider consolidating to a single zone for simplicity\n');
   }
   
   // Future expansion options (only show if not all European countries are covered)

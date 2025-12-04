@@ -558,7 +558,7 @@ async function fetchShippingRatesFromAdmin(storeUrl, accessToken) {
       throw new Error(`Shopify Admin API GraphQL errors: ${JSON.stringify(errors)}`);
     }
 
-    // Parse shipping rates by country code
+    // Parse shipping rates by country code - using same logic as check-shipping-rates.js script
     const ratesByMarket = {};
 
     if (data?.deliveryProfiles?.edges) {
@@ -571,32 +571,48 @@ async function fetchShippingRatesFromAdmin(storeUrl, accessToken) {
           zones.forEach(zoneEdge => {
             const zone = zoneEdge.node;
             const countries = zone.zone?.countries || [];
-            
+
+            // Get active shipping methods with prices (same as script)
+            const methods = (zone.methodDefinitions?.edges || [])
+              .filter(m => m.node.active && m.node.rateProvider)
+              .map(m => ({
+                name: m.node.name,
+                price: parseFloat(m.node.rateProvider.price?.amount || 0),
+                currency: m.node.rateProvider.price?.currencyCode || 'EUR'
+              }))
+              .filter(m => m.price >= 0);
+
+            if (methods.length === 0) {
+              return; // Skip zone if no methods
+            }
+
+            // Find standard rate (by name or lowest price) - same logic as script
+            const standardRate = methods.find(m => 
+              m.name.toLowerCase().includes('standard')
+            ) || methods.sort((a, b) => a.price - b.price)[0];
+
+            // Find express rate (highest price, or one with "express" in name)
+            const expressRate = methods.find(m => 
+              m.name.toLowerCase().includes('express')
+            );
+            const sortedByPrice = methods.sort((a, b) => a.price - b.price);
+            const expressPrice = expressRate
+              ? expressRate.price.toFixed(2)
+              : sortedByPrice[sortedByPrice.length - 1]?.price.toFixed(2) || standardRate.price.toFixed(2);
+
+            // Process each country in this zone
             countries.forEach(country => {
               const countryCode = country.code?.countryCode;
               
               if (!countryCode) return;
 
-              // Get active shipping methods with prices
-              const methods = (zone.methodDefinitions?.edges || [])
-                .filter(m => m.node.active && m.node.rateProvider)
-                .map(m => ({
-                  name: m.node.name,
-                  price: parseFloat(m.node.rateProvider.price?.amount || 0),
-                  currency: m.node.rateProvider.price?.currencyCode || 'EUR'
-                }))
-                .filter(m => m.price >= 0) // Filter out invalid prices
-                .sort((a, b) => a.price - b.price); // Sort by price (lowest first)
-
-              if (methods.length > 0) {
-                // Store standard (lowest) and express (highest) rates
-                ratesByMarket[countryCode] = {
-                  standard: methods[0].price.toFixed(2), // Lowest rate
-                  express: methods[methods.length - 1]?.price.toFixed(2) || methods[0].price.toFixed(2), // Highest rate
-                  currency: methods[0].currency,
-                  allRates: methods // Store all rates for reference
-                };
-              }
+              // Use the same rate for all countries in this zone (same as script logic)
+              ratesByMarket[countryCode] = {
+                standard: standardRate.price.toFixed(2),
+                express: expressPrice,
+                currency: standardRate.currency,
+                allRates: methods
+              };
             });
           });
         });

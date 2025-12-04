@@ -1,8 +1,8 @@
 /**
  * Shopify Shipping Rates Sync Webhook/API
  * 
- * This endpoint can be called to sync shipping rates from Shopify Admin API
- * and update all products' marketsObject with actual shipping rates.
+ * This endpoint syncs shipping rates from Shopify Admin API to a single Firestore document.
+ * Much simpler than updating all products!
  * 
  * Shopify doesn't have a direct webhook for shipping rate changes, so this
  * can be:
@@ -11,14 +11,12 @@
  * 3. Called after shipping rates are updated in Shopify admin
  * 
  * Usage:
- * - GET /api/shopify/webhooks/shipping-rates-sync - Sync all products
+ * - GET /api/shopify/webhooks/shipping-rates-sync - Sync all rates
  * - POST /api/shopify/webhooks/shipping-rates-sync - Sync specific markets (body: { markets: ['FI', 'DE'] })
  */
 
 import { NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firestore-server';
-import { getCollectionPath } from '@/lib/store-collections';
-import { getMarketConfig } from '@/lib/market-utils';
 
 /**
  * Get admin credentials for API calls
@@ -112,7 +110,7 @@ async function fetchShippingRatesFromAdmin() {
       throw new Error(`Shopify Admin API GraphQL errors: ${JSON.stringify(errors)}`);
     }
 
-    // Parse shipping rates by country code
+    // Parse shipping rates by country code - using same logic as check-shipping-rates.js script
     const ratesByMarket = {};
 
     if (data?.deliveryProfiles?.edges) {
@@ -124,56 +122,52 @@ async function fetchShippingRatesFromAdmin() {
           
           zones.forEach(zoneEdge => {
             const zone = zoneEdge.node;
+            const zoneName = zone.zone?.name || 'Unnamed Zone';
             const countries = zone.zone?.countries || [];
-            
+
+            // Get active shipping methods with prices (same as script)
+            const methods = (zone.methodDefinitions?.edges || [])
+              .filter(m => m.node.active && m.node.rateProvider)
+              .map(m => ({
+                name: m.node.name,
+                price: parseFloat(m.node.rateProvider.price?.amount || 0),
+                currency: m.node.rateProvider.price?.currencyCode || 'EUR'
+              }))
+              .filter(m => m.price >= 0);
+
+            if (methods.length === 0) {
+              return; // Skip zone if no methods
+            }
+
+            // Find standard rate (by name or lowest price) - same logic as script
+            const standardRate = methods.find(m => 
+              m.name.toLowerCase().includes('standard')
+            ) || methods.sort((a, b) => a.price - b.price)[0];
+
+            // Find express rate (highest price, or one with "express" in name)
+            const expressRate = methods.find(m => 
+              m.name.toLowerCase().includes('express')
+            );
+            const sortedByPrice = methods.sort((a, b) => a.price - b.price);
+            const expressPrice = expressRate
+              ? expressRate.price.toFixed(2)
+              : sortedByPrice[sortedByPrice.length - 1]?.price.toFixed(2) || standardRate.price.toFixed(2);
+
+            // Process each country in this zone
             countries.forEach(country => {
               const countryCode = country.code?.countryCode;
               
               if (!countryCode) return;
 
-              // Get active shipping methods with prices
-              const methods = (zone.methodDefinitions?.edges || [])
-                .filter(m => m.node.active && m.node.rateProvider)
-                .map(m => ({
-                  name: m.node.name,
-                  price: parseFloat(m.node.rateProvider.price?.amount || 0),
-                  currency: m.node.rateProvider.price?.currencyCode || 'EUR'
-                }))
-                .filter(m => m.price >= 0);
-
-              if (methods.length > 0) {
-                // Look for "standard" rate by name (case-insensitive)
-                const standardRate = methods.find(m => 
-                  m.name.toLowerCase().includes('standard')
-                );
-                
-                // If "standard" rate found, use it; otherwise use lowest rate
-                const standardPrice = standardRate 
-                  ? standardRate.price.toFixed(2)
-                  : methods.sort((a, b) => a.price - b.price)[0].price.toFixed(2);
-                
-                const standardCurrency = standardRate 
-                  ? standardRate.currency
-                  : methods.sort((a, b) => a.price - b.price)[0].currency;
-                
-                // Find express rate (highest price, or one with "express" in name)
-                const expressRate = methods.find(m => 
-                  m.name.toLowerCase().includes('express')
-                );
-                const sortedByPrice = methods.sort((a, b) => a.price - b.price);
-                const expressPrice = expressRate
-                  ? expressRate.price.toFixed(2)
-                  : sortedByPrice[sortedByPrice.length - 1]?.price.toFixed(2) || standardPrice;
-
-                ratesByMarket[countryCode] = {
-                  standard: standardPrice,
-                  express: expressPrice,
-                  currency: standardCurrency,
-                  hasActualRates: true, // Flag to indicate these are actual Shopify rates, not estimates
-                  allRates: methods,
-                  lastUpdated: new Date().toISOString()
-                };
-              }
+              // Use the same rate for all countries in this zone (same as script logic)
+              ratesByMarket[countryCode] = {
+                standard: standardRate.price.toFixed(2),
+                express: expressPrice,
+                currency: standardRate.currency,
+                hasActualRates: true,
+                allRates: methods,
+                lastUpdated: new Date().toISOString()
+              };
             });
           });
         });
@@ -188,9 +182,10 @@ async function fetchShippingRatesFromAdmin() {
 }
 
 /**
- * Update all products' marketsObject with latest shipping rates
+ * Sync shipping rates to a single Firestore document
+ * Much simpler than updating all products!
  */
-async function syncShippingRatesForAllProducts(marketsToSync = null) {
+async function syncShippingRates(marketsToSync = null) {
   const db = getAdminDb();
   if (!db) {
     throw new Error('Firebase Admin not initialized');
@@ -203,117 +198,40 @@ async function syncShippingRatesForAllProducts(marketsToSync = null) {
   
   if (!shippingRates || Object.keys(shippingRates).length === 0) {
     console.warn(`[Shipping Sync] ⚠️  No shipping rates found from Shopify Admin API`);
-    return { updated: 0, errors: [] };
+    return { updated: false, errors: [] };
   }
 
   console.log(`[Shipping Sync] ✅ Fetched shipping rates for ${Object.keys(shippingRates).length} market(s):`, Object.keys(shippingRates));
 
-  // Get all storefronts (root-level collections that have Info document)
-  const collections = await db.listCollections();
-  const storefronts = [];
-  
-  for (const collection of collections) {
-    if (collection.id === 'shopifyItems' || collection.id === 'carts') continue;
+  try {
+    // Store rates in a simple format: { FI: { standard: "2.90", currency: "EUR" }, ... }
+    const ratesDocument = {};
     
-    // Check if this collection has an Info document (indicates it's a storefront)
-    const infoDoc = await collection.doc('Info').get();
-    if (infoDoc.exists) {
-      storefronts.push(collection.id);
-    }
-  }
-
-  console.log(`[Shipping Sync] 📦 Found ${storefronts.length} storefront(s): ${storefronts.join(', ')}`);
-
-  let totalUpdated = 0;
-  const errors = [];
-
-  // Update products in each storefront
-  for (const storefront of storefronts) {
-    try {
-      const productsPath = getCollectionPath('products', storefront);
-      let productsRef = db;
-      productsPath.forEach((segment, index) => {
-        if (index % 2 === 0) {
-          productsRef = productsRef.collection(segment);
-        } else {
-          productsRef = productsRef.doc(segment);
-        }
-      });
-
-      const productsSnapshot = await productsRef.get();
-      console.log(`[Shipping Sync] 📦 Storefront ${storefront}: Found ${productsSnapshot.docs.length} product(s)`);
-
-      const batch = db.batch();
-      let batchCount = 0;
-      const maxBatchSize = 500; // Firestore batch limit
-
-      for (const productDoc of productsSnapshot.docs) {
-        const productData = productDoc.data();
-        const marketsObject = productData.marketsObject || {};
-
-        // Update shipping rates for each market in marketsObject
-        let hasUpdates = false;
-        const updatedMarketsObject = { ...marketsObject };
-
-        for (const [market, marketData] of Object.entries(marketsObject)) {
-          // Skip if we're only syncing specific markets and this isn't one of them
-          if (marketsToSync && !marketsToSync.includes(market)) {
-            continue;
-          }
-
-          // Skip if market doesn't have shipping rate from Shopify
-          if (!shippingRates[market]) {
-            continue;
-          }
-
-          const rateData = shippingRates[market];
-          const marketConfig = getMarketConfig(market);
-          const deliveryEstimateDays = marketConfig.deliveryEstimateDays || '7-10';
-
-          // Update shipping rate (replace estimate with actual rate)
-          updatedMarketsObject[market] = {
-            ...marketData,
-            shippingRate: rateData.standard,
-            shippingEstimate: rateData.standard, // Keep for backward compatibility
-            isShippingEstimate: false, // Now it's an actual rate, not an estimate
-            deliveryEstimateDays: deliveryEstimateDays,
-            shippingRateLastUpdated: rateData.lastUpdated
-          };
-
-          hasUpdates = true;
-        }
-
-        // Only update if there were changes
-        if (hasUpdates) {
-          batch.update(productDoc.ref, {
-            marketsObject: updatedMarketsObject
-          });
-          batchCount++;
-          totalUpdated++;
-
-          // Commit batch if it reaches the limit
-          if (batchCount >= maxBatchSize) {
-            await batch.commit();
-            console.log(`[Shipping Sync] ✅ Committed batch of ${batchCount} products`);
-            batchCount = 0;
-          }
-        }
+    for (const [countryCode, rateData] of Object.entries(shippingRates)) {
+      // Skip if we're only syncing specific markets
+      if (marketsToSync && !marketsToSync.includes(countryCode)) {
+        continue;
       }
-
-      // Commit remaining updates
-      if (batchCount > 0) {
-        await batch.commit();
-        console.log(`[Shipping Sync] ✅ Committed final batch of ${batchCount} products for storefront ${storefront}`);
-      }
-
-      console.log(`[Shipping Sync] ✅ Storefront ${storefront}: Updated ${totalUpdated} product(s)`);
-    } catch (error) {
-      console.error(`[Shipping Sync] ❌ Failed to update products in storefront ${storefront}:`, error);
-      errors.push({ storefront, error: error.message });
+      
+      ratesDocument[countryCode] = {
+        standard: rateData.standard,
+        express: rateData.express,
+        currency: rateData.currency,
+        lastUpdated: rateData.lastUpdated || new Date().toISOString()
+      };
     }
-  }
 
-  return { updated: totalUpdated, errors };
+    // Update single document: shippingRates/rates
+    const shippingRatesRef = db.collection('shippingRates').doc('rates');
+    await shippingRatesRef.set(ratesDocument, { merge: true });
+
+    console.log(`[Shipping Sync] ✅ Updated shipping rates document with ${Object.keys(ratesDocument).length} country(ies)`);
+    
+    return { updated: true, countries: Object.keys(ratesDocument), errors: [] };
+  } catch (error) {
+    console.error(`[Shipping Sync] ❌ Failed to update shipping rates:`, error);
+    return { updated: false, errors: [{ error: error.message }] };
+  }
 }
 
 /**
@@ -327,13 +245,14 @@ export async function GET(request) {
 
     console.log(`[Shipping Sync] 📥 GET request received${marketsToSync ? ` - Markets: ${marketsToSync.join(', ')}` : ' - All markets'}`);
 
-    const result = await syncShippingRatesForAllProducts(marketsToSync);
+    const result = await syncShippingRates(marketsToSync);
 
     return NextResponse.json({
       success: true,
       updated: result.updated,
+      countries: result.countries || [],
       errors: result.errors,
-      message: `Successfully synced shipping rates for ${result.updated} product(s)`
+      message: result.updated ? `Successfully synced shipping rates for ${result.countries?.length || 0} countr${result.countries?.length === 1 ? 'y' : 'ies'}` : 'No rates to sync'
     });
   } catch (error) {
     console.error('[Shipping Sync] ❌ Error:', error);
@@ -354,13 +273,14 @@ export async function POST(request) {
 
     console.log(`[Shipping Sync] 📥 POST request received${marketsToSync ? ` - Markets: ${marketsToSync.join(', ')}` : ' - All markets'}`);
 
-    const result = await syncShippingRatesForAllProducts(marketsToSync);
+    const result = await syncShippingRates(marketsToSync);
 
     return NextResponse.json({
       success: true,
       updated: result.updated,
+      countries: result.countries || [],
       errors: result.errors,
-      message: `Successfully synced shipping rates for ${result.updated} product(s)`
+      message: result.updated ? `Successfully synced shipping rates for ${result.countries?.length || 0} countr${result.countries?.length === 1 ? 'y' : 'ies'}` : 'No rates to sync'
     });
   } catch (error) {
     console.error('[Shipping Sync] ❌ Error:', error);
