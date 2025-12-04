@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
@@ -11,7 +11,6 @@ import EditSiteInfoButton from '@/components/admin/EditSiteInfoButton';
 import ProductModal from '@/components/admin/ProductModal';
 import ImportProductsModal from '@/components/admin/ImportProductsModal';
 import ImportLogsModal from '@/components/admin/ImportLogsModal';
-import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getCachedMetrics, setCachedMetrics } from '@/lib/metrics-cache';
 
 const QUICK_ACTIONS = [
@@ -31,7 +30,6 @@ const QUICK_ACTIONS = [
 
 function EcommerceOverviewContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const db = getFirebaseDb();
   const { selectedWebsite, availableWebsites, loading: websitesLoading } = useWebsite();
   const [loading, setLoading] = useState(true);
@@ -42,17 +40,10 @@ function EcommerceOverviewContent() {
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState(null);
   const [importCompleted, setImportCompleted] = useState(false);
-  const LOW_STOCK_THRESHOLD = 10; // Fixed threshold
   const [datasets, setDatasets] = useState({
     products: [],
     shopifyItems: [],
-    orders: [],
   });
-  const [viewMode, setViewMode] = useState('selected'); // 'selected' | 'all'
-  const [selectedFilterStorefront, setSelectedFilterStorefront] = useState(null); // null = all, or specific storefront
-  
-  // Get storefront from URL parameter (like cart does)
-  const urlStorefront = searchParams?.get('storefront');
 
   // Load all data - memoized to prevent unnecessary re-renders
   useEffect(() => {
@@ -136,31 +127,13 @@ function EcommerceOverviewContent() {
           })
           .filter((item) => !item.hasProcessedStorefronts); // Filter to only unprocessed items
 
-        // Load orders from all storefronts
-        const allStorefronts = availableWebsites.length > 0 ? availableWebsites : ['LUNERA', 'FIVESTARFINDS'];
-        const ordersPromises = allStorefronts.map(async (storefront) => {
-          try {
-            const ordersSnap = await getDocs(collection(db, storefront, 'orders', 'items'));
-            return ordersSnap.docs.map((doc) => ({
-              id: doc.id,
-              storefront,
-              ...doc.data(),
-            }));
-          } catch (error) {
-            console.warn(`Failed to load orders for ${storefront}:`, error);
-            return [];
-          }
-        });
-        const ordersArrays = await Promise.all(ordersPromises);
-        const orders = ordersArrays.flat();
-
         if (!isMounted) return;
 
-        setDatasets({ products, shopifyItems, orders });
+        setDatasets({ products, shopifyItems });
       } catch (error) {
         console.error('Failed to load admin overview data', error);
         if (isMounted) {
-          setDatasets({ products: [], shopifyItems: [], orders: [] });
+          setDatasets({ products: [], shopifyItems: [] });
         }
       } finally {
         if (isMounted) {
@@ -233,71 +206,6 @@ function EcommerceOverviewContent() {
     }
   };
 
-  useEffect(() => {
-    setViewMode('selected');
-  }, [selectedWebsite]);
-
-  // Use availableWebsites from context, fallback to derived storefronts if not available
-  const allStorefronts = useMemo(() => {
-    if (availableWebsites && availableWebsites.length > 0) {
-      return availableWebsites.sort();
-    }
-    // Fallback: derive from data
-    const set = new Set();
-    datasets.products.forEach((product) => (product.storefronts || []).forEach((sf) => set.add(sf)));
-    datasets.orders.forEach((order) => {
-      if (order.storefront) set.add(order.storefront);
-    });
-    if (set.size === 0) {
-      set.add(selectedWebsite || 'LUNERA');
-    }
-    return Array.from(set).sort();
-  }, [availableWebsites, datasets, selectedWebsite]);
-
-  // Initialize selectedFilterStorefront from URL parameter or availableWebsites
-  useEffect(() => {
-    if (allStorefronts.length > 0 && selectedFilterStorefront === null) {
-      // Priority: URL parameter > selectedWebsite > first available
-      if (urlStorefront && allStorefronts.includes(urlStorefront)) {
-        setSelectedFilterStorefront(urlStorefront);
-        saveStorefrontToCache(urlStorefront);
-      } else if (allStorefronts.includes(selectedWebsite)) {
-        setSelectedFilterStorefront(selectedWebsite);
-      } else {
-        setSelectedFilterStorefront(allStorefronts[0]);
-      }
-    }
-  }, [allStorefronts, selectedWebsite, selectedFilterStorefront, urlStorefront]);
-  
-  // Update URL when storefront filter changes
-  useEffect(() => {
-    if (selectedFilterStorefront && typeof window !== 'undefined') {
-      const currentUrl = new URL(window.location.href);
-      if (viewMode === 'all') {
-        currentUrl.searchParams.delete('storefront');
-      } else {
-        currentUrl.searchParams.set('storefront', selectedFilterStorefront);
-      }
-      // Update URL without reloading (using replaceState to avoid adding to history)
-      window.history.replaceState({}, '', currentUrl.toString());
-      saveStorefrontToCache(selectedFilterStorefront);
-    }
-  }, [selectedFilterStorefront, viewMode]);
-
-  const effectiveSelectedStorefront = useMemo(() => {
-    if (viewMode === 'all') {
-      return null; // All storefronts
-    }
-    // Use selectedFilterStorefront if set, otherwise fallback to selectedWebsite
-    if (selectedFilterStorefront && allStorefronts.includes(selectedFilterStorefront)) {
-      return selectedFilterStorefront;
-    }
-    if (allStorefronts.includes(selectedWebsite)) {
-      return selectedWebsite;
-    }
-    return allStorefronts[0] || 'LUNERA';
-  }, [selectedFilterStorefront, allStorefronts, selectedWebsite, viewMode]);
-
   const isPendingForStorefront = (item, storefront) => {
     if (!storefront) {
       return false;
@@ -305,50 +213,27 @@ function EcommerceOverviewContent() {
     const processed = item.processedStorefronts || [];
     const targetStorefronts = item.storefronts && item.storefronts.length > 0 
       ? item.storefronts 
-      : allStorefronts.length > 0 
-        ? allStorefronts 
-        : [storefront];
+      : [storefront];
     return targetStorefronts.includes(storefront) && !processed.includes(storefront);
   };
 
-  const isPendingForAnyStorefront = (item) => {
-    const processed = item.processedStorefronts || [];
-    const targets = item.storefronts && item.storefronts.length > 0 
-      ? item.storefronts 
-      : allStorefronts.length > 0 
-        ? allStorefronts 
-        : [selectedWebsite || 'LUNERA'];
-    if (targets.length === 0) {
-      return processed.length === 0;
-    }
-    return targets.some((sf) => !processed.includes(sf));
-  };
-
-  // Calculate product stock - memoized separately so threshold changes don't re-calculate everything
+  // Products with stock data
   const productsWithStock = useMemo(() => {
     return datasets.products.map((product) => {
-      // Calculate total stock from variants (if we have them loaded)
-      // For now, we'll use hasInStockVariants and inStockVariantCount if available
       const totalStock = product.totalStock || 0;
       const hasInStockVariants = product.hasInStockVariants !== false;
-      const isLowStock = totalStock > 0 && totalStock < LOW_STOCK_THRESHOLD;
-      const isOutOfStock = !hasInStockVariants;
       
       return {
         ...product,
         totalStock,
         hasInStockVariants,
-        isLowStock,
-        isOutOfStock,
       };
     });
   }, [datasets.products]);
 
-  // Calculate metrics - memoized based on datasets and viewMode only
-  // Uses cache to avoid recalculating on every render
+  // Calculate metrics - memoized
   const metrics = useMemo(() => {
-    const store = viewMode === 'all' ? null : effectiveSelectedStorefront;
-    const cacheKey = `metrics_${viewMode}_${store || 'all'}`;
+    const cacheKey = `metrics_${selectedWebsite || 'default'}`;
     
     // Try to get from cache first
     const cached = getCachedMetrics(cacheKey);
@@ -356,73 +241,23 @@ function EcommerceOverviewContent() {
       return cached;
     }
     
-    // Filter products by storefront if needed
-    const filteredProducts = store
-      ? productsWithStock.filter((product) => (product.storefronts || []).includes(store))
-      : productsWithStock;
+    // Filter products by selectedWebsite
+    const filteredProducts = productsWithStock.filter((product) => 
+      (product.storefronts || []).includes(selectedWebsite)
+    );
     
-    // Filter orders by storefront if needed
-    const filteredOrders = store
-      ? datasets.orders.filter((order) => order.storefront === store)
-      : datasets.orders;
-    
-    // Calculate low stock products
-    const lowStockProducts = filteredProducts.filter((p) => p.isLowStock);
-    
-    // Calculate out of stock products
-    const outOfStockProducts = filteredProducts.filter((p) => p.isOutOfStock);
-    
-    // Calculate orders metrics
-    const totalOrders = filteredOrders.length;
-    const ordersLast7Days = filteredOrders.filter((order) => {
-      const placedAt = order.placedAt;
-      if (!placedAt) return false;
-      const orderDate = placedAt.toDate ? placedAt.toDate() : new Date(placedAt);
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      return orderDate >= sevenDaysAgo;
-    }).length;
-    
-    // Calculate revenue
-    const totalRevenue = filteredOrders.reduce((sum, order) => {
-      const grandTotal = order.totals?.grandTotal || 0;
-      return sum + grandTotal;
-    }, 0);
-    
-    // Orders by storefront breakdown
-    const ordersByStorefront = {};
-    filteredOrders.forEach((order) => {
-      const sf = order.storefront || 'Unknown';
-      ordersByStorefront[sf] = (ordersByStorefront[sf] || 0) + 1;
-    });
-    
-    // Orders by market breakdown
-    const ordersByMarket = {};
-    filteredOrders.forEach((order) => {
-      const market = order.market || 'Unknown';
-      ordersByMarket[market] = (ordersByMarket[market] || 0) + 1;
-    });
-    
-    const calculatedMetrics = {
-      lowStockProducts: lowStockProducts.length,
-      outOfStockProducts: outOfStockProducts.length,
-      totalOrders,
-      ordersLast7Days,
-      totalRevenue,
-      ordersByStorefront,
-      ordersByMarket,
-    };
+    const calculatedMetrics = {};
     
     // Cache the metrics
     setCachedMetrics(cacheKey, calculatedMetrics);
     
     return calculatedMetrics;
-  }, [productsWithStock, datasets.orders, viewMode, effectiveSelectedStorefront]);
+  }, [productsWithStock, selectedWebsite]);
 
   const pendingShopifyPreview = useMemo(() => {
-    const items = viewMode === 'all'
-      ? datasets.shopifyItems.filter((item) => isPendingForAnyStorefront(item))
-      : datasets.shopifyItems.filter((item) => isPendingForStorefront(item, effectiveSelectedStorefront));
+    const items = datasets.shopifyItems.filter((item) => 
+      isPendingForStorefront(item, selectedWebsite)
+    );
 
     return items
       .map((item) => ({
@@ -433,7 +268,7 @@ function EcommerceOverviewContent() {
       }))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
       .slice(0, 5);
-  }, [datasets.shopifyItems, viewMode, effectiveSelectedStorefront, allStorefronts]);
+  }, [datasets.shopifyItems, selectedWebsite]);
 
   const quickActions = useMemo(
     () =>
@@ -446,45 +281,8 @@ function EcommerceOverviewContent() {
 
   // Summary cards with click handlers
   const summaryCards = useMemo(
-    () => [
-      {
-        label: 'Low stock products',
-        value: metrics.lowStockProducts,
-        subtitle: `< 10 units`,
-        href: `/admin/products?filter=low-stock&threshold=10`,
-        color: 'amber',
-      },
-      {
-        label: 'Out of stock',
-        value: metrics.outOfStockProducts,
-        href: '/admin/products?filter=out-of-stock',
-        color: 'rose',
-      },
-      {
-        label: 'Total orders',
-        value: metrics.totalOrders,
-        subtitle: `${metrics.ordersLast7Days} last 7 days`,
-        href: '/admin/orders',
-        color: 'emerald',
-      },
-      {
-        label: 'Total revenue',
-        value: `€${metrics.totalRevenue.toFixed(2)}`,
-        subtitle: `${metrics.totalOrders} orders`,
-        href: '/admin/orders',
-        color: 'emerald',
-      },
-      {
-        label: 'Orders by storefront',
-        value: Object.keys(metrics.ordersByStorefront).length,
-        subtitle: Object.entries(metrics.ordersByStorefront)
-          .map(([sf, count]) => `${sf}: ${count}`)
-          .join(', ') || 'No orders',
-        href: '/admin/orders',
-        color: 'blue',
-      },
-    ],
-    [metrics]
+    () => [],
+    []
   );
 
   const handleCardClick = (href) => {
@@ -589,60 +387,6 @@ function EcommerceOverviewContent() {
           <EditSiteInfoButton />
         </header>
 
-        {allStorefronts.length > 0 && (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm text-zinc-500 dark:text-zinc-400">
-              {viewMode === 'all' ? (
-                'Viewing aggregate metrics across all storefronts'
-              ) : (
-                `Viewing metrics for ${effectiveSelectedStorefront || 'selected storefront'}`
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Storefront Filter Dropdown */}
-              {allStorefronts.length > 1 && (
-                <div className="relative">
-                  <select
-                    value={viewMode === 'all' ? 'all' : (selectedFilterStorefront || '')}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (value === 'all') {
-                        setViewMode('all');
-                        setSelectedFilterStorefront(null);
-                        // Update URL to remove storefront parameter
-                        if (typeof window !== 'undefined') {
-                          const currentUrl = new URL(window.location.href);
-                          currentUrl.searchParams.delete('storefront');
-                          window.history.replaceState({}, '', currentUrl.toString());
-                        }
-                      } else {
-                        setViewMode('selected');
-                        setSelectedFilterStorefront(value);
-                        // URL will be updated by the useEffect above
-                      }
-                    }}
-                    className="appearance-none rounded-lg border border-zinc-200 bg-white px-4 py-2 pr-8 text-sm font-medium text-zinc-700 shadow-sm transition hover:border-emerald-300 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-400/20 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:border-emerald-500 dark:focus:border-emerald-500"
-                  >
-                    <option value="all">All Storefronts</option>
-                    {allStorefronts.map((storefront) => (
-                      <option key={storefront} value={storefront}>
-                        {storefront}
-                      </option>
-                    ))}
-                  </select>
-                  <svg
-                    className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {summaryCards.map((card) => (
@@ -817,15 +561,6 @@ function EcommerceOverviewContent() {
   );
 }
 
-// Wrap EcommerceOverviewContent in Suspense to handle useSearchParams
 export default function EcommerceOverview() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">Loading...</p>
-      </div>
-    }>
-      <EcommerceOverviewContent />
-    </Suspense>
-  );
+  return <EcommerceOverviewContent />;
 }

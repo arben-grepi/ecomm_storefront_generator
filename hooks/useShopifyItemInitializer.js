@@ -8,18 +8,15 @@ export function useShopifyItemInitializer({
   mode,
   item,
   sortedVariants,
-  basePriceInput,
   getVariantDefaultImages,
   setSelectedImages,
   setSelectedVariants,
-  setBasePriceInput,
   setDisplayName,
   setDisplayDescription,
   setBulletPoints,
   setExpandedVariants,
   setVariantImages,
   setDefaultVariantPhotos,
-  setVariantPriceOverrides,
   initializedItemIdRef,
 }) {
   useEffect(() => {
@@ -49,13 +46,7 @@ export function useShopifyItemInitializer({
     const initialExpanded = new Set();
     const initialVariantImages = {};
 
-    // Pre-fill base price for Shopify items if available
-    if (mode === 'shopify' && !basePriceInput && item?.rawProduct?.variants?.length) {
-      const firstVariantPrice = item.rawProduct.variants[0]?.price;
-      if (firstVariantPrice) {
-        setBasePriceInput(firstVariantPrice.toString());
-      }
-    }
+    // Don't set base price - prices come from Shopify only
 
     // Check for new properties in database: displayName, displayDescription, bulletpoints
     if (item.displayName) {
@@ -88,16 +79,7 @@ export function useShopifyItemInitializer({
     setVariantImages(initialVariantImages);
     setDefaultVariantPhotos(initialDefaultPhotos);
     
-    // Initialize variant price overrides from imported data
-    const initialPriceOverrides = {};
-    variants.forEach((variant) => {
-      const variantId = variant.id || variant.shopifyId;
-      // Only set if variant has a price (from Shopify)
-      if (variant.price) {
-        initialPriceOverrides[variantId] = variant.price.toString();
-      }
-    });
-    setVariantPriceOverrides(initialPriceOverrides);
+    // Don't set price overrides - prices come from Shopify only
 
     // Don't automatically set category - let user choose manually
     // eslint-disable-next-line react-hooks/exhaustive-deps

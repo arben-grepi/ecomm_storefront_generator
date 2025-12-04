@@ -53,30 +53,10 @@ export default async function Home() {
     console.log(`[SSR] ⏱️  Total SSR time: ${pageDuration}ms`);
     console.log(`[SSR] 📤 Sending data to client component...`);
   } catch (error) {
-    // Only fallback in development - in production (Firebase Hosting), credentials should always be available
-    // If this fails in production, it's a configuration issue that should be fixed
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('Server-side data fetching failed (development mode), falling back to client-side:', error.message);
-      console.info(
-        '💡 Tip: To enable server-side rendering locally, run: gcloud auth application-default login\n' +
-        '   See docs/local-dev-setup.md for details'
-      );
-    } else {
-      // In production, log the error but don't crash - Firebase Hosting should have credentials
-      // If this happens, it's unexpected and should be investigated
-      console.error('Server-side data fetching failed in production:', error);
-      // Still fallback to prevent page crash, but this shouldn't happen normally
-    }
+    console.error('Server-side data fetching failed:', error);
+   
   }
   
-  // Log info for debugging
-  // Note: getServerSideInfo always returns an object (never null), but fields may be empty strings
-  if (info && (info.heroMainHeading || info.companyName || info.companyTagline)) {
-    console.log(`[SSR] 📄 Info loaded - heroMainHeading: "${info.heroMainHeading || '(empty)'}", companyName: "${info.companyName || '(empty)'}"`);
-  } else {
-    console.log(`[SSR] ⚠️  Info document exists but all fields are empty - storefront: ${storefront}. Check if ${storefront}/Info document has data in Firestore.`);
-  }
-
   // Pass server-rendered data to client component
   // The client component will hydrate with this data and then add real-time updates
   // If server data is empty, client component will fetch everything client-side

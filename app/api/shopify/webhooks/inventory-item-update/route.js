@@ -1,3 +1,30 @@
+/**
+ * Shopify Inventory Item Update Webhook
+ * 
+ * ARCHITECTURE: Single Source of Truth for Stock
+ * ===============================================
+ * 
+ * This webhook maintains stock consistency using a hybrid approach:
+ * 
+ * 1. AUTHORITATIVE SOURCE: shopifyItems collection
+ *    - Updated FIRST (line 352)
+ *    - Contains raw Shopify product data with variant inventory
+ *    - One document per Shopify product (storefront-agnostic)
+ * 
+ * 2. DENORMALIZED COPIES: {storefront}/products/items/{productId}
+ *    - Updated AFTER shopifyItems (line 356)
+ *    - Contains processed product data for fast queries
+ *    - Stock is denormalized here for filtering/querying performance
+ * 
+ * 3. UPDATE FLOW (CRITICAL ORDER):
+ *    Shopify webhook → updateShopifyItemsVariants() → updateStorefrontVariants()
+ *    This ensures shopifyItems is always the single source of truth.
+ * 
+ * 4. CONSISTENCY:
+ *    - Stock should be identical across all storefronts for the same product
+ *    - If inconsistencies are found, run: npm run stock:sync-from-shopify
+ */
+
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -186,9 +213,45 @@ async function updateShopifyItemsVariants(db, inventoryItemId, inventoryLevels) 
  * Find and update variants in storefront products
  * Stores location-specific inventory levels for market-based availability checks
  */
+/**
+ * Calculate product-level stock status from variants
+ */
+function calculateProductStockFromVariants(variants) {
+  if (!variants || variants.length === 0) {
+    return {
+      totalStock: 0,
+      hasInStockVariants: false,
+      inStockVariantCount: 0,
+      totalVariantCount: 0,
+    };
+  }
+
+  let totalStock = 0;
+  let inStockVariantCount = 0;
+
+  variants.forEach((variant) => {
+    const stock = variant.stock || variant.inventory_quantity || variant.inventoryQuantity || 0;
+    totalStock += stock;
+    
+    const hasStock = stock > 0;
+    const allowsBackorder = variant.inventory_policy === 'continue';
+    if (hasStock || allowsBackorder) {
+      inStockVariantCount++;
+    }
+  });
+
+  return {
+    totalStock,
+    hasInStockVariants: inStockVariantCount > 0,
+    inStockVariantCount,
+    totalVariantCount: variants.length,
+  };
+}
+
 async function updateStorefrontVariants(db, inventoryItemId, inventoryLevels) {
   const storefronts = await getStorefronts(db);
   const variantUpdates = [];
+  const productUpdates = [];
 
   // Convert inventory levels to location-specific format
   const locationInventoryLevels = (inventoryLevels.levels || []).map(level => ({
@@ -215,6 +278,8 @@ async function updateStorefrontVariants(db, inventoryItemId, inventoryLevels) {
 
         const variantsCollection = productDoc.ref.collection('variants');
         const variantsSnapshot = await variantsCollection.get();
+        const allVariants = variantsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let productNeedsUpdate = false;
 
         for (const variantDoc of variantsSnapshot.docs) {
           const variantData = variantDoc.data();
@@ -232,7 +297,32 @@ async function updateStorefrontVariants(db, inventoryItemId, inventoryLevels) {
                 updatedAt: FieldValue.serverTimestamp(),
               })
             );
+            
+            // Update the variant in our local array for stock calculation
+            const variantIndex = allVariants.findIndex(v => v.id === variantDoc.id);
+            if (variantIndex >= 0) {
+              allVariants[variantIndex] = {
+                ...allVariants[variantIndex],
+                stock: totalAvailable,
+                inventory_levels: locationInventoryLevels,
+              };
+            }
+            productNeedsUpdate = true;
           }
+        }
+
+        // Recalculate product-level stock if any variant was updated
+        if (productNeedsUpdate) {
+          const stockStatus = calculateProductStockFromVariants(allVariants);
+          productUpdates.push(
+            productDoc.ref.update({
+              totalStock: stockStatus.totalStock,
+              hasInStockVariants: stockStatus.hasInStockVariants,
+              inStockVariantCount: stockStatus.inStockVariantCount,
+              totalVariantCount: stockStatus.totalVariantCount,
+              updatedAt: FieldValue.serverTimestamp(),
+            })
+          );
         }
       }
     } catch (error) {
@@ -240,7 +330,11 @@ async function updateStorefrontVariants(db, inventoryItemId, inventoryLevels) {
     }
   }
 
-  return Promise.all(variantUpdates);
+  // Wait for all updates to complete
+  await Promise.all(variantUpdates);
+  await Promise.all(productUpdates);
+  
+  return { variantCount: variantUpdates.length, productCount: productUpdates.length };
 }
 
 export async function POST(request) {
@@ -281,15 +375,16 @@ export async function POST(request) {
 
     console.log(`Updating inventory for item ${inventoryItemId}: ${inventoryLevels.totalAvailable} available`);
 
-    // Update shopifyItems collection
+    // CRITICAL: Update shopifyItems FIRST (single source of truth)
+    // This ensures shopifyItems is always the authoritative source
     const shopifyItemsUpdated = await updateShopifyItemsVariants(db, inventoryItemId, inventoryLevels);
-    console.log(`Updated ${shopifyItemsUpdated.length} products in shopifyItems collection`);
+    console.log(`Updated ${shopifyItemsUpdated.length} products in shopifyItems collection (authoritative source)`);
 
-    // Update storefront products
-    const storefrontVariantsUpdated = await updateStorefrontVariants(db, inventoryItemId, inventoryLevels);
-    console.log(`Updated ${storefrontVariantsUpdated.length} variants in storefront products`);
+    // Then propagate to storefront products (denormalized copies for fast queries)
+    const storefrontResult = await updateStorefrontVariants(db, inventoryItemId, inventoryLevels);
+    console.log(`Updated ${storefrontResult.variantCount} variant(s) and ${storefrontResult.productCount} product(s) in storefront products`);
 
-    const totalUpdated = shopifyItemsUpdated.length + storefrontVariantsUpdated.length;
+    const totalUpdated = shopifyItemsUpdated.length + storefrontResult.variantCount;
 
     if (totalUpdated === 0) {
       console.log(`No variants mapped to inventory item ${inventoryItemId}`);
@@ -305,7 +400,8 @@ export async function POST(request) {
       ok: true,
       inventory_item_id: inventoryItemId,
       updatedShopifyItems: shopifyItemsUpdated.length,
-      updatedStorefrontVariants: storefrontVariantsUpdated.length,
+      updatedStorefrontVariants: storefrontResult.variantCount,
+      updatedStorefrontProducts: storefrontResult.productCount,
       totalUpdated,
       totalAvailable: inventoryLevels.totalAvailable,
     });

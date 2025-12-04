@@ -12,7 +12,9 @@
     "seed:content": "node scripts/create-editable-content.js",
     "data:clear-all": "node scripts/clear-all-data.js",
     "shopify:import": "node scripts/import-shopify-products.js",
-    "shopify:check-storefront": "node scripts/check-storefront-api-config.js"
+    "shopify:check-storefront": "node scripts/check-storefront-api-config.js",
+    "stock:recalculate": "node scripts/recalculate-product-stock.js",
+    "stock:sync-from-shopify": "node scripts/sync-stock-from-shopify.js"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

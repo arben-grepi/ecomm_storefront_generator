@@ -20,9 +20,9 @@ const DEFAULT_STOREFRONT = 'LUNERA';
 // Storefront-specific default content
 const STOREFRONT_CONTENT = {
   LUNERA: {
-    companyName: 'Lingerie Boutique',
     companyTagline: 'Effortless softness for every day and night in.',
     heroMainHeading: 'Curated collections for every mood and moment.',
+    heroDescr: '',
     heroDescription:
       'From delicate lace to active-ready comfort. Discover the pieces that make you feel confident, effortless, and beautifully yourself.',
     categorySectionHeading: 'Shop by category',
@@ -30,9 +30,9 @@ const STOREFRONT_CONTENT = {
     footerText: '© 2024 Lingerie Boutique. All rights reserved.',
   },
   FIVESTARFINDS: {
-    companyName: 'Five-Star Finds',
     companyTagline: 'Top Rated. Always.',
     heroMainHeading: 'Shop the Internet\'s Top Rated & Trending Products',
+    heroDescr: '',
     heroDescription:
       'Discover viral best sellers, five-star favorites, and the hottest items people love — all curated in one place.',
     categorySectionHeading: 'Shop by category',
@@ -117,7 +117,6 @@ async function ensureInfoDoc(db, storefront, force) {
 
   await docRef.set(payload, { merge: true });
   console.log(`✅  Stored editable content for storefront "${storefront}" at ${storefront}/Info`);
-  console.log(`   Company: ${content.companyName}`);
   console.log(`   Tagline: ${content.companyTagline}`);
 }
 

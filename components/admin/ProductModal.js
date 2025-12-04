@@ -58,15 +58,12 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const [displayName, setDisplayName] = useState('');
   const [displayDescription, setDisplayDescription] = useState('');
   const [bulletPoints, setBulletPoints] = useState([]);
-  const [basePriceInput, setBasePriceInput] = useState('');
   const [showOnlyInStock, setShowOnlyInStock] = useState(false);
   const [expandedVariants, setExpandedVariants] = useState(new Set());
   const [productId, setProductId] = useState(null); // For edit mode
   const [variantImages, setVariantImages] = useState({});
   const [defaultVariantId, setDefaultVariantId] = useState(null);
   const [defaultVariantPhotos, setDefaultVariantPhotos] = useState({}); // Map variantId -> default photo URL
-  const [variantPriceOverrides, setVariantPriceOverrides] = useState({}); // Map variantId -> price override
-  const [variantPriceErrors, setVariantPriceErrors] = useState({}); // Map variantId -> error message
   const [editModeShopifyItem, setEditModeShopifyItem] = useState(null); // Store shopifyItem when editing
   
   // Manual mode: image URLs and variant creation
@@ -77,7 +74,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     type: '',
     size: '',
     stock: '',
-    priceOverride: '',
     sku: '',
   });
   
@@ -110,56 +106,100 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     const images = [];
     const variantImageId = variant.image_id || variant.imageId;
     
+    // Get rawProduct from either item (shopify mode) or editModeShopifyItem (edit mode)
+    const rawProduct = mode === 'shopify' 
+      ? item?.rawProduct 
+      : (mode === 'edit' ? editModeShopifyItem?.rawProduct : null);
+    
+    // Get the Shopify variant ID to match with image variant_ids
+    // In shopify mode: variant.id is the Shopify variant ID
+    // In edit mode: variant.shopifyVariantId is the Shopify variant ID, variant.id is Firestore ID
+    const shopifyVariantIdToMatch = mode === 'shopify' 
+      ? variantId 
+      : (variant.shopifyVariantId || variant.shopifyId || variantId);
+    
+    console.log('[ProductModal] getVariantDefaultImages', {
+      mode,
+      variantId,
+      shopifyVariantIdToMatch,
+      variantImageId,
+      hasRawProduct: !!rawProduct,
+      rawProductImagesCount: rawProduct?.images?.length || 0,
+    });
+    
     // Prioritize the variant-specific photo (from image_id) - it should be first
-    if (variantImageId && item?.rawProduct?.images) {
-      const variantImage = item.rawProduct.images.find((img) => img.id === variantImageId);
+    if (variantImageId && rawProduct?.images) {
+      const variantImage = rawProduct.images.find((img) => img.id === variantImageId);
       if (variantImage?.src) {
         images.push(variantImage.src);
+        console.log('[ProductModal] Found variant image by image_id:', variantImage.src);
       }
     }
 
     // Then add other variant-specific images
-    if (item?.rawProduct?.images) {
-      const variantSpecificImages = item.rawProduct.images
+    if (rawProduct?.images) {
+      const variantSpecificImages = rawProduct.images
         .filter((img) => {
           const imgVariantIds = img.variant_ids || [];
-          return imgVariantIds.includes(variantId) && img.id !== variantImageId; // Exclude the main variant image we already added
+          // Match by Shopify variant ID (variant_ids in images are Shopify variant IDs)
+          const matchesVariant = imgVariantIds.some((vid) => 
+            vid?.toString() === shopifyVariantIdToMatch?.toString()
+          );
+          return matchesVariant && img.id !== variantImageId; // Exclude the main variant image we already added
         })
         .map((img) => img.src)
         .filter(Boolean);
 
+      console.log('[ProductModal] Found variant-specific images:', variantSpecificImages.length, variantSpecificImages);
       images.push(...variantSpecificImages);
     }
 
-    return Array.from(new Set(images.filter(Boolean)));
+    const result = Array.from(new Set(images.filter(Boolean)));
+    console.log('[ProductModal] getVariantDefaultImages result:', result.length, result);
+    return result;
   };
 
   const getAvailableImagesForVariant = (variant) => {
-    if (mode === 'shopify') {
     const variantId = variant.id || variant.shopifyId;
-    if (!item?.rawProduct?.images) {
-      return availableImages;
-    }
+    
+    // Get rawProduct from either item (shopify mode) or editModeShopifyItem (edit mode)
+    const rawProduct = mode === 'shopify' 
+      ? item?.rawProduct 
+      : (mode === 'edit' ? editModeShopifyItem?.rawProduct : null);
+    
+    // Get the Shopify variant ID to match with image variant_ids
+    const shopifyVariantIdToMatch = mode === 'shopify' 
+      ? variantId 
+      : (variant.shopifyVariantId || variant.shopifyId || variantId);
+    
+    if (rawProduct?.images && Array.isArray(rawProduct.images)) {
+      // Get variant-specific images
+      const variantSpecificImages = rawProduct.images
+        .filter((img) => {
+          const imgVariantIds = img.variant_ids || [];
+          // Match by Shopify variant ID (variant_ids in images are Shopify variant IDs)
+          return imgVariantIds.some((vid) => 
+            vid?.toString() === shopifyVariantIdToMatch?.toString()
+          );
+        })
+        .map((img) => img.src)
+        .filter(Boolean);
 
-    const variantSpecificImages = item.rawProduct.images
-      .filter((img) => {
-        const imgVariantIds = img.variant_ids || [];
-        return imgVariantIds.includes(variantId);
-      })
-      .map((img) => img.src);
+      // Get general images (not assigned to any specific variant)
+      const generalImages = rawProduct.images
+        .filter((img) => {
+          const imgVariantIds = img.variant_ids || [];
+          return imgVariantIds.length === 0; // Images not assigned to any variant
+        })
+        .map((img) => img.src)
+        .filter(Boolean);
 
-    const generalImages = item.rawProduct.images
-      .filter((img) => {
-        const imgVariantIds = img.variant_ids || [];
-        return imgVariantIds.length === 0;
-      })
-      .map((img) => img.src);
-
-    const combined = [...variantSpecificImages, ...generalImages, ...availableImages];
-    return Array.from(new Set(combined.filter(Boolean)));
+      // Combine: variant-specific first, then general, then availableImages
+      const combined = [...variantSpecificImages, ...generalImages, ...availableImages];
+      return Array.from(new Set(combined.filter(Boolean)));
     } else {
-      // For manual/edit mode, return all available images
-      return availableImages;
+      // No rawProduct images - use variant.images or availableImages
+      return variant.images || availableImages;
     }
   };
 
@@ -252,8 +292,14 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     const variant = allVariants.find((v) => (v.id || v.shopifyId) === variantId);
     if (!variant) return [];
     
+    // In edit mode, only return variant-specific images (not group images)
+    // This ensures each variant only shows its own saved images
+    if (mode === 'edit') {
+      return variantImages[variantId] || [];
+    }
+    
+    // In shopify mode, use group images for variants of the same color
     const groupKey = getVariantGroupKey(variant);
-    // Check group key first, then fallback to variant ID (for backward compatibility)
     return variantImages[groupKey] || variantImages[variantId] || [];
   };
   
@@ -274,7 +320,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       return;
     }
     
-    const parsedBasePrice = basePriceInput ? parseFloat(basePriceInput) : 0;
     const variantColor = newVariantForm.hasColor ? newVariantForm.color.trim() : null;
     const variantType = !newVariantForm.hasColor ? newVariantForm.type.trim() : null;
     const variantSize = newVariantForm.size.trim();
@@ -294,17 +339,8 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       size: variantSize, // Store as string
       variantName: variantName, // Save display name
       stock: parseInt(newVariantForm.stock, 10) || 0,
-      // Ensure variant price is at least equal to base price
-      priceOverride: newVariantForm.priceOverride ? parseFloat(newVariantForm.priceOverride) : null,
+      price: 0, // Prices come from Shopify only
       sku: newVariantForm.sku.trim() || null,
-      price: (() => {
-        if (newVariantForm.priceOverride) {
-          const variantPrice = parseFloat(newVariantForm.priceOverride);
-          // If variant price is less than base price, use base price
-          return !isNaN(variantPrice) && variantPrice >= parsedBasePrice ? variantPrice : parsedBasePrice;
-        }
-        return parsedBasePrice;
-      })(),
     };
     
     setManualVariants((prev) => [...prev, newVariant]);
@@ -317,7 +353,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       type: '',
       size: '',
       stock: '',
-      priceOverride: '',
       sku: '',
     });
   };
@@ -341,12 +376,10 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     setDisplayDescription,
     setBulletPoints,
     setCategoryId,
-    setBasePriceInput,
     setDefaultVariantId,
     setSelectedImages,
     setVariantImages,
     setDefaultVariantPhotos,
-    setVariantPriceOverrides,
     setStorefrontSelections,
     setEditModeShopifyItem,
     setToastMessage,
@@ -358,42 +391,17 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     mode,
     item,
     sortedVariants,
-    basePriceInput,
     getVariantDefaultImages,
     setSelectedImages,
     setSelectedVariants,
-    setBasePriceInput,
     setDisplayName,
     setDisplayDescription,
     setBulletPoints,
     setExpandedVariants,
     setVariantImages,
     setDefaultVariantPhotos,
-    setVariantPriceOverrides,
     initializedItemIdRef,
   });
-
-  // Automatically adjust variant prices when base price changes
-  // If a variant price is less than the new base price, set it to the base price
-  useEffect(() => {
-    const basePrice = basePriceInput ? parseFloat(basePriceInput) : 0;
-    if (isNaN(basePrice) || basePrice <= 0) return;
-
-    setVariantPriceOverrides((prev) => {
-      const updated = { ...prev };
-      let hasChanges = false;
-
-      Object.keys(updated).forEach((variantId) => {
-        const variantPrice = parseFloat(updated[variantId]);
-        if (!isNaN(variantPrice) && variantPrice < basePrice) {
-          updated[variantId] = basePrice.toString();
-          hasChanges = true;
-        }
-      });
-
-      return hasChanges ? updated : prev;
-    });
-  }, [basePriceInput]);
   
   const handleImageToggle = (imageUrl) => {
     setSelectedImages((prev) => {
@@ -516,14 +524,54 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   };
 
   // Determine available images based on mode
-  // For edit mode, use shopifyItem images if available (like when first handling), otherwise use product images
+  // For edit mode, use ALL images from shopifyItem (product + variant images)
   const availableImages = useMemo(() => {
     if (mode === 'shopify') {
       return item?.imageUrls || item?.images || [];
     } else if (mode === 'edit') {
-      // Use shopifyItem images if available (like when first handling), otherwise use product images
+      // Use ALL images from shopifyItem (product images + all variant images)
       if (editModeShopifyItem) {
-        return editModeShopifyItem.imageUrls || editModeShopifyItem.images || existingProduct?.images || [];
+        const shopifyImages = [];
+        
+        // 1. Check imageUrls array (processed product images)
+        if (Array.isArray(editModeShopifyItem.imageUrls)) {
+          shopifyImages.push(...editModeShopifyItem.imageUrls);
+        }
+        
+        // 2. Check rawProduct.images (includes ALL images: product + variant images)
+        // This is the main source - it contains all images with their variant_ids
+        if (editModeShopifyItem.rawProduct?.images && Array.isArray(editModeShopifyItem.rawProduct.images)) {
+          const rawImages = editModeShopifyItem.rawProduct.images
+            .map(img => img.src || img.url)
+            .filter(Boolean);
+          shopifyImages.push(...rawImages);
+        }
+        
+        // 3. Check images array (fallback)
+        if (Array.isArray(editModeShopifyItem.images)) {
+          shopifyImages.push(...editModeShopifyItem.images);
+        }
+        
+        // Remove duplicates - this gives us ALL available images (product + variants)
+        const uniqueImages = Array.from(new Set(shopifyImages.filter(Boolean)));
+        
+        console.log('[ProductModal] availableImages from shopifyItem (all images):', {
+          imageUrlsCount: editModeShopifyItem.imageUrls?.length || 0,
+          rawProductImagesCount: editModeShopifyItem.rawProduct?.images?.length || 0,
+          imagesCount: editModeShopifyItem.images?.length || 0,
+          uniqueImagesCount: uniqueImages.length,
+        });
+        
+        // Include saved images even if they're not in shopifyItem (in case they were manually added)
+        const savedImages = existingProduct?.images || [];
+        const allImages = [...uniqueImages];
+        savedImages.forEach((savedUrl) => {
+          if (!allImages.includes(savedUrl)) {
+            allImages.push(savedUrl);
+          }
+        });
+        
+        return allImages.length > 0 ? allImages : savedImages;
       }
       return existingProduct?.images || [];
     } else {
@@ -543,7 +591,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     displayDescription,
     bulletPoints,
     categoryId,
-    basePriceInput,
     selectedImages,
     selectedVariants,
     defaultVariantId,
@@ -551,7 +598,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     manualVariants,
     variantImages,
     defaultVariantPhotos,
-    variantPriceOverrides,
     getSelectedVariantImages,
     getVariantDefaultImages,
     availableImages,
@@ -560,7 +606,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     availableWebsites,
     setLoading,
     setToastMessage,
-    setBasePriceInput,
     onSaved,
   });
   
@@ -711,7 +756,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   <ManualVariantForm
                     newVariantForm={newVariantForm}
                     setNewVariantForm={setNewVariantForm}
-                    basePriceInput={basePriceInput}
                     setToastMessage={setToastMessage}
                     handleAddVariant={handleAddVariant}
                   />
@@ -731,11 +775,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                     mode={mode}
                     showOnlyInStock={showOnlyInStock}
                     setShowOnlyInStock={setShowOnlyInStock}
-                    basePriceInput={basePriceInput}
-                    variantPriceOverrides={variantPriceOverrides}
-                    variantPriceErrors={variantPriceErrors}
-                    setVariantPriceOverrides={setVariantPriceOverrides}
-                    setVariantPriceErrors={setVariantPriceErrors}
                     defaultVariantPhotos={defaultVariantPhotos}
                     setDefaultVariantPhotos={setDefaultVariantPhotos}
                     variantImages={variantImages}
@@ -781,34 +820,12 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   />
                 </div>
 
-                {/* Market Availability and Base Price - Side by Side */}
-                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                  {/* Market Information (Read-only) */}
-                  {mode === 'shopify' && item && (
-                    <MarketInfoDisplay item={item} />
-                  )}
+                {/* Market Information (Read-only) */}
+                {mode === 'shopify' && item && (
+                  <MarketInfoDisplay item={item} />
+                )}
 
-                  {/* Base Price */}
-                  <div>
-                    <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-                      Base Price *
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={basePriceInput}
-                      onChange={(e) => setBasePriceInput(e.target.value)}
-                      className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                      placeholder="e.g., 79.99"
-                    />
-                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      All variants inherit this price unless a specific variant override is set.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Product Form Fields (without Base Price) */}
+                {/* Product Form Fields */}
                 <ProductFormFields
                   displayName={displayName}
                   setDisplayName={setDisplayName}
@@ -816,11 +833,8 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   setDisplayDescription={setDisplayDescription}
                   bulletPoints={bulletPoints}
                   setBulletPoints={setBulletPoints}
-                  basePriceInput={basePriceInput}
-                  setBasePriceInput={setBasePriceInput}
                   mode={mode}
                   handleGenerateAI={handleGenerateAI}
-                  hideBasePrice={true}
                 />
               </div>
             </div>

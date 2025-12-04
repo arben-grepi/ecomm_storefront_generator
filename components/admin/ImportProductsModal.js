@@ -63,6 +63,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
           title: product.title,
           handle: product.handle,
           status: product.status, // 'active', 'archived', 'draft'
+          publishedToOnlineStore: product.publishedToOnlineStore === true, // Include publication status
           vendor: product.vendor,
           productType: product.productType,
           tags: product.tags,

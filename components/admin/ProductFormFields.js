@@ -10,33 +10,11 @@ export default function ProductFormFields({
   setDisplayDescription,
   bulletPoints,
   setBulletPoints,
-  basePriceInput,
-  setBasePriceInput,
   mode,
   handleGenerateAI,
-  hideBasePrice = false,
 }) {
   return (
     <>
-      {!hideBasePrice && (
-        <div>
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
-            Base Price *
-          </label>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={basePriceInput}
-            onChange={(e) => setBasePriceInput(e.target.value)}
-            className="w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            placeholder="e.g., 79.99"
-          />
-          <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            All variants inherit this price unless a specific variant override is set.
-          </p>
-        </div>
-      )}
 
       {/* AI Generated Text */}
       <div className="space-y-4">

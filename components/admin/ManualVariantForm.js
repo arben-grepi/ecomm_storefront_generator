@@ -6,7 +6,6 @@
 export default function ManualVariantForm({
   newVariantForm,
   setNewVariantForm,
-  basePriceInput,
   setToastMessage,
   handleAddVariant,
 }) {
@@ -77,39 +76,6 @@ export default function ManualVariantForm({
             className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             placeholder="0"
           />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-zinc-600 dark:text-zinc-400">Price Override</span>
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={newVariantForm.priceOverride}
-            onChange={(e) => {
-              const value = e.target.value;
-              setNewVariantForm((prev) => ({ ...prev, priceOverride: value }));
-            }}
-            onBlur={(e) => {
-              const value = e.target.value;
-              const basePrice = basePriceInput ? parseFloat(basePriceInput) : 0;
-              const variantPrice = value ? parseFloat(value) : null;
-
-              // Validate that variant price is not less than base price
-              if (value && !isNaN(variantPrice) && !isNaN(basePrice) && basePrice > 0 && variantPrice < basePrice) {
-                // Automatically adjust to base price
-                setNewVariantForm((prev) => ({ ...prev, priceOverride: basePrice.toString() }));
-                setToastMessage({
-                  type: 'error',
-                  text: `Variant price cannot be less than base price (€${basePrice.toFixed(2)}). Adjusted to base price.`,
-                });
-              }
-            }}
-            className="rounded-lg border border-zinc-200 px-3 py-1.5 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-            placeholder="Optional"
-          />
-          <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Must be at least equal to base price (€{basePriceInput || '0.00'})
-          </p>
         </label>
         <label className="flex flex-col gap-1">
           <span className="text-xs text-zinc-600 dark:text-zinc-400">SKU</span>

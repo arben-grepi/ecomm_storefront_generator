@@ -140,11 +140,12 @@ async function fetchPublicationStatuses(productIds) {
         data.nodes.forEach((node) => {
           if (node && node.id) {
             const productId = node.id.replace('gid://shopify/Product/', '');
-            // Check if published to Online Store
-            const onlineStorePublication = node.resourcePublications?.edges?.find(
-              (edge) => edge.node.publication?.name === 'Online Store'
+            // Check if published to Blerinas catalog (matches import script logic)
+            // The import script checks for "Blerinas" catalog because the Storefront API token queries this publication
+            const blerinasPublication = node.resourcePublications?.edges?.find(
+              (edge) => edge.node.publication?.name === 'Blerinas'
             );
-            statusMap[productId] = onlineStorePublication?.node.isPublished || false;
+            statusMap[productId] = blerinasPublication?.node.isPublished || false;
           }
         });
       }

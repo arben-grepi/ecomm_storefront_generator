@@ -13,10 +13,10 @@ export default function EditSiteInfoButton({ className = '' }) {
   const [open, setOpen] = useState(false);
   const [selectedStorefront, setSelectedStorefront] = useState(null);
   const [form, setForm] = useState({
-    companyName: '',
     companyTagline: '',
     heroMainHeading: '',
     heroDescription: '',
+    categorySectionHeading: '',
     categorySectionDescription: '',
     footerText: '',
   });
@@ -56,20 +56,20 @@ export default function EditSiteInfoButton({ className = '' }) {
       if (infoDoc.exists()) {
         const data = infoDoc.data();
         setForm({
-          companyName: data.companyName || '',
           companyTagline: data.companyTagline || '',
           heroMainHeading: data.heroMainHeading || '',
           heroDescription: data.heroDescription || '',
+          categorySectionHeading: data.categorySectionHeading || '',
           categorySectionDescription: data.categorySectionDescription || '',
           footerText: data.footerText || '',
         });
       } else {
         // Initialize with empty values if document doesn't exist
         setForm({
-          companyName: '',
           companyTagline: '',
           heroMainHeading: '',
           heroDescription: '',
+          categorySectionHeading: '',
           categorySectionDescription: '',
           footerText: '',
         });
@@ -84,10 +84,10 @@ export default function EditSiteInfoButton({ className = '' }) {
 
   const resetState = () => {
     setForm({
-      companyName: '',
       companyTagline: '',
       heroMainHeading: '',
       heroDescription: '',
+      categorySectionHeading: '',
       categorySectionDescription: '',
       footerText: '',
     });
@@ -110,10 +110,10 @@ export default function EditSiteInfoButton({ className = '' }) {
 
     try {
       const payload = {
-        companyName: form.companyName.trim() || '',
         companyTagline: form.companyTagline.trim() || '',
         heroMainHeading: form.heroMainHeading.trim() || '',
         heroDescription: form.heroDescription.trim() || '',
+        categorySectionHeading: form.categorySectionHeading.trim() || '',
         categorySectionDescription: form.categorySectionDescription.trim() || '',
         footerText: form.footerText.trim() || '',
         storefront: selectedStorefront,
@@ -229,21 +229,6 @@ export default function EditSiteInfoButton({ className = '' }) {
             </div>
 
             <div>
-              <label htmlFor="companyName" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Company Name
-              </label>
-              <input
-                id="companyName"
-                type="text"
-                value={form.companyName}
-                onChange={(e) => setForm((prev) => ({ ...prev, companyName: e.target.value }))}
-                className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                placeholder="Lingerie Boutique"
-                maxLength={50}
-              />
-            </div>
-
-            <div>
               <label htmlFor="companyTagline" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                 Company Tagline
               </label>
@@ -285,6 +270,21 @@ export default function EditSiteInfoButton({ className = '' }) {
                 placeholder="From delicate lace to active-ready comfort. Discover the pieces that make you feel confident, effortless, and beautifully yourself."
                 rows={3}
                 maxLength={200}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="categorySectionHeading" className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Category Section Heading
+              </label>
+              <input
+                id="categorySectionHeading"
+                type="text"
+                value={form.categorySectionHeading}
+                onChange={(e) => setForm((prev) => ({ ...prev, categorySectionHeading: e.target.value }))}
+                className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                placeholder="Shop by category"
+                maxLength={50}
               />
             </div>
 

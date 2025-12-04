@@ -70,8 +70,8 @@ export default function ImportLogsModal({ isOpen, onClose, importId }) {
 
   if (!isOpen) return null;
 
-  // Format log line with colors
-  const formatLogLine = (line) => {
+  // Format log line with colors and nesting
+  const formatLogLine = (line, index, isLast, allLogs) => {
     if (!line) return null;
     
     const trimmed = line.trim();
@@ -79,22 +79,72 @@ export default function ImportLogsModal({ isOpen, onClose, importId }) {
 
     // Determine log type and styling
     let className = 'text-zinc-700 dark:text-zinc-300';
+    let indent = '';
+    
+    // Check if this is a product operation start (variant import line)
+    const isProductStart = trimmed.includes('📦 Importing') && trimmed.includes('variant(s)');
+    // Check if this is a product operation end (imported/updated line)
+    const isProductEnd = (trimmed.includes('✅ Imported:') || trimmed.includes('✅ Updated:')) && trimmed.includes('"');
+    
+    // Check if this is a nested operation (indented lines or product-specific operations)
+    const startsWithIndent = trimmed.startsWith('  ') || trimmed.startsWith('    ');
+    const isNestedOperation = startsWithIndent || 
+                             (isProductEnd && !trimmed.startsWith('📦')) ||
+                             (trimmed.includes('❌') && trimmed.includes('"')) ||
+                             (trimmed.includes('⏳') && trimmed.includes('"'));
+    
+    // Check if this is a top-level operation (summary lines)
+    const isTopLevel = trimmed.includes('📋 Importing') || 
+                       trimmed.includes('🛍️  Fetching') ||
+                       trimmed.includes('✅ Fetched') ||
+                       trimmed.includes('✅ Import complete!') ||
+                       trimmed.includes('• Imported:') ||
+                       trimmed.includes('• Skipped:') ||
+                       trimmed.includes('✅ Import completed successfully');
+    
     if (trimmed.includes('✅') || trimmed.includes('Success')) {
       className = 'text-emerald-600 dark:text-emerald-400';
     } else if (trimmed.includes('❌') || trimmed.includes('Error') || trimmed.includes('Failed')) {
       className = 'text-red-600 dark:text-red-400';
     } else if (trimmed.includes('⚠️') || trimmed.includes('Warning')) {
       className = 'text-amber-600 dark:text-amber-400';
-    } else if (trimmed.includes('📋') || trimmed.includes('📦') || trimmed.includes('🌍') || trimmed.includes('📤')) {
+    } else if (trimmed.includes('📋') || trimmed.includes('📦') || trimmed.includes('🌍') || trimmed.includes('📤') || trimmed.includes('🛍️')) {
       className = 'text-blue-600 dark:text-blue-400';
     } else if (trimmed.includes('💡') || trimmed.includes('ℹ️')) {
       className = 'text-zinc-500 dark:text-zinc-400';
     }
 
+    // Add indentation for nested operations
+    if (isNestedOperation && !isTopLevel) {
+      indent = 'ml-6';
+    } else if (isProductStart) {
+      indent = 'ml-2 font-semibold';
+    }
+
+    // Add separator before product operations (variant import lines)
+    // Check previous log to avoid duplicate separators
+    const prevLog = index > 0 ? allLogs[index - 1]?.trim() : '';
+    const showSeparator = isProductStart && index > 0 && !prevLog.includes('📦 Importing');
+
     return (
-      <div className={`font-mono text-sm ${className} whitespace-pre-wrap break-words`}>
-        {trimmed}
-      </div>
+      <>
+        {showSeparator && (
+          <div className="my-3 border-t border-zinc-200 dark:border-zinc-700"></div>
+        )}
+        <div className={`font-mono text-sm ${className} ${indent} whitespace-pre-wrap break-words flex items-center gap-2`}>
+          <span>{trimmed}</span>
+          {isLast && !completed && (
+            <svg className="h-4 w-4 animate-spin text-emerald-600 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+          )}
+        </div>
+      </>
     );
   };
 
@@ -142,14 +192,25 @@ export default function ImportLogsModal({ isOpen, onClose, importId }) {
               <span className="ml-3 text-zinc-600 dark:text-zinc-400">Waiting for logs...</span>
             </div>
           ) : logs.length === 0 ? (
-            <div className="py-12 text-center text-zinc-500 dark:text-zinc-400">
-              No logs available yet
+            <div className="flex items-center justify-center py-12">
+              <svg className="h-8 w-8 animate-spin text-emerald-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              <span className="ml-3 text-zinc-600 dark:text-zinc-400">Initializing import...</span>
             </div>
           ) : (
             <div className="space-y-1">
-              {logs.map((line, index) => (
-                <div key={index}>{formatLogLine(line)}</div>
-              ))}
+              {logs.map((line, index) => {
+                const isLast = index === logs.length - 1;
+                return (
+                  <div key={index}>{formatLogLine(line, index, isLast, logs)}</div>
+                );
+              })}
               <div ref={logEndRef} />
             </div>
           )}

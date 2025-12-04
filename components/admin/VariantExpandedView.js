@@ -9,11 +9,6 @@ export default function VariantExpandedView({
   variant,
   variantId,
   mode,
-  basePriceInput,
-  variantPriceOverrides,
-  variantPriceErrors,
-  setVariantPriceOverrides,
-  setVariantPriceErrors,
   defaultVariantPhotos,
   setDefaultVariantPhotos,
   variantImages,
@@ -34,15 +29,19 @@ export default function VariantExpandedView({
     : (variantInstance?.color || variantInstance?.type || 'this variant');
   
   // Variant-specific images (original variant photos) - get for THIS specific variant
+  // In edit mode, use only variant-specific images (not group images) to match saved state
+  // In shopify mode, use group images for variants of the same color
   const thisVariantSpecificImages = variantImages[variantId] || [];
-  // Group-level variant images (for backward compatibility)
-  const groupVariantImages = variantImages[groupKey] || [];
-  // Combine: this variant's specific images first, then group images
+  const groupVariantImages = mode === 'edit' ? [] : (variantImages[groupKey] || []); // Don't use group images in edit mode
+  // Combine: this variant's specific images first, then group images (only in shopify mode)
   const variantSpecificImages = [...new Set([...thisVariantSpecificImages, ...groupVariantImages])];
   // Main gallery selected images
   const mainGallerySelectedUrls = selectedImages.map((img) => img.url);
   // Combined: variant-specific images first (original variant photo), then main gallery selections
-  const groupSelectedImages = [...new Set([...variantSpecificImages, ...mainGallerySelectedUrls])];
+  // In edit mode, only include main gallery images if they're also in the variant's saved images
+  const groupSelectedImages = mode === 'edit'
+    ? [...new Set([...thisVariantSpecificImages])] // Edit mode: only variant's own saved images
+    : [...new Set([...variantSpecificImages, ...mainGallerySelectedUrls])]; // Shopify mode: include group and main gallery
   // Available images: all main gallery images + variant-specific images
   const variantDefaultImages = getVariantDefaultImages(variantInstance);
   const availableVariantImages = Array.from(new Set([
@@ -52,96 +51,17 @@ export default function VariantExpandedView({
 
   return (
     <div className="border-t border-zinc-200 bg-white/70 px-3 py-3 dark:border-zinc-700 dark:bg-zinc-900/50 space-y-4">
-      {/* Price Override (for shopify mode) */}
-      {mode === 'shopify' && (
+      {/* Price Display (Read-only from Shopify) */}
+      {mode === 'shopify' && variant.price && (
         <div>
           <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Price Override (Optional)
+            Price (from Shopify)
           </label>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">€</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={variantPriceOverrides[variantId] !== undefined ? variantPriceOverrides[variantId] : (variant.price || variant.priceOverride || '')}
-              onChange={(e) => {
-                const value = e.target.value;
-                // Clear error when user starts typing
-                if (variantPriceErrors[variantId]) {
-                  setVariantPriceErrors((prev) => {
-                    const updated = { ...prev };
-                    delete updated[variantId];
-                    return updated;
-                  });
-                }
-                setVariantPriceOverrides((prev) => {
-                  if (value === '' || value === (variant.price || variant.priceOverride || '').toString()) {
-                    // Remove override if empty or same as original
-                    const updated = { ...prev };
-                    delete updated[variantId];
-                    return updated;
-                  }
-                  return { ...prev, [variantId]: value };
-                });
-              }}
-              onBlur={(e) => {
-                const value = e.target.value;
-                const basePrice = basePriceInput ? parseFloat(basePriceInput) : 0;
-                const variantPrice = value ? parseFloat(value) : null;
-
-                // Clear error if input is empty (will use base price)
-                if (!value || value === '') {
-                  setVariantPriceErrors((prev) => {
-                    const updated = { ...prev };
-                    delete updated[variantId];
-                    return updated;
-                  });
-                  return;
-                }
-
-                // Validate that variant price is not less than base price
-                if (!isNaN(variantPrice) && !isNaN(basePrice) && basePrice > 0 && variantPrice < basePrice) {
-                  setVariantPriceErrors((prev) => ({
-                    ...prev,
-                    [variantId]: `Variant price (€${variantPrice.toFixed(2)}) cannot be less than base price (€${basePrice.toFixed(2)})`,
-                  }));
-                  // Automatically adjust to base price
-                  setVariantPriceOverrides((prev) => ({
-                    ...prev,
-                    [variantId]: basePrice.toString(),
-                  }));
-                } else {
-                  // Clear error if valid
-                  setVariantPriceErrors((prev) => {
-                    const updated = { ...prev };
-                    delete updated[variantId];
-                    return updated;
-                  });
-                }
-              }}
-              placeholder={variant.price || variant.priceOverride || basePriceInput || '0.00'}
-              className={`w-32 rounded-lg border px-2 py-1 text-xs focus:outline-none dark:bg-zinc-800 dark:text-zinc-100 ${
-                variantPriceErrors[variantId]
-                  ? 'border-red-400 focus:border-red-500 dark:border-red-600'
-                  : 'border-zinc-200 focus:border-emerald-400 dark:border-zinc-700'
-              }`}
-            />
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">
-              {variantPriceOverrides[variantId] !== undefined 
-                ? '(Overridden)' 
-                : variant.price || variant.priceOverride 
-                  ? `(From Shopify: €${variant.price || variant.priceOverride})`
-                  : `(Inherits base price: €${basePriceInput || '0.00'})`}
-            </span>
-          </div>
-          {variantPriceErrors[variantId] && (
-            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-              {variantPriceErrors[variantId]}
-            </p>
-          )}
+          <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+            €{parseFloat(variant.price || 0).toFixed(2)}
+          </p>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Leave empty to use Shopify price or base price. Override to set a custom price for this variant. Variant price must be at least equal to base price.
+            Prices are managed in Shopify and cannot be changed here.
           </p>
         </div>
       )}

@@ -244,9 +244,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                     }}
                   />
                 </Link>
-                <p className="hidden text-sm text-slate-500 sm:block">
-                  {siteInfo.companyTagline}
-                </p>
+                {siteInfo.companyTagline && (
+                  <span className="rounded-full px-4 py-1 text-xs font-medium uppercase tracking-[0.3em] text-primary">
+                    {siteInfo.companyTagline}
+                  </span>
+                )}
               </div>
               {/* Spacer for mobile to push buttons to right */}
               <div className="flex-1 sm:hidden" />
@@ -292,11 +294,8 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
           </header>
 
       {/* Hero Section */}
-      <section className="px-4 py-10 sm:px-6 sm:py-16">
+      <section className="mt-10 px-4 py-10 sm:px-6 sm:py-16">
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-          <span className="rounded-full bg-white/70 px-4 py-1 text-xs font-medium uppercase tracking-[0.3em] text-primary">
-            Explore the Edit
-          </span>
           {siteInfo.heroMainHeading && !siteInfo.heroMainHeading.includes('Something went wrong') && (
             <h2 className="text-3xl font-light text-primary sm:text-5xl">
               {siteInfo.heroMainHeading}

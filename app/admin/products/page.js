@@ -13,138 +13,190 @@ import { useWebsite } from '@/lib/website-context';
 export default function ProductsListPage() {
   const router = useRouter();
   const db = getFirebaseDb();
-  const { selectedWebsite } = useWebsite();
+  const { selectedWebsite, availableWebsites } = useWebsite();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedStorefront, setSelectedStorefront] = useState('all'); // 'all' or specific storefront
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'active', 'inactive', 'out-of-stock'
-  const [lowStockThreshold, setLowStockThreshold] = useState(10);
+  const [lowStockThreshold, setLowStockThreshold] = useState(10); // Low stock threshold
+  const OUT_OF_STOCK_THRESHOLD = 5; // Out of stock threshold (< 5)
   const [editingProduct, setEditingProduct] = useState(null);
   const [creatingProduct, setCreatingProduct] = useState(false);
   const [orderCounts, setOrderCounts] = useState({}); // Map productId -> order count
 
-  // Fetch categories
+  // Fetch categories from all storefronts or selected one
   useEffect(() => {
     if (!db) {
       setLoading(false);
       return undefined;
     }
 
-    const categoriesQuery = query(
-      collection(db, ...getCollectionPath('categories', selectedWebsite))
-    );
-    const unsubscribeCategories = onSnapshot(
-      categoriesQuery,
-      (snapshot) => {
-        const data = snapshot.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() }))
-          .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        setCategories(data);
-      },
-      (error) => {
-        console.error('Failed to load categories', error);
-      }
-    );
+    const storefrontsToLoad = selectedStorefront === 'all' ? availableWebsites : [selectedStorefront || selectedWebsite];
+    const unsubscribes = [];
+    const categoriesMap = new Map();
 
-    return () => unsubscribeCategories();
-  }, [db, selectedWebsite]);
+    const loadCategories = (storefront) => {
+      const categoriesQuery = query(
+        collection(db, ...getCollectionPath('categories', storefront))
+      );
+      const unsubscribe = onSnapshot(
+        categoriesQuery,
+        (snapshot) => {
+          snapshot.docs.forEach((doc) => {
+            const categoryData = { id: doc.id, ...doc.data(), storefront };
+            // Deduplicate by ID, keeping the first one found
+            if (!categoriesMap.has(doc.id)) {
+              categoriesMap.set(doc.id, categoryData);
+            }
+          });
+          // Update state with merged categories
+          const merged = Array.from(categoriesMap.values())
+            .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          setCategories(merged);
+        },
+        (error) => {
+          console.error(`Failed to load categories from ${storefront}`, error);
+        }
+      );
+      unsubscribes.push(unsubscribe);
+    };
 
-  // Fetch products with variants
+    storefrontsToLoad.forEach(loadCategories);
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  }, [db, selectedWebsite, selectedStorefront, availableWebsites]);
+
+  // Fetch products from selected storefront(s)
   useEffect(() => {
     if (!db) {
       setLoading(false);
       return undefined;
     }
 
-    const productsQuery = query(
-      collection(db, ...getCollectionPath('products', selectedWebsite))
-    );
-    const unsubscribeProducts = onSnapshot(
-      productsQuery,
-      async (snapshot) => {
-        const productsData = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const storefrontsToLoad = selectedStorefront === 'all' ? availableWebsites : [selectedStorefront || selectedWebsite];
+    const unsubscribes = [];
+    const productsMap = new Map(); // Use Map to deduplicate by product ID
 
-        // Use product-level stock data instead of loading variants for all products (optimization)
-        // Variants will be loaded on-demand when viewing/editing a product
-        const productsWithStock = productsData.map((product) => {
-          // Use product-level stock data if available (set by webhooks/imports)
-          const totalStock = product.totalStock || 0;
-          const hasInStockVariants = product.hasInStockVariants !== undefined 
-            ? product.hasInStockVariants 
-            : totalStock > 0; // Default to true if totalStock > 0
+    const loadProducts = (storefront) => {
+      const productsQuery = query(
+        collection(db, ...getCollectionPath('products', storefront))
+      );
+      const unsubscribe = onSnapshot(
+        productsQuery,
+        async (snapshot) => {
+          snapshot.docs.forEach((doc) => {
+            const productData = { id: doc.id, ...doc.data(), _storefront: storefront };
+            
+            // Use product-level stock data if available (set by webhooks/imports)
+            // Make sure we're reading the actual values from Firestore, not defaulting to 0
+            const totalStock = productData.totalStock !== undefined ? productData.totalStock : 0;
+            const hasInStockVariants = productData.hasInStockVariants !== undefined 
+              ? productData.hasInStockVariants 
+              : (totalStock > 0); // Default to true if totalStock > 0
+            
+            const productWithStock = { 
+              ...productData, 
+              totalStock, 
+              variants: [], // Don't load variants - load on demand
+              lowStockVariants: productData.lowStockVariants || 0,
+              hasInStockVariants,
+              inStockVariantCount: productData.inStockVariantCount !== undefined 
+                ? productData.inStockVariantCount 
+                : (hasInStockVariants ? 1 : 0),
+              totalVariantCount: productData.totalVariantCount !== undefined 
+                ? productData.totalVariantCount 
+                : 0
+            };
+            
+            // If product exists in multiple storefronts, merge storefronts array
+            // NOTE: Stock is the SAME across all storefronts (single source of truth from shopifyItems)
+            // We use the first storefront's stock data since they should all match.
+            // If they don't match, run the sync script: npm run stock:sync-from-shopify
+            if (productsMap.has(doc.id)) {
+              const existing = productsMap.get(doc.id);
+              const existingStorefronts = Array.isArray(existing.storefronts) ? existing.storefronts : [];
+              if (!existingStorefronts.includes(storefront)) {
+                existing.storefronts = [...existingStorefronts, storefront];
+              }
+              // Keep existing stock data (from first storefront) - they should all be the same
+              // If inconsistencies exist, the sync script will fix them
+            } else {
+              productsMap.set(doc.id, productWithStock);
+            }
+          });
           
-          // Note: lowStockVariants and inStockVariantCount require variant data
-          // These will be calculated on-demand when needed, or use product-level data if available
-          return { 
-            ...product, 
-            totalStock, 
-            variants: [], // Don't load variants - load on demand
-            lowStockVariants: product.lowStockVariants || 0, // Use product-level data if available
-            hasInStockVariants,
-            inStockVariantCount: product.inStockVariantCount || (hasInStockVariants ? 1 : 0), // Estimate or use product-level data
-            totalVariantCount: product.totalVariantCount || 0 // Use product-level data if available
-          };
-        });
-
-        setProducts(
-          productsWithStock.sort((a, b) => {
+          // Update state with merged products
+          const merged = Array.from(productsMap.values()).sort((a, b) => {
             const aCreated = a.createdAt?.toMillis?.() || (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
             const bCreated = b.createdAt?.toMillis?.() || (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
             return bCreated - aCreated;
-          })
-        );
-        
-        // Fetch order counts for all products
-        // Orders are stored at {storefront}/orders/items/{orderId}
-        const counts = {};
-        const allStorefronts = ['LUNERA', 'GIFTSHOP']; // Add more as needed
-        for (const storefront of allStorefronts) {
-          try {
-            const ordersSnapshot = await getDocs(
-              collection(db, storefront, 'orders', 'items')
-            );
-            ordersSnapshot.docs.forEach((orderDoc) => {
-              const orderData = orderDoc.data();
-              const items = orderData.items || [];
-              items.forEach((item) => {
-                // Match by sourceShopifyId (Shopify product ID)
-                const shopifyProductId = item.productId;
-                if (shopifyProductId) {
-                  // Find matching product by sourceShopifyId
-                  const matchingProduct = productsWithStock.find(
-                    (p) => p.sourceShopifyId?.toString() === shopifyProductId.toString()
-                  );
-                  if (matchingProduct) {
-                    counts[matchingProduct.id] = (counts[matchingProduct.id] || 0) + (item.quantity || 1);
+          });
+          
+          setProducts(merged);
+          
+          // Fetch order counts for all products
+          const counts = {};
+          const allStorefronts = availableWebsites.length > 0 ? availableWebsites : ['LUNERA', 'GIFTSHOP'];
+          for (const sf of allStorefronts) {
+            try {
+              const ordersSnapshot = await getDocs(
+                collection(db, sf, 'orders', 'items')
+              );
+              ordersSnapshot.docs.forEach((orderDoc) => {
+                const orderData = orderDoc.data();
+                const items = orderData.items || [];
+                items.forEach((item) => {
+                  const shopifyProductId = item.productId;
+                  if (shopifyProductId) {
+                    const matchingProduct = merged.find(
+                      (p) => p.sourceShopifyId?.toString() === shopifyProductId.toString()
+                    );
+                    if (matchingProduct) {
+                      counts[matchingProduct.id] = (counts[matchingProduct.id] || 0) + (item.quantity || 1);
+                    }
                   }
-                }
+                });
               });
-            });
-          } catch (error) {
-            // Orders collection might not exist for all storefronts - that's okay
-            console.warn(`Failed to load orders for ${storefront}:`, error);
+            } catch (error) {
+              console.warn(`Failed to load orders for ${sf}:`, error);
+            }
           }
+          setOrderCounts(counts);
+          setLoading(false);
+        },
+        (error) => {
+          console.error(`Failed to load products from ${storefront}`, error);
+          setMessage({ type: 'error', text: 'Failed to load products.' });
+          setLoading(false);
         }
-        setOrderCounts(counts);
-        
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Failed to load products', error);
-        setMessage({ type: 'error', text: 'Failed to load products.' });
-        setLoading(false);
-      }
-    );
+      );
+      unsubscribes.push(unsubscribe);
+    };
 
-    return () => unsubscribeProducts();
-  }, [db, lowStockThreshold, selectedWebsite]);
+    storefrontsToLoad.forEach(loadProducts);
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub());
+    };
+  }, [db, lowStockThreshold, selectedWebsite, selectedStorefront, availableWebsites]);
 
   // Filter and search products
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
+      // Storefront filter
+      if (selectedStorefront !== 'all') {
+        const productStorefronts = Array.isArray(product.storefronts) ? product.storefronts : [];
+        if (!productStorefronts.includes(selectedStorefront)) {
+          return false;
+        }
+      }
+
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -169,27 +221,31 @@ export default function ProductsListPage() {
         return false;
       }
       
-      // Out of stock filter
-      if (activeFilter === 'out-of-stock' && product.hasInStockVariants !== false) {
-        return false;
+      // Out of stock filter: total stock < 5 OR no in-stock variants
+      if (activeFilter === 'out-of-stock') {
+        const isOutOfStock = (product.totalStock || 0) < OUT_OF_STOCK_THRESHOLD || product.hasInStockVariants === false;
+        if (!isOutOfStock) {
+          return false;
+        }
       }
 
       return true;
     });
-  }, [products, searchQuery, selectedCategory, activeFilter]);
+  }, [products, searchQuery, selectedCategory, activeFilter, selectedStorefront]);
 
-  // Separate filtered out products (out of stock)
+  // Separate filtered out products (out of stock: total stock < 5 OR no in-stock variants)
   const filteredOutProducts = useMemo(() => {
     return filteredProducts.filter((product) => {
-      // Product is filtered out if it has no in-stock variants
-      return product.hasInStockVariants === false;
+      const totalStock = product.totalStock || 0;
+      return totalStock < OUT_OF_STOCK_THRESHOLD || product.hasInStockVariants === false;
     });
   }, [filteredProducts]);
 
-  // Products that are visible to customers
+  // Products that are visible to customers (total stock >= 5 AND has in-stock variants)
   const visibleProducts = useMemo(() => {
     return filteredProducts.filter((product) => {
-      return product.hasInStockVariants !== false;
+      const totalStock = product.totalStock || 0;
+      return totalStock >= OUT_OF_STOCK_THRESHOLD && product.hasInStockVariants !== false;
     });
   }, [filteredProducts]);
 
@@ -255,9 +311,26 @@ export default function ProductsListPage() {
 
       {/* Filters */}
       <section className="space-y-4 rounded-3xl border border-zinc-200/70 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {/* Search */}
-          <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-4">
+          {/* Storefront filter */}
+          <div className="flex flex-col gap-2 flex-1 max-w-xs">
+            <label className="text-sm font-medium text-zinc-600">Filter by Storefront</label>
+            <select
+              value={selectedStorefront}
+              onChange={(e) => setSelectedStorefront(e.target.value)}
+              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-400 focus:outline-none"
+            >
+              <option value="all">All stores</option>
+              {availableWebsites.map((storefront) => (
+                <option key={storefront} value={storefront}>
+                  {storefront}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Search - keep it but make it secondary */}
+          <div className="flex flex-col gap-2 flex-1">
             <label className="text-sm font-medium text-zinc-600">Search</label>
             <input
               type="text"
@@ -266,40 +339,6 @@ export default function ProductsListPage() {
               placeholder="Search by name, slug, or description..."
               className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-400 focus:outline-none"
             />
-          </div>
-
-          {/* Category filter */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-zinc-600">Category</label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-400 focus:outline-none"
-            >
-              <option value="">All categories</option>
-              {categories
-                .filter((cat) => cat.active !== false)
-                .map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          {/* Active status filter */}
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-zinc-600">Status</label>
-            <select
-              value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value)}
-              className="rounded-xl border border-zinc-200 px-4 py-2 text-sm focus:border-emerald-400 focus:outline-none"
-            >
-              <option value="all">All products</option>
-              <option value="active">Active only</option>
-              <option value="inactive">Inactive only</option>
-              <option value="out-of-stock">Out of stock</option>
-            </select>
           </div>
         </div>
 
@@ -398,6 +437,7 @@ export default function ProductsListPage() {
             <thead className="bg-zinc-50 text-zinc-500">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Product</th>
+                <th className="px-4 py-3 text-left font-medium">Storefronts</th>
                 <th className="px-4 py-3 text-left font-medium">Category</th>
                 <th className="px-4 py-3 text-left font-medium">Price</th>
                 <th className="px-4 py-3 text-left font-medium">Stock</th>
@@ -452,6 +492,24 @@ export default function ProductsListPage() {
                           </button>
                           <span className="text-xs text-zinc-400">{product.slug}</span>
                         </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(() => {
+                          const productStorefronts = Array.isArray(product.storefronts) ? product.storefronts : [];
+                          if (productStorefronts.length === 0) {
+                            return <span className="text-xs text-zinc-400">—</span>;
+                          }
+                          return productStorefronts.map((sf) => (
+                            <span
+                              key={sf}
+                              className="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-700"
+                            >
+                              {sf}
+                            </span>
+                          ));
+                        })()}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-zinc-600">

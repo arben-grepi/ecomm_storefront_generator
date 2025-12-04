@@ -1065,11 +1065,11 @@ async function importProducts() {
         selectedVariantIds.has(variant.id.toString())
       );
       if (product.variants.length === 0) {
-        console.log(`  ⏭️  SKIPPING - No selected variants for product ${product.id}`);
+        console.log(`⏭️  SKIPPING - No selected variants for product ${product.id}`);
         totalSkipped += 1;
         continue;
       }
-      console.log(`  📦 Importing ${product.variants.length} selected variant(s) out of ${originalVariantCount} total`);
+      console.log(`\n📦 Importing ${product.variants.length} selected variant(s) out of ${originalVariantCount} total`);
     }
     const documentId = generateDocumentId(product);
     const docRef = shopifyCollection.doc(documentId);
@@ -1100,13 +1100,13 @@ async function importProducts() {
     
     // Simplified logging - check if product is ready
     if (!publishedToOnlineStore) {
-      console.log(`❌ "${product.title}" is not published (if you just published, wait 2-3 min)`);
+      console.log(`  ❌ "${product.title}" is not published (if you just published, wait 2-3 min)`);
       totalSkipped += 1;
       continue;
     }
     
     if (!storefrontIndexed) {
-      console.log(`⏳ "${product.title}" is published but not yet indexed (wait 2-3 min after publishing)`);
+      console.log(`  ⏳ "${product.title}" is published but not yet indexed (wait 2-3 min after publishing)`);
       totalSkipped += 1;
       continue;
     }
@@ -1153,7 +1153,7 @@ async function importProducts() {
         }, { merge: true });
         
         await updateStorefrontProducts(product.id, updatePayload);
-        console.log(`✅ Updated: "${product.title}"`);
+        console.log(`  ✅ Updated: "${product.title}"`);
         totalUpserted += 1;
       }
       continue;
@@ -1182,7 +1182,7 @@ async function importProducts() {
       { merge: true }
     );
     
-    console.log(`✅ Imported: "${product.title}"`);
+    console.log(`  ✅ Imported: "${product.title}"`);
     totalUpserted += 1;
   }
   

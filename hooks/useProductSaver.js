@@ -4,6 +4,14 @@ import { getCollectionPath, getDocumentPath } from '@/lib/store-collections';
 import { getVariantColor, getVariantSize, getVariantGroupKey, cleanVariantName } from '@/lib/variant-utils';
 import { getFullQualityImageUrl } from '@/lib/image-utils';
 
+const slugify = (value) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+
 /**
  * Custom hook for saving products
  * Breaks down the large handleSave function into smaller, manageable pieces
@@ -18,7 +26,6 @@ export function useProductSaver({
   displayDescription,
   bulletPoints,
   categoryId,
-  basePriceInput,
   selectedImages,
   selectedVariants,
   defaultVariantId,
@@ -26,7 +33,6 @@ export function useProductSaver({
   manualVariants,
   variantImages,
   defaultVariantPhotos,
-  variantPriceOverrides,
   getSelectedVariantImages,
   getVariantDefaultImages,
   availableImages,
@@ -35,7 +41,6 @@ export function useProductSaver({
   availableWebsites,
   setLoading,
   setToastMessage,
-  setBasePriceInput,
   onSaved,
 }) {
   const [saving, setSaving] = useState(false);
@@ -192,39 +197,32 @@ export function useProductSaver({
   };
 
   /**
-   * Validate and parse base price
+   * Get base price from Shopify variants (first variant's price)
+   * Prices come from Shopify only - no manual editing
    */
-  const validateBasePrice = (selectedVariantData) => {
-    let parsedBasePrice = null;
-    if (basePriceInput.trim()) {
-      const parsed = parseFloat(basePriceInput);
-      if (Number.isNaN(parsed) || parsed <= 0) {
-        setToastMessage({ type: 'error', text: 'Please enter a valid base price greater than 0.' });
-        return null;
+  const getBasePriceFromShopify = (selectedVariantData) => {
+    // For shopify mode, get price from first selected variant
+    if (mode === 'shopify' && selectedVariantData.length > 0) {
+      const firstVariant = selectedVariantData[0];
+      const price = parseFloat(firstVariant?.price || 0);
+      if (price > 0) {
+        return price;
       }
-      parsedBasePrice = parsed;
     }
-
-    if (!parsedBasePrice) {
-      if (mode === 'manual' || mode === 'edit') {
-        setToastMessage({ type: 'error', text: 'Please enter a base price for this product.' });
-        return null;
-      }
-
-      const fallbackPrice = selectedVariantData.length > 0
-        ? parseFloat(selectedVariantData[0]?.price || selectedVariantData[0]?.priceOverride || 0)
-        : (existingProduct?.basePrice || 0);
-
-      if (!fallbackPrice || Number.isNaN(fallbackPrice) || fallbackPrice <= 0) {
-        setToastMessage({ type: 'error', text: 'Please enter a base price for this product.' });
-        return null;
-      }
-
-      parsedBasePrice = fallbackPrice;
-      setBasePriceInput(fallbackPrice.toString());
+    
+    // For edit mode, use existing basePrice
+    if (mode === 'edit' && existingProduct?.basePrice) {
+      return parseFloat(existingProduct.basePrice);
     }
-
-    return parsedBasePrice;
+    
+    // For manual mode, prices should be set in Shopify first
+    if (mode === 'manual') {
+      setToastMessage({ type: 'error', text: 'Manual products require prices to be set in Shopify first.' });
+      return null;
+    }
+    
+    setToastMessage({ type: 'error', text: 'Unable to determine product price from Shopify.' });
+    return null;
   };
 
   /**
@@ -361,6 +359,41 @@ export function useProductSaver({
   };
 
   /**
+   * Calculate product-level stock status from variants
+   */
+  const calculateProductStock = (variants) => {
+    if (!variants || variants.length === 0) {
+      return {
+        totalStock: 0,
+        hasInStockVariants: false,
+        inStockVariantCount: 0,
+        totalVariantCount: 0,
+      };
+    }
+
+    let totalStock = 0;
+    let inStockVariantCount = 0;
+
+    variants.forEach((variant) => {
+      const stock = variant.inventory_quantity || variant.inventoryQuantity || variant.stock || 0;
+      totalStock += stock;
+      
+      const hasStock = stock > 0;
+      const allowsBackorder = variant.inventory_policy === 'continue';
+      if (hasStock || allowsBackorder) {
+        inStockVariantCount++;
+      }
+    });
+
+    return {
+      totalStock,
+      hasInStockVariants: inStockVariantCount > 0,
+      inStockVariantCount,
+      totalVariantCount: variants.length,
+    };
+  };
+
+  /**
    * Save variants to all storefronts
    */
   const saveVariants = async (productRefs, selectedVariantData, mainImage, additionalImages) => {
@@ -438,29 +471,40 @@ export function useProductSaver({
         ? variant.inventory_levels
         : (variant.inventory_levels || []);
 
-      const variantData = {
+      // Build variant data object
+      const variantDataRaw = {
         size: normalizedSize || null,
         color: normalizedColor || null,
         variantName: variantName || null,
         sku: variant.sku || null,
         stock: variant.inventory_quantity || variant.inventoryQuantity || variant.stock || 0,
-        inventory_levels: inventoryLevels.length > 0 ? inventoryLevels : undefined,
-        priceOverride: variantPriceOverrides[variantId] !== undefined 
-          ? (variantPriceOverrides[variantId] === '' ? null : parseFloat(variantPriceOverrides[variantId]) || null)
-          : (parseFloat(variant.price || variant.priceOverride || 0) || null),
+        priceOverride: null, // Prices come from Shopify only - no overrides
         images: uniqueVariantImages.map(getFullQualityImageUrl).filter(Boolean),
         defaultPhoto: defaultPhoto ? getFullQualityImageUrl(defaultPhoto) : (uniqueVariantImages.length > 0 ? getFullQualityImageUrl(uniqueVariantImages[0]) : null),
-        ...(variant.shopifyVariantId
-          ? { shopifyVariantId: variant.shopifyVariantId.toString() }
-          : (mode === 'shopify' && variant.id
-            ? { shopifyVariantId: variant.id.toString() }
-            : {})),
-        ...(variant.inventory_item_id || variant.shopifyInventoryItemId
-          ? { shopifyInventoryItemId: variant.inventory_item_id || variant.shopifyInventoryItemId }
-          : {}),
         updatedAt: serverTimestamp(),
         ...(mode !== 'edit' || !variant.id ? { createdAt: serverTimestamp() } : {}),
       };
+
+      // Only include inventory_levels if it has values
+      if (inventoryLevels.length > 0) {
+        variantDataRaw.inventory_levels = inventoryLevels;
+      }
+
+      // Add Shopify-specific fields if they exist
+      if (variant.shopifyVariantId) {
+        variantDataRaw.shopifyVariantId = variant.shopifyVariantId.toString();
+      } else if (mode === 'shopify' && variant.id) {
+        variantDataRaw.shopifyVariantId = variant.id.toString();
+      }
+
+      if (variant.inventory_item_id || variant.shopifyInventoryItemId) {
+        variantDataRaw.shopifyInventoryItemId = variant.inventory_item_id || variant.shopifyInventoryItemId;
+      }
+
+      // Remove all undefined values (Firestore doesn't allow undefined)
+      const variantData = Object.fromEntries(
+        Object.entries(variantDataRaw).filter(([_, value]) => value !== undefined)
+      );
 
       for (const productRefInfo of productRefs) {
         if (mode === 'edit' && variant.id) {
@@ -482,16 +526,28 @@ export function useProductSaver({
 
   /**
    * Update categories with product references
+   * Silently creates category in storefronts where it doesn't exist
    */
   const updateCategories = async (productRefs, selectedStorefronts) => {
     if (!categoryId || productRefs.length === 0) return;
 
+    console.log('[useProductSaver] updateCategories:', {
+      categoryId,
+      selectedStorefronts,
+      productRefsCount: productRefs.length,
+    });
+
+    // First, try to find category data in selected storefronts
     let categoryData = null;
-    for (const storefront of [selectedWebsite, ...availableWebsites]) {
+    let categoryFoundInStorefront = null;
+    
+    for (const storefront of selectedStorefronts) {
       try {
         const categoryDoc = await getDoc(doc(db, ...getDocumentPath('categories', categoryId, storefront)));
         if (categoryDoc.exists()) {
           categoryData = categoryDoc.data();
+          categoryFoundInStorefront = storefront;
+          console.log('[useProductSaver] Found category in storefront:', storefront, categoryData);
           break;
         }
       } catch (e) {
@@ -499,17 +555,41 @@ export function useProductSaver({
       }
     }
 
+    // If not found in selected storefronts, try all available storefronts
     if (!categoryData) {
-      console.warn(`Category ${categoryId} not found in any storefront. Skipping category updates.`);
+      const allStorefrontsToCheck = [...new Set([selectedWebsite, ...availableWebsites])];
+      for (const storefront of allStorefrontsToCheck) {
+        try {
+          const categoryDoc = await getDoc(doc(db, ...getDocumentPath('categories', categoryId, storefront)));
+          if (categoryDoc.exists()) {
+            categoryData = categoryDoc.data();
+            categoryFoundInStorefront = storefront;
+            console.log('[useProductSaver] Found category in other storefront:', storefront, categoryData);
+            break;
+          }
+        } catch (e) {
+          // Category doesn't exist in this storefront, continue
+        }
+      }
+    }
+
+    if (!categoryData) {
+      console.warn(`[useProductSaver] Category ${categoryId} not found in any storefront. Cannot create category automatically.`);
+      setToastMessage({ 
+        type: 'error', 
+        text: `Category not found. Please ensure the category exists in at least one storefront.` 
+      });
       return;
     }
 
+    // Now ensure category exists in all selected storefronts
     for (const storefront of selectedStorefronts) {
       const categoryRef = doc(db, ...getDocumentPath('categories', categoryId, storefront));
       const categoryDoc = await getDoc(categoryRef);
       
       if (!categoryDoc.exists()) {
-        const categorySlug = categoryData.slug || categoryId;
+        // Category doesn't exist in this storefront - create it silently
+        const categorySlug = categoryData.slug || slugify(categoryData.name || 'Unnamed Category') || categoryId;
         const newCategoryData = {
           name: categoryData.name || 'Unnamed Category',
           slug: categorySlug,
@@ -525,20 +605,31 @@ export function useProductSaver({
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
+        
+        console.log('[useProductSaver] Creating category in storefront:', storefront, newCategoryData);
         await setDoc(categoryRef, newCategoryData);
+        console.log('[useProductSaver] ✅ Category created silently in storefront:', storefront);
       } else {
+        // Category exists - update storefronts list if needed
         const existingData = categoryDoc.data();
         const existingStorefronts = Array.isArray(existingData.storefronts) ? existingData.storefronts : [];
         const needsUpdate = !selectedStorefronts.every(sf => existingStorefronts.includes(sf));
         
         if (needsUpdate) {
+          const updatedStorefronts = [...new Set([...existingStorefronts, ...selectedStorefronts])];
+          console.log('[useProductSaver] Updating category storefronts:', {
+            storefront,
+            existingStorefronts,
+            updatedStorefronts,
+          });
           await updateDoc(categoryRef, {
-            storefronts: selectedStorefronts,
+            storefronts: updatedStorefronts,
             updatedAt: serverTimestamp(),
           });
         }
       }
 
+      // Add product to category's previewProductIds
       const currentCategoryDoc = await getDoc(categoryRef);
       const currentData = currentCategoryDoc.exists() ? currentCategoryDoc.data() : {};
       const currentPreviewIds = Array.isArray(currentData.previewProductIds) ? currentData.previewProductIds : [];
@@ -549,6 +640,10 @@ export function useProductSaver({
         .filter(id => !currentPreviewIds.includes(id));
       
       if (productIdsToAdd.length > 0) {
+        console.log('[useProductSaver] Adding products to category preview:', {
+          storefront,
+          productIdsToAdd,
+        });
         await updateDoc(categoryRef, {
           previewProductIds: arrayUnion(...productIdsToAdd),
           updatedAt: serverTimestamp(),
@@ -648,6 +743,20 @@ export function useProductSaver({
       const productData = buildProductData(slug, parsedBasePrice, validatedDefaultVariantId, mainImage, additionalImages);
       const productRefs = await saveProductToStorefronts(productData, selectedStorefronts);
       await saveVariants(productRefs, selectedVariantData, mainImage, additionalImages);
+      
+      // Calculate and update product-level stock after variants are saved
+      const stockStatus = calculateProductStock(selectedVariantData);
+      for (const productRefInfo of productRefs) {
+        const productRef = doc(db, ...getDocumentPath('products', productRefInfo.id, productRefInfo.storefront));
+        await updateDoc(productRef, {
+          totalStock: stockStatus.totalStock,
+          hasInStockVariants: stockStatus.hasInStockVariants,
+          inStockVariantCount: stockStatus.inStockVariantCount,
+          totalVariantCount: stockStatus.totalVariantCount,
+          updatedAt: serverTimestamp(),
+        });
+      }
+      
       await updateCategories(productRefs, selectedStorefronts);
       await markShopifyItemProcessed(selectedStorefronts);
 

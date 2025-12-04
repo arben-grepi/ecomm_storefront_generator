@@ -69,14 +69,6 @@ export default async function Home() {
     }
   }
   
-  // Log info for debugging
-  // Note: getServerSideInfo always returns an object (never null), but fields may be empty strings
-  if (info && (info.heroMainHeading || info.companyName || info.companyTagline)) {
-    console.log(`[SSR] 📄 Info loaded - heroMainHeading: "${info.heroMainHeading || '(empty)'}", companyName: "${info.companyName || '(empty)'}"`);
-  } else {
-    console.log(`[SSR] ⚠️  Info document exists but all fields are empty - storefront: ${storefront}. Check if ${storefront}/Info document has data in Firestore.`);
-  }
-
   // Pass server-rendered data to client component
   // The client component will hydrate with this data and then add real-time updates
   // If server data is empty, client component will fetch everything client-side

@@ -58,13 +58,10 @@ export async function generateMetadata() {
   const info = await getServerSideInfo('en', storefront);
   
   // Generate metadata from Info document
-  const title = info.companyName 
-    ? `${info.companyName}${info.companyTagline ? ` - ${info.companyTagline}` : ''}`
-    : 'Blerinas - Premium Fashion & Accessories';
+  const title = info.companyTagline;
   
-  const description = info.heroDescription || info.companyTagline || 
-    'Discover premium fashion and accessories at Blerinas. Shop the latest collections with worldwide shipping.';
-  
+  const description = info.heroMainHeading + ' - ' + info.heroDescription;
+
   return {
     title,
     description,

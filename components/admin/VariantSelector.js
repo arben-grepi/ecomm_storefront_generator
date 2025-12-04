@@ -19,11 +19,6 @@ export default function VariantSelector({
   mode,
   showOnlyInStock,
   setShowOnlyInStock,
-  basePriceInput,
-  variantPriceOverrides,
-  variantPriceErrors,
-  setVariantPriceOverrides,
-  setVariantPriceErrors,
   defaultVariantPhotos,
   setDefaultVariantPhotos,
   variantImages,
@@ -205,11 +200,6 @@ export default function VariantSelector({
                   variant={variant}
                   variantId={variantId}
                   mode={mode}
-                  basePriceInput={basePriceInput}
-                  variantPriceOverrides={variantPriceOverrides}
-                  variantPriceErrors={variantPriceErrors}
-                  setVariantPriceOverrides={setVariantPriceOverrides}
-                  setVariantPriceErrors={setVariantPriceErrors}
                   defaultVariantPhotos={defaultVariantPhotos}
                   setDefaultVariantPhotos={setDefaultVariantPhotos}
                   variantImages={variantImages}
