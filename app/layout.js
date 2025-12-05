@@ -15,7 +15,6 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 // - app/FIVESTARFINDS/layout.js imports app/FIVESTARFINDS/globals.css (turquoise theme)
 import "./globals.css";
 // PageTransitionBar removed - wasn't working/visible. Can be re-added if needed.
-import UnderConstructionBanner from "@/components/UnderConstructionBanner";
 import CookieConsent from "@/components/CookieConsent";
 import { StorefrontProvider } from '@/lib/storefront-context';
 import { getServerSideInfo } from '@/lib/firestore-server';
@@ -66,8 +65,8 @@ export async function generateMetadata() {
     title,
     description,
     robots: {
-      index: false, // TEMPORARY: Block indexing while site is under construction
-      follow: false, // TEMPORARY: Block following links while site is under construction
+      index: true,
+      follow: true,
     },
     openGraph: {
       title,
@@ -116,12 +115,6 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased`}
       >
         <StorefrontProvider>
-          {/* 
-            Global components that appear on every page:
-            - UnderConstructionBanner: Shows "under construction" message (if enabled)
-          */}
-          <UnderConstructionBanner />
-          
           {/* 
             {children} is where the actual page content gets rendered
           */}

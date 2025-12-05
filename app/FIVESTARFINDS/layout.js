@@ -46,8 +46,8 @@ export async function generateMetadata() {
     title,
     description,
     robots: {
-      index: false, // TEMPORARY: Block indexing while site is under construction
-      follow: false, // TEMPORARY: Block following links while site is under construction
+      index: true,
+      follow: true,
     },
     openGraph: {
       title,
