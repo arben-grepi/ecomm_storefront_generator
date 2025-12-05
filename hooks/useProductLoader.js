@@ -168,11 +168,14 @@ export function useProductLoader({
         setDisplayDescription(productData.description || '');
         setBulletPoints(productData.bulletPoints || []);
         setCategoryId(productData.categoryId || productData.categoryIds?.[0] || '');
-        setBasePriceInput(
-          productData.basePrice !== undefined && productData.basePrice !== null
-            ? productData.basePrice.toString()
-            : ''
-        );
+        // Base price is read-only (comes from Shopify), so setBasePriceInput is optional
+        if (setBasePriceInput) {
+          setBasePriceInput(
+            productData.basePrice !== undefined && productData.basePrice !== null
+              ? productData.basePrice.toString()
+              : ''
+          );
+        }
         setDefaultVariantId(productData.defaultVariantId || null);
 
         // Collect ALL images from shopifyItem (product images + all variant images)

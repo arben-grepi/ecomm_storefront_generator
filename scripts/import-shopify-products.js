@@ -35,34 +35,57 @@ const admin = require('firebase-admin');
 
 const DEFAULT_PROJECT_ID = 'ecom-store-generator-41064';
 
-// Category matching configuration
-const CATEGORY_MATCHING = {
-  lingerie: {
-    keywords: ['lingerie', 'bra', 'bralette', 'bra set', 'corset', 'bustier', 'teddy', 'bodysuit', 'garter', 'stockings', 'thong', 'panties set', 'matching set'],
-    productTypes: ['lingerie', 'bra', 'bralette', 'underwear set'],
-    tags: ['lingerie', 'bra', 'bralette', 'matching set'],
-  },
-  underwear: {
-    keywords: ['underwear', 'panties', 'brief', 'thong', 'g-string', 'boy short', 'hipster', 'bikini', 'underwear set'],
-    productTypes: ['underwear', 'panties', 'briefs', 'thong'],
-    tags: ['underwear', 'panties', 'briefs', 'thong'],
-  },
-  sports: {
-    keywords: ['sport', 'activewear', 'athletic', 'yoga', 'gym', 'workout', 'fitness', 'running', 'leggings', 'sports bra', 'athletic wear'],
-    productTypes: ['activewear', 'sportswear', 'athletic', 'yoga wear'],
-    tags: ['sport', 'activewear', 'athletic', 'yoga', 'fitness'],
-  },
-  dresses: {
-    keywords: ['dress', 'gown', 'frock', 'evening dress', 'cocktail dress', 'maxi dress', 'midi dress', 'mini dress'],
-    productTypes: ['dress', 'gown', 'evening wear'],
-    tags: ['dress', 'gown', 'evening'],
-  },
-  clothes: {
-    keywords: ['top', 'shirt', 'blouse', 'sweater', 'cardigan', 'jacket', 'coat', 'pants', 'trousers', 'skirt', 'shorts', 'jumpsuit', 'romper'],
-    productTypes: ['top', 'shirt', 'blouse', 'sweater', 'jacket', 'pants', 'skirt'],
-    tags: ['clothing', 'apparel', 'fashion'],
-  },
-};
+/**
+ * Look up category by Shopify product ID from storefront collections
+ * 1. Finds storefront products that match the shopifyId
+ * 2. Checks which category documents contain those product IDs in their previewProductIds array
+ */
+async function lookupCategoryByShopifyId(shopifyId, storefronts = null) {
+  try {
+    const storefrontsToCheck = storefronts || await getStorefronts();
+    
+    for (const storefront of storefrontsToCheck) {
+      try {
+        // Find products in this storefront that match the shopifyId
+        const productsCollection = db.collection(storefront).doc('products').collection('items');
+        const productsSnapshot = await productsCollection
+          .where('sourceShopifyId', '==', shopifyId.toString())
+          .get();
+        
+        if (productsSnapshot.empty) {
+          continue; // No products found in this storefront
+        }
+        
+        // Get the product document IDs
+        const productDocIds = productsSnapshot.docs.map(doc => doc.id);
+        
+        // Now check which categories contain these product IDs
+        const categoriesCollection = db.collection(storefront).doc('categories').collection('items');
+        const categoriesSnapshot = await categoriesCollection.get();
+        
+        for (const categoryDoc of categoriesSnapshot.docs) {
+          const categoryData = categoryDoc.data();
+          const previewProductIds = Array.isArray(categoryData.previewProductIds) 
+            ? categoryData.previewProductIds 
+            : [];
+          
+          // Check if any of the product document IDs are in this category's previewProductIds
+          if (productDocIds.some(productDocId => previewProductIds.includes(productDocId))) {
+            return categoryDoc.id; // Return category ID
+          }
+        }
+      } catch (error) {
+        // Continue to next storefront if this one fails
+        continue;
+      }
+    }
+    
+    return null; // No category found
+  } catch (error) {
+    console.warn(`  ⚠️  Error looking up category for Shopify product ${shopifyId}:`, error.message);
+    return null;
+  }
+}
 
 function initializeAdmin() {
   if (admin.apps.length > 0) {
@@ -774,43 +797,6 @@ const buildShopifyDocument = async (product, matchedCategorySlug, markets = [], 
   };
 };
 
-function matchProductToCategory(product) {
-  const title = (product.title || '').toLowerCase();
-  const description = (product.body_html || '').toLowerCase();
-  const productType = (product.product_type || '').toLowerCase();
-  const tags = (product.tags || '').toLowerCase().split(',').map(t => t.trim());
-  
-  const scores = {};
-  
-  for (const [categorySlug, config] of Object.entries(CATEGORY_MATCHING)) {
-    let score = 0;
-    
-    for (const keyword of config.keywords) {
-      if (title.includes(keyword)) score += 3;
-      if (description.includes(keyword)) score += 1;
-    }
-    
-    if (config.productTypes.some(pt => productType.includes(pt))) {
-      score += 5;
-    }
-    
-    for (const tag of tags) {
-      if (config.tags.some(configTag => tag.includes(configTag))) {
-        score += 4;
-      }
-    }
-    
-    if (score > 0) {
-      scores[categorySlug] = score;
-    }
-  }
-  
-  const entries = Object.entries(scores);
-  if (entries.length === 0) return null;
-  
-  entries.sort((a, b) => b[1] - a[1]);
-  return entries[0][0];
-}
 
 /**
  * Get list of storefronts by checking root-level collections
@@ -1174,8 +1160,9 @@ async function importProducts() {
       
       if (needsUpdate || shouldUpdateMarketsObject) {
         const enrichedProduct = await enrichProductWithInventory(storeUrl, accessToken, product);
-        const categorySlug = existingData.matchedCategorySlug || matchProductToCategory(enrichedProduct);
-        const updatePayload = await buildShopifyDocument(enrichedProduct, categorySlug, markets, publishedToOnlineStore, storefrontIndexed, shippingRates);
+        // Look up category from storefront collections by Shopify product ID
+        const categoryId = existingData.matchedCategorySlug || await lookupCategoryByShopifyId(product.id);
+        const updatePayload = await buildShopifyDocument(enrichedProduct, categoryId, markets, publishedToOnlineStore, storefrontIndexed, shippingRates);
         
         // Preserve hasProcessedStorefronts if item was already processed
         // Only set to false if processedStorefronts is empty
@@ -1201,14 +1188,15 @@ async function importProducts() {
     
     // Import new product
     const enrichedProduct = await enrichProductWithInventory(storeUrl, accessToken, product);
-    const categorySlug = matchProductToCategory(enrichedProduct);
-    if (categorySlug) {
+    // Look up category from storefront collections by Shopify product ID
+    const categoryId = await lookupCategoryByShopifyId(product.id);
+    if (categoryId) {
       matchedCount += 1;
     } else {
       unmatchedProducts.push(enrichedProduct);
     }
     
-    const payload = await buildShopifyDocument(enrichedProduct, categorySlug, markets, publishedToOnlineStore, storefrontIndexed, shippingRates);
+    const payload = await buildShopifyDocument(enrichedProduct, categoryId, markets, publishedToOnlineStore, storefrontIndexed, shippingRates);
     
     await docRef.set(
       {

@@ -40,73 +40,9 @@ function extractImageUrls(product) {
 }
 
 /**
- * Match product to category (simplified version - same logic as import script)
+ * Category assignment happens when products are manually added to storefronts through the admin interface.
+ * Products in shopifyItems don't have categories yet - they will be assigned when moved to storefronts.
  */
-function matchProductToCategory(product) {
-  const CATEGORY_MATCHING = {
-    lingerie: {
-      keywords: ['lingerie', 'bra', 'bralette', 'bra set', 'corset', 'bustier', 'teddy', 'bodysuit', 'garter', 'stockings', 'thong', 'panties set', 'matching set'],
-      productTypes: ['lingerie', 'bra', 'bralette', 'underwear set'],
-      tags: ['lingerie', 'bra', 'bralette', 'matching set'],
-    },
-    underwear: {
-      keywords: ['underwear', 'panties', 'brief', 'thong', 'g-string', 'boy short', 'hipster', 'bikini', 'underwear set'],
-      productTypes: ['underwear', 'panties', 'briefs', 'thong'],
-      tags: ['underwear', 'panties', 'briefs', 'thong'],
-    },
-    sports: {
-      keywords: ['sport', 'activewear', 'athletic', 'yoga', 'gym', 'workout', 'fitness', 'running', 'leggings', 'sports bra', 'athletic wear'],
-      productTypes: ['activewear', 'sportswear', 'athletic', 'yoga wear'],
-      tags: ['sport', 'activewear', 'athletic', 'yoga', 'fitness'],
-    },
-    dresses: {
-      keywords: ['dress', 'gown', 'frock', 'evening dress', 'cocktail dress', 'maxi dress', 'midi dress', 'mini dress'],
-      productTypes: ['dress', 'gown', 'evening wear'],
-      tags: ['dress', 'gown', 'evening'],
-    },
-    clothes: {
-      keywords: ['top', 'shirt', 'blouse', 'sweater', 'cardigan', 'jacket', 'coat', 'pants', 'trousers', 'skirt', 'shorts', 'jumpsuit', 'romper'],
-      productTypes: ['top', 'shirt', 'blouse', 'sweater', 'jacket', 'pants', 'skirt'],
-      tags: ['clothing', 'apparel', 'fashion'],
-    },
-  };
-
-  const title = (product.title || '').toLowerCase();
-  const description = (product.body_html || '').toLowerCase();
-  const productType = (product.product_type || '').toLowerCase();
-  const tags = (product.tags || '').toLowerCase().split(',').map(t => t.trim());
-  
-  const scores = {};
-  
-  for (const [categorySlug, config] of Object.entries(CATEGORY_MATCHING)) {
-    let score = 0;
-    
-    for (const keyword of config.keywords) {
-      if (title.includes(keyword)) score += 3;
-      if (description.includes(keyword)) score += 1;
-    }
-    
-    if (config.productTypes.some(pt => productType.includes(pt))) {
-      score += 5;
-    }
-    
-    for (const tag of tags) {
-      if (config.tags.some(configTag => tag.includes(configTag))) {
-        score += 4;
-      }
-    }
-    
-    if (score > 0) {
-      scores[categorySlug] = score;
-    }
-  }
-  
-  const entries = Object.entries(scores);
-  if (entries.length === 0) return null;
-  
-  entries.sort((a, b) => b[1] - a[1]);
-  return entries[0][0];
-}
 
 /**
  * Generate document ID from product
@@ -128,7 +64,8 @@ function generateDocumentId(product) {
 async function storeShopifyProduct(db, shopifyProduct) {
   const shopifyCollection = db.collection('shopifyItems');
   
-  const categorySlug = matchProductToCategory(shopifyProduct);
+  // Category will be assigned when product is manually added to a storefront
+  const categorySlug = null;
   const documentId = generateDocumentId(shopifyProduct);
   const docRef = shopifyCollection.doc(documentId);
   

@@ -8,14 +8,14 @@ export default function SkeletonProductCard({ className = '' }) {
   return (
     <div className={`animate-pulse ${className}`}>
       {/* Image placeholder */}
-      <div className="aspect-[3/4] rounded-3xl bg-secondary/50" />
+      <div className="aspect-[3/4] rounded-3xl bg-primary/10" />
       
       {/* Content placeholder */}
       <div className="mt-3 space-y-2">
         {/* Title placeholder */}
-        <div className="h-4 w-3/4 rounded bg-secondary/50" />
+        <div className="h-4 w-3/4 rounded bg-primary/10" />
         {/* Price placeholder */}
-        <div className="h-5 w-1/3 rounded bg-secondary/40" />
+        <div className="h-5 w-1/3 rounded bg-primary/15" />
       </div>
     </div>
   );

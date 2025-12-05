@@ -1,93 +1,89 @@
 'use client';
 
-import { useMemo } from 'react';
-import { useStorefront } from '@/lib/storefront-context';
+import { useMemo, useState, useEffect } from 'react';
 
 export default function CategoryCarousel({ 
   align = 'center', 
   categories = [], 
   products = [], 
-  storefront: storefrontProp = null,
   selectedCategory = null, // null = "All Categories"
   onCategorySelect = null,
   onAllCategories = null,
 }) {
-  const storefrontFromContext = useStorefront(); // Get current storefront from context
-  const storefront = storefrontProp || storefrontFromContext || 'LUNERA'; // Use prop if provided, otherwise context, fallback to LUNERA
+  // Local state for immediate UI updates (optimistic update)
+  const [localSelectedCategory, setLocalSelectedCategory] = useState(selectedCategory);
+  
+  // Sync local state with prop changes (from URL or external updates)
+  useEffect(() => {
+    if (localSelectedCategory !== selectedCategory) {
+      console.log('[CategoryCarousel] 🔄 Syncing local state with prop - from:', localSelectedCategory, 'to:', selectedCategory);
+      setLocalSelectedCategory(selectedCategory);
+    }
+  }, [selectedCategory, localSelectedCategory]);
 
   const navItems = useMemo(() => {
-    // Filter categories that have products
-    const categoriesWithProducts = categories.filter((category) =>
-      products.some((product) => 
-        product.categoryId === category.id || 
-        (product.categoryIds && product.categoryIds.includes(category.id))
-      )
-    );
+    // Show all active categories - don't filter based on current products
+    // This ensures all categories remain visible even when one is selected
+    const activeCategories = categories.filter((category) => category.active !== false);
 
     return [
-      { value: 'all', label: 'All Categories', id: null, description: null },
-      ...categoriesWithProducts.map((category) => ({
+      { value: 'all', label: 'All Categories', id: null },
+      ...activeCategories.map((category) => ({
         value: category.slug,
         label: category.label,
         id: category.id,
-        description: category.description || null,
       })),
     ];
-  }, [categories, products]);
+  }, [categories]); // Removed products dependency - show all categories
 
   const isActive = (item) => {
     if (item.value === 'all') {
-      return selectedCategory === null;
+      return localSelectedCategory === null;
     }
-    return selectedCategory === item.id;
+    return localSelectedCategory === item.id;
   };
 
   const handleClick = (item) => {
+    // Update UI immediately (optimistic update)
+    console.log('[CategoryCarousel] 🖱️ Clicked category:', item.label, 'id:', item.id);
     if (item.value === 'all') {
-      if (onAllCategories) {
-        onAllCategories();
-      }
+      setLocalSelectedCategory(null);
+      console.log('[CategoryCarousel] ✅ Updated local state to: null (All Categories)');
+      onAllCategories?.();
     } else {
-      if (onCategorySelect) {
-        onCategorySelect(item.id);
-      }
+      setLocalSelectedCategory(item.id);
+      console.log('[CategoryCarousel] ✅ Updated local state to:', item.id);
+      onCategorySelect?.(item.id);
     }
   };
 
-  const containerAlignment =
-    align === 'start' ? 'justify-start' : 'justify-center sm:justify-start';
+  const containerAlignment = align === 'start' ? 'justify-start' : 'justify-center sm:justify-start';
 
   return (
-    <div className="relative">
-      <div
-        className="flex flex-wrap items-center gap-0"
-        aria-label="Browse categories"
-      >
-        <ul className={`flex w-full flex-wrap items-center gap-0 ${containerAlignment}`}>
-          {navItems.map((item, index) => {
-            const active = isActive(item);
-            return (
-              <li key={item.value} className="flex-none flex items-center">
-                {/* Breadcrumb separator */}
-                {index > 0 && (
-                  <span className="mx-2 text-primary/40 text-xl font-medium sm:text-2xl">/</span>
-                )}
-                <button
-                  onClick={() => handleClick(item)}
-                  className={`inline-flex items-center px-4 py-2 text-xl font-medium transition-all sm:text-2xl ${
-                    active
-                      ? 'text-primary font-semibold underline underline-offset-4'
-                      : 'text-slate-500 hover:text-primary'
-                  }`}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  {item.label}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
+    <div className="overflow-x-auto scrollbar-hide scroll-smooth">
+      <ul className={`flex flex-nowrap items-center gap-0 ${containerAlignment} min-w-full`}>
+        {navItems.map((item, index) => {
+          const active = isActive(item);
+          return (
+            <li key={item.value} className="flex-none flex items-center">
+              {index > 0 && (
+                <span className="mx-2 text-primary/40 text-sm">•</span>
+              )}
+              <button
+                onClick={() => handleClick(item)}
+                className={`rounded-full px-4 py-1 text-sm font-medium uppercase tracking-[0.3em] text-primary transition-all border-b ${
+                  active
+                    ? 'border-primary/20'
+                    : 'border-transparent'
+                }`}
+                aria-current={active ? 'page' : undefined}
+              >
+                {item.label}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

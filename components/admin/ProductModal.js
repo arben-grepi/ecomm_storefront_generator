@@ -658,11 +658,10 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     <>
       {createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 overflow-y-auto"
-          onClick={onClose}
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-0 sm:p-4 overflow-y-auto"
         >
           <div
-            className="relative w-full max-w-6xl rounded-3xl border border-zinc-200/70 bg-white/95 p-8 shadow-xl backdrop-blur-sm dark:border-zinc-800/80 dark:bg-zinc-900/95 my-8"
+            className="relative w-full h-full sm:h-auto sm:w-full sm:max-w-6xl sm:rounded-3xl border-0 sm:border border-zinc-200/70 bg-white/95 p-4 sm:p-8 shadow-xl backdrop-blur-sm dark:border-zinc-800/80 dark:bg-zinc-900/95 sm:my-8"
             onClick={(e) => e.stopPropagation()}
           >
             {toastMessage && (

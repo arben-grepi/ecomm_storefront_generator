@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -34,17 +34,8 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   const categoryParam = searchParams?.get('category');
   
   // Category filtering state (only for root/LUNERA storefront)
-  // Initialize from URL parameter if present
-  const [selectedCategory, setSelectedCategory] = useState(() => {
-    // Try to find category by ID or slug from URL parameter
-    if (categoryParam && initialCategories.length > 0) {
-      const category = initialCategories.find(
-        (cat) => cat.id === categoryParam || cat.slug === categoryParam
-      );
-      return category ? category.id : null;
-    }
-    return null;
-  });
+  // Always start with "All products" (null), URL parameter will be handled in useEffect
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [isFiltering, setIsFiltering] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
   const [showSkeletons, setShowSkeletons] = useState(true);
@@ -82,6 +73,14 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   // Use ref to track start time (only set once on mount, avoids hydration mismatch)
   const componentStartTimeRef = useRef(null);
   
+  // Save storefront to cache immediately on mount and whenever it changes
+  // This ensures the storefront is always cached for use in 404 pages and other navigation
+  useEffect(() => {
+    if (storefront && typeof window !== 'undefined') {
+      saveStorefrontToCache(storefront);
+    }
+  }, [storefront]);
+  
   useEffect(() => {
     if (componentStartTimeRef.current === null) {
       componentStartTimeRef.current = Date.now();
@@ -101,7 +100,26 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
 
   // Use real-time data if available (after hydration), otherwise use initial server data
   const categories = realtimeCategories.length > 0 ? realtimeCategories : initialCategories;
-  const products = realtimeProducts.length > 0 ? realtimeProducts : initialProducts;
+  // When a category is selected, always use the hook's products (they're already filtered)
+  // When showing all categories, fall back to initialProducts if hook hasn't loaded yet
+  const products = selectedCategory === null 
+    ? (realtimeProducts.length > 0 ? realtimeProducts : initialProducts)
+    : realtimeProducts; // For category view, always use hook's filtered products
+  
+  // Debug: Log hook selection and products (only when category changes)
+  useEffect(() => {
+    const selectedCategoryData = selectedCategory 
+      ? categories.find(c => c.id === selectedCategory)
+      : null;
+    const selectedCategoryName = selectedCategoryData?.label || selectedCategoryData?.name || 'All Categories';
+    
+    console.log('[HomeClient] 🔍 Category Filtering:', {
+      category: selectedCategoryName,
+      usingHook: selectedCategory === null ? 'allProductsHook' : 'categoryProductsHook',
+      productsCount: realtimeProducts.length,
+      loading: productsLoading,
+    });
+  }, [selectedCategory]); // Only log when category changes, not on every product update
 
   // Hide skeletons once we have categories AND hooks have finished loading
   // No minimum display time - show until we get actual data
@@ -116,6 +134,46 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       return () => clearTimeout(timer);
     }
   }, [categories.length, categoriesLoading, productsLoading]);
+
+  // Track previous category to detect category changes
+  const prevCategoryRef = useRef(selectedCategory);
+  const categoryChangeTimeRef = useRef(null);
+  
+  // When category changes, set filtering state and track the change time
+  // This ensures ghost cards show when category changes (from any source)
+  useEffect(() => {
+    if (prevCategoryRef.current !== selectedCategory) {
+      const categoryData = selectedCategory 
+        ? categories.find(c => c.id === selectedCategory)
+        : null;
+      const categoryName = categoryData?.label || categoryData?.name || 'All Categories';
+      console.log('[HomeClient] 🔄 Category changed:', categoryName, '- showing ghost cards');
+      setIsFiltering(true);
+      categoryChangeTimeRef.current = Date.now();
+      prevCategoryRef.current = selectedCategory;
+    }
+  }, [selectedCategory, categories]);
+  
+  // Stop filtering when products finish loading AND minimum display time has passed
+  // This ensures ghost cards show for at least a brief moment even with cached data
+  useEffect(() => {
+    if (isFiltering && !productsLoading) {
+      const minDisplayTime = 300; // milliseconds - ensures smooth transition
+      const timeElapsed = Date.now() - (categoryChangeTimeRef.current || 0);
+      
+      if (timeElapsed >= minDisplayTime) {
+        console.log('[HomeClient] ✅ Products loaded, hiding ghost cards');
+        setIsFiltering(false);
+      } else {
+        const remainingTime = minDisplayTime - timeElapsed;
+        const timer = setTimeout(() => {
+          console.log('[HomeClient] ✅ Min display time met, hiding ghost cards');
+          setIsFiltering(false);
+        }, remainingTime);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [isFiltering, productsLoading]);
 
   // Show loading skeletons if:
   // - We're still showing skeletons (initial load), OR
@@ -180,11 +238,13 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     
     // Category is selected - products are already filtered by useProductsByCategory hook
     // Just sort by viewCount
-    return [...products].sort((a, b) => {
+    const sorted = [...products].sort((a, b) => {
       const aViews = a.viewCount ?? a.metrics?.totalViews ?? 0;
       const bViews = b.viewCount ?? b.metrics?.totalViews ?? 0;
       return bViews - aViews;
     });
+    
+    return sorted;
   }, [selectedCategory, allProductsSorted, products]);
 
   // Limit displayed products to current page (20 products per page)
@@ -196,33 +256,44 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   const hasMoreProductsToShow = filteredProducts.length > displayedProductsCount;
   
   // Update selectedCategory when URL parameter changes (e.g., when navigating from product page)
+  // Only update if category actually changed to prevent double updates
   useEffect(() => {
     if (categoryParam && categories.length > 0) {
       const category = categories.find(
         (cat) => cat.id === categoryParam || cat.slug === categoryParam
       );
       if (category && category.id !== selectedCategory) {
+        console.log('[HomeClient] 🔗 Setting category from URL:', category.label || category.name);
+        setIsFiltering(true); // Show ghost cards when category changes from URL
         setSelectedCategory(category.id);
-        setDisplayedProductsCount(20); // Reset to first page when category changes
+        setDisplayedProductsCount(20);
       }
     } else if (!categoryParam && selectedCategory !== null) {
       // URL parameter removed, clear selection
+      console.log('[HomeClient] 🔗 Clearing category selection');
+      setIsFiltering(true); // Show ghost cards when clearing category
       setSelectedCategory(null);
-      setDisplayedProductsCount(20); // Reset to first page when clearing category
+      setDisplayedProductsCount(20);
     }
-  }, [categoryParam, categories, selectedCategory]);
+  }, [categoryParam, categories]); // Removed selectedCategory from deps to prevent double updates
+  
+  // Category change logging is handled in the useEffect above (line 135)
 
   // Handle category selection with ghost card effect
-  const handleCategorySelect = (categoryId) => {
+  const handleCategorySelect = useCallback((categoryId) => {
+    // Find the category to get its name and slug
+    const category = categories.find(cat => cat.id === categoryId);
+    const categoryName = category?.label || category?.name || 'Unknown';
+    
+    console.log('[HomeClient] 🎯 Category selected:', categoryName);
+    
+    // Set filtering state first to show ghost cards immediately
     setIsFiltering(true);
     setSelectedCategory(categoryId);
     setDisplayedProductsCount(20); // Reset to first page when category changes
     
-    // Find the category to get its slug
-    const category = categories.find(cat => cat.id === categoryId);
     if (category) {
-      // Update URL with category parameter
-      // Create new URLSearchParams from current search params (read-only, so we copy them)
+      // Update URL without causing navigation (use replace to avoid history entry)
       const params = new URLSearchParams();
       if (searchParams) {
         searchParams.forEach((value, key) => {
@@ -235,23 +306,19 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       
       const queryString = params.toString();
       const newUrl = queryString ? `${pathname}?${queryString}` : `${pathname}?category=${categoryId}`;
-      router.push(newUrl, { scroll: false });
+      // Use replace instead of push to avoid adding to history and prevent double navigation
+      router.replace(newUrl, { scroll: false });
     }
-    
-    // Simulate filtering delay for ghost card effect
-    setTimeout(() => {
-      setIsFiltering(false);
-    }, 300);
-  };
+  }, [categories, searchParams, pathname, router]);
   
   // Handle "All Categories" selection
-  const handleAllCategories = () => {
+  const handleAllCategories = useCallback(() => {
+    console.log('[HomeClient] 🎯 All Categories selected');
     setIsFiltering(true);
     setSelectedCategory(null);
     setDisplayedProductsCount(20); // Reset to first page when switching to All Categories
     
     // Remove category parameter from URL
-    // Create new URLSearchParams from current search params (read-only, so we copy them)
     const params = new URLSearchParams();
     if (searchParams) {
       searchParams.forEach((value, key) => {
@@ -263,13 +330,9 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     
     const queryString = params.toString();
     const newUrl = queryString ? `${pathname}?${queryString}` : pathname;
-    router.push(newUrl, { scroll: false });
-    
-    // Simulate filtering delay for ghost card effect
-    setTimeout(() => {
-      setIsFiltering(false);
-    }, 100); // Shorter delay since we're using memoized data
-  };
+    // Use replace instead of push to avoid adding to history and prevent double navigation
+    router.replace(newUrl, { scroll: false });
+  }, [searchParams, pathname, router]);
 
   // Handle loading more products (client-side pagination)
   const handleLoadMore = () => {
@@ -401,7 +464,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             return null;
           })()}
         </div>
-        {loading || isFiltering ? (
+        {loading || isFiltering || productsLoading ? (
           // Show ghost cards while loading or filtering
           <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
             {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (

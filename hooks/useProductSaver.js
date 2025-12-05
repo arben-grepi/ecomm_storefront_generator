@@ -733,7 +733,8 @@ export function useProductSaver({
 
       const { mainImage, additionalImages } = imageResult;
 
-      const parsedBasePrice = validateBasePrice(selectedVariantData);
+      // Get base price from Shopify (prices are read-only, come from Shopify)
+      const parsedBasePrice = getBasePriceFromShopify(selectedVariantData);
       if (!parsedBasePrice) {
         setSaving(false);
         setLoading(false);
