@@ -17,7 +17,7 @@
 /.next/
 /out
 
-# scripts
+# scripts - development/admin scripts, not needed in production
 scripts/*
 
 firebase-service-account.json
