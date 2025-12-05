@@ -69,18 +69,57 @@ export async function POST(request) {
 
     // Resolve Firestore variant IDs to Shopify variant IDs
     // Cart items have Firestore variant document IDs, but Storefront API needs Shopify variant IDs
-    const resolveResponse = await fetch(`${request.url.split('/api')[0]}/api/checkout/resolve-shopify-variants`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cart, storefront }),
-    });
-
-    if (!resolveResponse.ok) {
-      const errorData = await resolveResponse.json();
-      throw new Error(errorData.error || 'Failed to resolve Shopify variant IDs');
+    // Directly call the resolve logic instead of making an HTTP request (avoids network issues in production)
+    const { getAdminDb } = await import('@/lib/firestore-server');
+    const db = getAdminDb();
+    if (!db) {
+      throw new Error('Firebase Admin DB not available');
     }
 
-    const { cart: resolvedCart } = await resolveResponse.json();
+    const resolvedCart = await Promise.all(
+      cart.map(async (item) => {
+        // If shopifyVariantId already exists, use it
+        if (item.shopifyVariantId) {
+          return {
+            ...item,
+            shopifyVariantId: item.shopifyVariantId,
+          };
+        }
+
+        // Otherwise, fetch from Firestore
+        try {
+          // Path: {storefront}/products/items/{productId}/variants/{variantId}
+          const variantRef = db
+            .collection(storefront)
+            .collection('products')
+            .collection('items')
+            .doc(item.productId)
+            .collection('variants')
+            .doc(item.variantId);
+
+          const variantDoc = await variantRef.get();
+
+          if (!variantDoc.exists()) {
+            throw new Error(`Variant ${item.variantId} not found for product ${item.productId} in storefront ${storefront}`);
+          }
+
+          const variantData = variantDoc.data();
+          const shopifyVariantId = variantData.shopifyVariantId || null;
+
+          if (!shopifyVariantId) {
+            throw new Error(`Variant ${item.variantId} missing shopifyVariantId. This product may not be available for checkout via Storefront API.`);
+          }
+
+          return {
+            ...item,
+            shopifyVariantId: shopifyVariantId.toString(), // Ensure it's a string for consistency
+          };
+        } catch (error) {
+          console.error(`Failed to resolve variant ${item.variantId} for product ${item.productId}:`, error);
+          throw error;
+        }
+      })
+    );
 
     // Transform cart to line items for Storefront API
     // Now we have Shopify variant IDs
