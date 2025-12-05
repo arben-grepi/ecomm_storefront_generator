@@ -11,7 +11,6 @@
  * - <html> and <body> tags
  * - Fonts (Geist, Geist_Mono, Inter)
  * - StorefrontProvider
- * - UnderConstructionBanner
  * - CookieConsent
  * 
  * This layout only needs to:
@@ -78,7 +77,7 @@ export async function generateMetadata() {
  * - Fonts and global styles from root layout
  * - But overrides theme colors via app/FIVESTARFINDS/globals.css
  * 
- * The root layout already includes StorefrontProvider, UnderConstructionBanner, and CookieConsent,
+ * The root layout already includes StorefrontProvider and CookieConsent,
  * so we don't need to duplicate them here. We just need to wrap children.
  */
 export default function FiveStarFindsLayout({ children }) {
