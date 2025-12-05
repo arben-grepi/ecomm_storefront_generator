@@ -17,6 +17,9 @@
 /.next/
 /out
 
+# scripts
+scripts/*
+
 firebase-service-account.json
 # logs
 *.log 
