@@ -303,7 +303,7 @@ function CartPageContent() {
 
       const validation = await validationResponse.json();
       const validationDuration = Date.now() - validationStartTime;
-      console.log(`[CHECKOUT] ✅ Validation complete (${validationDuration}ms) - Valid: ${validation.valid}, Inventory: ${validation.inventory?.valid}, Shipping: ${validation.shipping?.available}`);
+      console.log(`[CHECKOUT] ✅ Validation complete (${validationDuration}ms) - Valid: ${validation.valid}, Market: ${validation.market?.valid}, Inventory: ${validation.inventory?.valid}, Shipping: ${validation.shipping?.available}`);
       setValidatingShipping(false);
       
       if (!validation.valid) {

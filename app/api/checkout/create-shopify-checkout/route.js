@@ -41,7 +41,7 @@ export async function POST(request) {
       );
     }
 
-    // Validate that at least country and city are provided (full address collected in Shopify checkout)
+    // Validate that at least country is provided (full address collected in Shopify checkout)
     if (!shippingAddress.countryCode && !shippingAddress.country) {
       return NextResponse.json(
         { error: 'Country is required' },
@@ -49,11 +49,11 @@ export async function POST(request) {
       );
     }
 
+    // City is optional - if not provided, we'll use a placeholder or let Shopify collect it
+    // Shopify checkout will collect the full address anyway
     if (!shippingAddress.city) {
-      return NextResponse.json(
-        { error: 'City is required' },
-        { status: 400 }
-      );
+      console.log(`[API] ⚠️  City not provided, using placeholder for Shopify checkout`);
+      shippingAddress.city = shippingAddress.countryCode || shippingAddress.country || 'City';
     }
 
     // Validate cart items have required fields

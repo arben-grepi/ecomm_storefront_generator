@@ -99,6 +99,12 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Shipping rates - public read (needed for cart page)
+    match /shippingRates/rates {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Storefront site info (per storefront doc, e.g. /LUNERA/Info)
     match /{storefront}/Info {
       allow read: if true;

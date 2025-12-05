@@ -17,7 +17,11 @@ export async function POST(request) {
   
   try {
     const body = await request.json();
-    const { cart, shippingAddress } = body;
+    const { cart, shippingAddress: bodyShippingAddress } = body;
+
+    // Shipping address is optional - if not provided, we can still validate market and inventory
+    // Shipping validation will fail if no country is provided, but that's okay
+    const shippingAddress = bodyShippingAddress || {};
 
     console.log(`[API] 📦 Validation request - Cart items: ${cart?.length || 0}, Country: ${shippingAddress?.countryCode || shippingAddress?.country || 'N/A'}`);
     console.log(`[API] 📋 Cart details:`, cart?.map(item => ({
@@ -35,126 +39,19 @@ export async function POST(request) {
       );
     }
 
-    if (!shippingAddress) {
-      console.error(`[API] ❌ Invalid request: Shipping address is missing`);
-      return NextResponse.json(
-        { error: 'Shipping address is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate that country is provided
-    const countryCode = shippingAddress.countryCode || shippingAddress.country;
-    if (!countryCode) {
-      console.error(`[API] ❌ Invalid request: Country is missing`);
-      return NextResponse.json(
-        { error: 'Country is required for shipping validation' },
-        { status: 400 }
-      );
-    }
-
-    // Validate product market availability first
-    console.log(`[API] 🔍 Validating product market availability for country: ${countryCode}...`);
-    const db = getAdminDb();
-    if (!db) {
-      console.error(`[API] ❌ Firebase Admin not initialized`);
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
-    }
-
-    // Get storefront from cart items (all items should be from same storefront)
-    const storefront = cart[0]?.storefront || 'LUNERA';
-    
-    // Fetch products to check market availability
-    const productsPath = getCollectionPath('products', storefront);
-    let productsRef = db;
-    productsPath.forEach((segment, index) => {
-      if (index % 2 === 0) {
-        productsRef = productsRef.collection(segment);
-      } else {
-        productsRef = productsRef.doc(segment);
-      }
-    });
-
-    const unavailableProducts = [];
-    for (const item of cart) {
-      try {
-        const productRef = productsRef.doc(item.productId);
-        const productDoc = await productRef.get();
-        
-        if (!productDoc.exists()) {
-          unavailableProducts.push({
-            productId: item.productId,
-            productName: item.productName || item.productId,
-            reason: 'Product not found'
-          });
-          continue;
-        }
-
-        const productData = productDoc.data();
-        
-        // Check if product is available in the selected market
-        let isAvailableInMarket = false;
-        if (productData.marketsObject && typeof productData.marketsObject === 'object') {
-          const marketData = productData.marketsObject[countryCode];
-          isAvailableInMarket = marketData && marketData.available !== false;
-        } else if (productData.markets && Array.isArray(productData.markets)) {
-          isAvailableInMarket = productData.markets.includes(countryCode);
-        }
-
-        if (!isAvailableInMarket) {
-          unavailableProducts.push({
-            productId: item.productId,
-            productName: item.productName || productData.name || item.productId,
-            reason: `Product is not available in ${countryCode}`
-          });
-        }
-      } catch (error) {
-        console.error(`[API] ❌ Error checking product ${item.productId}:`, error);
-        unavailableProducts.push({
-          productId: item.productId,
-          productName: item.productName || item.productId,
-          reason: 'Error checking product availability'
-        });
-      }
-    }
-
-    if (unavailableProducts.length > 0) {
-      console.error(`[API] ❌ ${unavailableProducts.length} product(s) not available in market ${countryCode}:`, unavailableProducts);
-      return NextResponse.json({
-        valid: false,
-        error: 'Some products are not available in the selected country',
-        errors: unavailableProducts.map(p => `${p.productName} is not available in ${countryCode}`),
-        unavailableProducts
-      });
-    }
-
-    console.log(`[API] ✅ All products are available in market ${countryCode}`);
-
-    // Check if cart items have shopifyVariantId
-    const missingShopifyIds = cart.filter(item => !item.shopifyVariantId);
-    if (missingShopifyIds.length > 0) {
-      console.warn(`[API] ⚠️  ${missingShopifyIds.length} cart item(s) missing shopifyVariantId:`, missingShopifyIds.map(item => ({
-        productId: item.productId,
-        variantId: item.variantId,
-        productName: item.productName,
-      })));
-      
-      // If items are missing shopifyVariantId, we need to resolve them from Firestore
-      console.log(`[API] 🔍 Attempting to resolve missing shopifyVariantIds from Firestore...`);
-      // Note: This would require fetching from Firestore, which we'll handle in validateCheckout
-    }
+    // Country is optional for validation - if not provided, we use default market
+    // Shipping validation will fail without country, but market/inventory can still be checked
 
     const validateStartTime = Date.now();
-    console.log(`[API] 🔍 Calling validateCheckout (inventory + shipping)...`);
-    // Validate checkout (inventory + shipping)
+    console.log(`[API] 🔍 Calling validateCheckout (market + inventory + shipping)...`);
+    // Validate checkout (market availability + inventory + shipping)
+    // All validations are now in one place for simplicity
     const validation = await validateCheckout({ cart, shippingAddress });
     const validateDuration = Date.now() - validateStartTime;
     
     console.log(`[API] ✅ Validation complete (${validateDuration}ms):`, {
       valid: validation.valid,
+      marketValid: validation.market?.valid,
       shippingAvailable: validation.shipping?.available,
       shippingRatesCount: validation.shipping?.rates?.length || 0,
       inventoryValid: validation.inventory?.valid,
