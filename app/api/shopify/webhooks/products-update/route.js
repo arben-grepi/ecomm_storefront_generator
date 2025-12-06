@@ -336,8 +336,15 @@ async function updateShopifyItem(db, shopifyProduct) {
     // Keep existing markets/publication status if query fails
   }
   
+  // Log title change if it's different
+  const oldTitle = existingData.title;
+  const newTitle = shopifyProduct.title;
+  if (oldTitle !== newTitle) {
+    console.log(`[Product Webhook] Title changed: "${oldTitle}" → "${newTitle}"`);
+  }
+
   const updateData = {
-    title: shopifyProduct.title,
+    title: shopifyProduct.title || existingData.title, // Ensure title is always set, fallback to existing if missing
     handle: shopifyProduct.handle || null,
     status: shopifyProduct.status || null,
     vendor: shopifyProduct.vendor || null,
@@ -349,12 +356,12 @@ async function updateShopifyItem(db, shopifyProduct) {
     ...(marketsObject && Object.keys(marketsObject).length > 0 ? { marketsObject } : {}), // Update marketsObject if available
     publishedToOnlineStore, // Update Online Store publication status
     imageUrls: extractImageUrls(shopifyProduct),
-    rawProduct: shopifyProduct,
+    rawProduct: shopifyProduct, // Always update rawProduct to ensure it has the latest data
     updatedAt: FieldValue.serverTimestamp(),
   };
 
   await docRef.set(updateData, { merge: true });
-  console.log(`Updated Shopify item: ${docRef.id}`);
+  console.log(`[Product Webhook] ✅ Updated Shopify item: ${docRef.id} (title: "${updateData.title}")`);
   
   // Auto-publish product to Online Store if not already published
   if (!publishedToOnlineStore) {
@@ -369,13 +376,25 @@ async function updateShopifyItem(db, shopifyProduct) {
         updatedAt: FieldValue.serverTimestamp(),
       });
       console.log(`[Product Webhook] ✅ Auto-published product ${shopifyProduct.id} to Online Store`);
+      
+      // Update local variables for return value
+      publishedToOnlineStore = true;
     } catch (error) {
       console.error(`[Product Webhook] ⚠️  Failed to auto-publish product ${shopifyProduct.id} to Online Store:`, error.message || error);
       // Don't throw - webhook should still succeed even if auto-publish fails
     }
   }
   
-  return docRef.id;
+  // Return the updated data so it can be passed to updateProcessedProduct
+  return {
+    docId: docRef.id,
+    data: {
+      ...updateData,
+      marketsObject, // Include the updated marketsObject
+      markets,
+      publishedToOnlineStore,
+    }
+  };
 }
 
 /**
@@ -413,20 +432,30 @@ async function getStorefronts(db) {
 
 /**
  * Update processed product if it exists across all storefronts
+ * @param {Object} db - Firestore database instance
+ * @param {Object} shopifyProduct - Shopify product data from webhook
+ * @param {Object} updatedShopifyItemData - Optional: Updated shopifyItem data (to avoid re-fetching)
  */
-async function updateProcessedProduct(db, shopifyProduct) {
+async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData = null) {
   // First, get the shopifyItems document to check which storefronts should contain this product
-  const shopifyCollection = db.collection('shopifyItems');
-  const shopifySnapshot = await shopifyCollection
-    .where('shopifyId', '==', shopifyProduct.id.toString())
-    .limit(1)
-    .get();
+  // Use provided data if available (from updateShopifyItem), otherwise fetch fresh
+  let shopifyItemData = updatedShopifyItemData;
+  
+  if (!shopifyItemData) {
+    const shopifyCollection = db.collection('shopifyItems');
+    const shopifySnapshot = await shopifyCollection
+      .where('shopifyId', '==', shopifyProduct.id.toString())
+      .limit(1)
+      .get();
+    
+    if (!shopifySnapshot.empty) {
+      shopifyItemData = shopifySnapshot.docs[0].data();
+    }
+  }
   
   let targetStorefronts = null; // null means update all storefronts (backward compatibility)
-  let shopifyItemData = null;
   
-  if (!shopifySnapshot.empty) {
-    shopifyItemData = shopifySnapshot.docs[0].data();
+  if (shopifyItemData) {
     // If storefronts array exists and is not empty, only update those storefronts
     // This respects admin decisions about which storefronts should contain the product
     if (shopifyItemData.storefronts && Array.isArray(shopifyItemData.storefronts) && shopifyItemData.storefronts.length > 0) {
@@ -593,22 +622,38 @@ export async function POST(request) {
     const payload = JSON.parse(rawBody);
     const shopifyProduct = payload;
 
-    console.log(`Received webhook for Shopify product: ${shopifyProduct.id} (${shopifyProduct.title})`);
+    // Log webhook payload structure for debugging
+    console.log(`[Product Webhook] Received webhook for Shopify product: ${shopifyProduct.id}`);
+    console.log(`[Product Webhook] Product title in payload: "${shopifyProduct.title || 'MISSING'}"`);
+    console.log(`[Product Webhook] Product handle: "${shopifyProduct.handle || 'MISSING'}"`);
+    
+    // Validate that title exists in payload
+    if (!shopifyProduct.title) {
+      console.warn(`[Product Webhook] ⚠️  WARNING: Product title is missing from webhook payload!`);
+      console.warn(`[Product Webhook] Payload keys: ${Object.keys(shopifyProduct).join(', ')}`);
+    }
 
     const db = getAdminDb();
 
-    // Update raw Shopify item
+    // Update raw Shopify item and get updated data (including marketsObject)
+    let updatedShopifyItemData = null;
     try {
-      await updateShopifyItem(db, shopifyProduct);
-      console.log(`Successfully updated Shopify item: ${shopifyProduct.id}`);
+      const updateResult = await updateShopifyItem(db, shopifyProduct);
+      if (updateResult && updateResult.data) {
+        updatedShopifyItemData = updateResult.data;
+        console.log(`Successfully updated Shopify item: ${shopifyProduct.id} (including marketsObject)`);
+      } else {
+        console.log(`Successfully updated Shopify item: ${shopifyProduct.id} (but no data returned)`);
+      }
     } catch (error) {
       console.error(`Failed to update Shopify item ${shopifyProduct.id}:`, error);
       // Continue processing even if raw item update fails
     }
 
     // Update processed product if it exists
+    // Pass the updated shopifyItem data to avoid re-fetching and ensure we have the latest marketsObject
     try {
-      const updatedProductIds = await updateProcessedProduct(db, shopifyProduct);
+      const updatedProductIds = await updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData);
       console.log(`Successfully updated ${updatedProductIds.length} processed product(s)`);
     } catch (error) {
       console.error(`Failed to update processed product for Shopify ID ${shopifyProduct.id}:`, error);
