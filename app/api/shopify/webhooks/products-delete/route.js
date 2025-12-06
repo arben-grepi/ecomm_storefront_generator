@@ -29,12 +29,41 @@ function verifyShopifyWebhook(rawBody, hmacHeader) {
 }
 
 /**
+ * Get list of storefronts by checking root-level collections
+ */
+async function getStorefronts(db) {
+  const storefronts = [];
+  try {
+    const collections = await db.listCollections();
+    for (const coll of collections) {
+      const id = coll.id;
+      // Storefronts are root folders that have a 'products' subcollection
+      // Skip known root collections like 'shopifyItems', 'orders', etc.
+      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents' && id !== 'shippingRates') {
+        try {
+          const itemsSnapshot = await coll.doc('products').collection('items').limit(1).get();
+          if (!itemsSnapshot.empty) {
+            // It's a storefront (has products)
+            storefronts.push(id);
+          }
+        } catch (e) {
+          // Not a storefront, skip
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting storefronts:', error);
+    return ['LUNERA'];
+  }
+  return storefronts.length > 0 ? storefronts : ['LUNERA'];
+}
+
+/**
  * Mark product as deleted/inactive instead of actually deleting
  * This preserves order history and analytics
  */
 async function handleProductDeletion(db, shopifyProductId) {
   const shopifyCollection = db.collection('shopifyItems');
-  const productsCollection = db.collection('products');
   
   // Update Shopify item
   const shopifySnapshot = await shopifyCollection
@@ -42,8 +71,18 @@ async function handleProductDeletion(db, shopifyProductId) {
     .limit(1)
     .get();
   
+  let targetStorefronts = null;
+  
   if (!shopifySnapshot.empty) {
     const shopifyDoc = shopifySnapshot.docs[0];
+    const shopifyData = shopifyDoc.data();
+    
+    // Get storefronts array from shopifyItems (respects admin decisions)
+    if (shopifyData.storefronts && Array.isArray(shopifyData.storefronts) && shopifyData.storefronts.length > 0) {
+      targetStorefronts = shopifyData.storefronts;
+      console.log(`[Delete Webhook] Product ${shopifyProductId} has explicit storefronts: [${targetStorefronts.join(', ')}]`);
+    }
+    
     await shopifyDoc.ref.update({
       status: 'deleted',
       deletedAt: FieldValue.serverTimestamp(),
@@ -52,32 +91,40 @@ async function handleProductDeletion(db, shopifyProductId) {
     console.log(`Marked Shopify item ${shopifyDoc.id} as deleted`);
   }
 
-  // Update processed product - mark as inactive instead of deleting
-  const productSnapshot = await productsCollection
-    .where('sourceShopifyId', '==', shopifyProductId.toString())
-    .get();
+  // Get all storefronts (for fallback if no explicit storefronts)
+  const allStorefronts = await getStorefronts(db);
+  const storefrontsToUpdate = targetStorefronts || allStorefronts;
 
-  if (productSnapshot.empty) {
-    return [];
-  }
-
+  // Update processed products in each storefront - mark as inactive instead of deleting
   const batch = db.batch();
   const updatedIds = [];
 
-  for (const productDoc of productSnapshot.docs) {
-    batch.update(productDoc.ref, {
-      active: false,
-      deletedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+  for (const storefront of storefrontsToUpdate) {
+    try {
+      const productsCollection = db.collection(storefront).doc('products').collection('items');
+      const productSnapshot = await productsCollection
+        .where('sourceShopifyId', '==', shopifyProductId.toString())
+        .get();
 
-    const variantsCollection = productDoc.ref.collection('variants');
-    const variantsSnapshot = await variantsCollection.get();
-    variantsSnapshot.docs.forEach((variantDoc) => {
-      batch.delete(variantDoc.ref);
-    });
+      for (const productDoc of productSnapshot.docs) {
+        batch.update(productDoc.ref, {
+          active: false,
+          deletedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
 
-    updatedIds.push(productDoc.id);
+        const variantsCollection = productDoc.ref.collection('variants');
+        const variantsSnapshot = await variantsCollection.get();
+        variantsSnapshot.docs.forEach((variantDoc) => {
+          batch.delete(variantDoc.ref);
+        });
+
+        updatedIds.push({ id: productDoc.id, storefront });
+      }
+    } catch (error) {
+      console.error(`Error updating products in storefront ${storefront}:`, error);
+      // Continue with other storefronts
+    }
   }
 
   await batch.commit();

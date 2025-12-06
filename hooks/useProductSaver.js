@@ -653,37 +653,87 @@ export function useProductSaver({
   };
 
   /**
-   * Mark Shopify item as processed
+   * Update shopifyItems collection to reflect admin changes
+   * This ensures webhooks know which storefronts contain this product
+   * and keeps shopifyItems in sync with actual product state
    */
-  const markShopifyItemProcessed = async (selectedStorefronts) => {
-    if (mode !== 'shopify' || !item?.id) return;
-
-    const shopifyItemRef = doc(db, ...getDocumentPath('shopifyItems', item.id));
-    const shopifyItemDoc = await getDoc(shopifyItemRef);
-    const existingStorefronts = shopifyItemDoc.exists() 
-      ? (shopifyItemDoc.data().storefronts || [])
-      : [];
+  const updateShopifyItem = async (selectedStorefronts) => {
+    // Get the shopifyItem document ID
+    let shopifyItemId = null;
+    let shopifyItemRef = null;
     
-    const newStorefronts = selectedStorefronts.filter(
-      sf => !existingStorefronts.includes(sf)
-    );
+    if (mode === 'shopify' && item?.id) {
+      // For shopify mode, use item.id (which is the shopifyItems document ID)
+      shopifyItemId = item.id;
+      shopifyItemRef = doc(db, ...getDocumentPath('shopifyItems', shopifyItemId));
+    } else if (mode === 'edit' && existingProduct?.sourceShopifyItemDocId) {
+      // For edit mode, use sourceShopifyItemDocId if available
+      shopifyItemId = existingProduct.sourceShopifyItemDocId;
+      shopifyItemRef = doc(db, ...getDocumentPath('shopifyItems', shopifyItemId));
+    } else if (mode === 'edit' && existingProduct?.sourceShopifyId) {
+      // For edit mode, try to find by sourceShopifyId
+      const shopifyItemsCollection = collection(db, 'shopifyItems');
+      const querySnapshot = await getDocs(
+        query(shopifyItemsCollection, where('shopifyId', '==', existingProduct.sourceShopifyId.toString()), limit(1))
+      );
+      if (!querySnapshot.empty) {
+        shopifyItemId = querySnapshot.docs[0].id;
+        shopifyItemRef = doc(db, ...getDocumentPath('shopifyItems', shopifyItemId));
+      }
+    }
+    
+    // If we can't find the shopifyItem, skip update (manual products don't have shopifyItems)
+    if (!shopifyItemRef) {
+      return;
+    }
+
+    const shopifyItemDoc = await getDoc(shopifyItemRef);
+    if (!shopifyItemDoc.exists()) {
+      console.warn(`[useProductSaver] shopifyItem ${shopifyItemId} not found, skipping update`);
+      return;
+    }
+
+    const existingData = shopifyItemDoc.data();
+    const existingStorefronts = existingData.storefronts || [];
+    
+    // Calculate which storefronts were added/removed
+    const newStorefronts = selectedStorefronts.filter(sf => !existingStorefronts.includes(sf));
+    const removedStorefronts = existingStorefronts.filter(sf => !selectedStorefronts.includes(sf));
     const newStorefrontCount = newStorefronts.length;
 
+    // Build update data
     const updateData = {
+      // Update storefronts array to match actual state (not just add)
+      storefronts: selectedStorefronts,
+      // Add to processedStorefronts (never remove, as it's historical)
       processedStorefronts: arrayUnion(...selectedStorefronts),
-      storefronts: arrayUnion(...selectedStorefronts),
-      hasProcessedStorefronts: true, // Mark as processed for efficient querying
+      hasProcessedStorefronts: selectedStorefronts.length > 0,
       updatedAt: serverTimestamp(),
     };
 
+    // Update storefrontUsageCount if new storefronts were added
     if (newStorefrontCount > 0) {
-      const currentCount = shopifyItemDoc.exists() 
-        ? (shopifyItemDoc.data().storefrontUsageCount || 0)
-        : 0;
+      const currentCount = existingData.storefrontUsageCount || 0;
       updateData.storefrontUsageCount = currentCount + newStorefrontCount;
     }
 
+    // Update category information if available
+    // Note: We store the category ID from the first storefront where the product exists
+    // This is informational - webhooks don't use this for category matching
+    if (categoryId) {
+      // Try to preserve existing matchedCategorySlug if it exists
+      // Otherwise, we could look it up, but for now we'll just note that category was set
+      updateData.lastCategoryId = categoryId;
+    }
+
     await setDoc(shopifyItemRef, updateData, { merge: true });
+    
+    console.log(`[useProductSaver] Updated shopifyItem ${shopifyItemId}:`, {
+      storefronts: selectedStorefronts,
+      added: newStorefronts,
+      removed: removedStorefronts,
+      categoryId,
+    });
   };
 
   /**
@@ -759,7 +809,7 @@ export function useProductSaver({
       }
       
       await updateCategories(productRefs, selectedStorefronts);
-      await markShopifyItemProcessed(selectedStorefronts);
+      await updateShopifyItem(selectedStorefronts);
 
       setToastMessage({ 
         type: 'success', 

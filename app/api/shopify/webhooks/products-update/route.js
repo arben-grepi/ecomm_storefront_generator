@@ -390,12 +390,12 @@ async function getStorefronts(db) {
       const id = coll.id;
       // Storefronts are root folders that have a 'products' subcollection
       // Skip known root collections like 'shopifyItems', 'orders', etc.
-      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents') {
+      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents' && id !== 'shippingRates') {
         // Check if this collection has a 'products' subcollection
         try {
           const itemsSnapshot = await coll.doc('products').collection('items').limit(1).get();
-          if (!itemsSnapshot.empty || id === 'LUNERA') {
-            // It's a storefront
+          if (!itemsSnapshot.empty) {
+            // It's a storefront (has products)
             storefronts.push(id);
           }
         } catch (e) {
@@ -415,15 +415,43 @@ async function getStorefronts(db) {
  * Update processed product if it exists across all storefronts
  */
 async function updateProcessedProduct(db, shopifyProduct) {
-  const storefronts = await getStorefronts(db);
+  // First, get the shopifyItems document to check which storefronts should contain this product
+  const shopifyCollection = db.collection('shopifyItems');
+  const shopifySnapshot = await shopifyCollection
+    .where('shopifyId', '==', shopifyProduct.id.toString())
+    .limit(1)
+    .get();
+  
+  let targetStorefronts = null; // null means update all storefronts (backward compatibility)
+  let shopifyItemData = null;
+  
+  if (!shopifySnapshot.empty) {
+    shopifyItemData = shopifySnapshot.docs[0].data();
+    // If storefronts array exists and is not empty, only update those storefronts
+    // This respects admin decisions about which storefronts should contain the product
+    if (shopifyItemData.storefronts && Array.isArray(shopifyItemData.storefronts) && shopifyItemData.storefronts.length > 0) {
+      targetStorefronts = shopifyItemData.storefronts;
+      console.log(`[Webhook] Product ${shopifyProduct.id} has explicit storefronts: [${targetStorefronts.join(', ')}]`);
+    } else {
+      console.log(`[Webhook] Product ${shopifyProduct.id} has no explicit storefronts, will update all storefronts where product exists`);
+    }
+  } else {
+    console.log(`[Webhook] Product ${shopifyProduct.id} not found in shopifyItems, will update all storefronts where product exists`);
+  }
+
+  // Get all storefronts (for fallback or if targetStorefronts is null)
+  const allStorefronts = await getStorefronts(db);
+  // Use target storefronts if specified, otherwise use all storefronts (backward compatibility)
+  const storefrontsToUpdate = targetStorefronts || allStorefronts;
+  
   const updatedIds = [];
 
   const firstVariant = shopifyProduct.variants?.[0];
   const basePriceFromShopify = firstVariant ? parseFloat(firstVariant.price ?? 0) : NaN;
   const newImageUrls = extractImageUrls(shopifyProduct);
 
-  // Search for products in each storefront
-  for (const storefront of storefronts) {
+  // Search for products in each target storefront
+  for (const storefront of storefrontsToUpdate) {
     try {
       const productsCollection = db.collection(storefront).doc('products').collection('items');
 
@@ -444,28 +472,17 @@ async function updateProcessedProduct(db, shopifyProduct) {
           ? basePriceFromShopify
           : (typeof productData.basePrice === 'number' ? productData.basePrice : 0);
 
-        // Get marketsObject from shopifyItems if available
+        // Get marketsObject from shopifyItems if available (we already fetched it above)
         let marketsObject = null;
         let markets = productData.markets || [];
         let publishedToOnlineStore = productData.publishedToOnlineStore;
         
-        try {
-          const shopifyCollection = db.collection('shopifyItems');
-          const shopifySnapshot = await shopifyCollection
-            .where('shopifyId', '==', shopifyProduct.id.toString())
-            .limit(1)
-            .get();
-          
-          if (!shopifySnapshot.empty) {
-            const shopifyData = shopifySnapshot.docs[0].data();
-            marketsObject = shopifyData.marketsObject || null;
-            markets = shopifyData.markets || markets;
-            publishedToOnlineStore = shopifyData.publishedToOnlineStore !== undefined 
-              ? shopifyData.publishedToOnlineStore 
-              : publishedToOnlineStore;
-          }
-        } catch (error) {
-          console.warn(`[Webhook] Failed to fetch marketsObject from shopifyItems: ${error.message}`);
+        if (shopifyItemData) {
+          marketsObject = shopifyItemData.marketsObject || null;
+          markets = shopifyItemData.markets || markets;
+          publishedToOnlineStore = shopifyItemData.publishedToOnlineStore !== undefined 
+            ? shopifyItemData.publishedToOnlineStore 
+            : publishedToOnlineStore;
         }
 
         const productUpdate = {

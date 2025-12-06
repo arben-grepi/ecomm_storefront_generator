@@ -36,10 +36,11 @@ async function getStorefronts(db) {
       const id = coll.id;
       // Storefronts are root folders that have a 'products' subcollection
       // Skip known root collections like 'shopifyItems', 'orders', etc.
-      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents') {
+      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents' && id !== 'shippingRates') {
         try {
           const itemsSnapshot = await coll.doc('products').collection('items').limit(1).get();
-          if (!itemsSnapshot.empty || id === 'LUNERA') {
+          if (!itemsSnapshot.empty) {
+            // It's a storefront (has products)
             storefronts.push(id);
           }
         } catch (e) {
@@ -105,6 +106,7 @@ async function fetchTotalInventoryLevels(inventoryItemId) {
  */
 async function updateShopifyItemsVariants(db, inventoryItemId, locationId, locationAvailable, allInventoryLevels = []) {
   const updates = [];
+  const updatedProductIds = []; // Track which products were updated (by shopifyId)
   const shopifyCollection = db.collection('shopifyItems');
   const shopifyItemsSnapshot = await shopifyCollection.get();
 
@@ -176,6 +178,15 @@ async function updateShopifyItemsVariants(db, inventoryItemId, locationId, locat
       });
 
       if (hasUpdates) {
+        // Track which product was updated (by shopifyId)
+        const shopifyId = shopifyData.shopifyId || rawProduct.id;
+        if (shopifyId) {
+          updatedProductIds.push({
+            shopifyId: shopifyId.toString(),
+            storefronts: shopifyData.storefronts || null, // Get storefronts array
+          });
+        }
+        
         // Recalculate product-level stock status after variant update
         const hasInStockVariants = updatedVariants.some(variant => {
           const hasStock = (variant.inventory_quantity || 0) > 0;
@@ -201,15 +212,32 @@ async function updateShopifyItemsVariants(db, inventoryItemId, locationId, locat
     }
   }
 
-  return Promise.all(updates);
+  await Promise.all(updates);
+  return updatedProductIds; // Return list of updated products with their storefronts
 }
 
 /**
  * Find and update variants in storefront products
  * Stores location-specific inventory levels for market-based availability checks
  */
-async function updateStorefrontVariants(db, inventoryItemId, locationId, locationAvailable, allInventoryLevels = []) {
-  const storefronts = await getStorefronts(db);
+async function updateStorefrontVariants(db, inventoryItemId, locationId, locationAvailable, allInventoryLevels = [], updatedProducts = []) {
+  // Build a map of shopifyId -> storefronts array for efficient lookup
+  const productStorefrontsMap = new Map();
+  updatedProducts.forEach(({ shopifyId, storefronts }) => {
+    if (shopifyId && storefronts && Array.isArray(storefronts) && storefronts.length > 0) {
+      productStorefrontsMap.set(shopifyId.toString(), storefronts);
+    }
+  });
+
+  // Get all storefronts (for fallback if no explicit storefronts array)
+  const allStorefronts = await getStorefronts(db);
+  
+  // Determine which storefronts to update
+  // If we have explicit storefronts from updated products, use those; otherwise use all (backward compatibility)
+  const storefrontsToCheck = productStorefrontsMap.size > 0
+    ? [...new Set(Array.from(productStorefrontsMap.values()).flat())]
+    : allStorefronts;
+
   const variantUpdates = [];
 
   // Build location-specific inventory levels array
@@ -231,7 +259,7 @@ async function updateStorefrontVariants(db, inventoryItemId, locationId, locatio
   // Calculate total for backward compatibility
   const totalAvailable = locationInventoryLevels.reduce((sum, level) => sum + (level.available || 0), 0);
 
-  for (const storefront of storefronts) {
+  for (const storefront of storefrontsToCheck) {
     try {
       const productsCollection = db.collection(storefront).doc('products').collection('items');
       const allProductsSnapshot = await productsCollection.get();
@@ -242,6 +270,14 @@ async function updateStorefrontVariants(db, inventoryItemId, locationId, locatio
         // Skip if not a Shopify product
         if (!productData.sourceShopifyId) {
           continue;
+        }
+
+        // If we have explicit storefronts mapping, only update products in those storefronts
+        if (productStorefrontsMap.size > 0) {
+          const allowedStorefronts = productStorefrontsMap.get(productData.sourceShopifyId.toString());
+          if (!allowedStorefronts || !allowedStorefronts.includes(storefront)) {
+            continue; // Skip this product - not in allowed storefronts
+          }
         }
 
         const variantsCollection = productDoc.ref.collection('variants');
@@ -387,6 +423,7 @@ export async function POST(request) {
     }
 
     // Update storefront products with location-specific inventory
+    // Only update storefronts listed in shopifyItems.storefronts (respects admin decisions)
     let storefrontVariantsUpdated = [];
     try {
       storefrontVariantsUpdated = await updateStorefrontVariants(
@@ -394,7 +431,8 @@ export async function POST(request) {
         inventoryItemId, 
         locationId, 
         locationAvailable, 
-        inventoryLevels
+        inventoryLevels,
+        shopifyItemsUpdated // Pass updated products with their storefronts
       );
       console.log(`✅ Updated ${storefrontVariantsUpdated.length} variants in storefront products (location ${locationId}: ${locationAvailable} available)`);
     } catch (error) {
