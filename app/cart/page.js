@@ -214,6 +214,7 @@ function CartPageContent() {
   const [processing, setProcessing] = useState(false);
   const [validatingShipping, setValidatingShipping] = useState(false);
   const [validationError, setValidationError] = useState(null);
+  const [checkoutStatus, setCheckoutStatus] = useState(''); // Current checkout step message
 
   const subtotal = getCartTotal();
   
@@ -271,6 +272,7 @@ function CartPageContent() {
     
     setProcessing(true);
     setValidationError(null);
+    setCheckoutStatus('Validating products...');
 
     try {
       // Validate country is entered (full address will be collected in Shopify checkout)
@@ -278,12 +280,14 @@ function CartPageContent() {
         console.error(`[CHECKOUT] ❌ Validation failed: Missing country`);
         setValidationError('Please select your country');
         setProcessing(false);
+        setCheckoutStatus('');
         return;
       }
 
       // Validate inventory and shipping (only when proceeding to checkout)
       console.log(`[CHECKOUT] ✅ Address validated, starting pre-checkout validation...`);
       setValidatingShipping(true);
+      setCheckoutStatus('Checking inventory...');
       
       const validationStartTime = Date.now();
       const validationResponse = await fetch('/api/checkout/validate', {
@@ -310,6 +314,7 @@ function CartPageContent() {
         console.error(`[CHECKOUT] ❌ Validation failed:`, validation.errors);
         setValidationError(validation.errors?.join(', ') || 'Validation failed');
         setProcessing(false);
+        setCheckoutStatus('');
         return;
       }
 
@@ -317,6 +322,7 @@ function CartPageContent() {
         console.error(`[CHECKOUT] ❌ Inventory validation failed:`, validation.inventory.error);
         setValidationError(validation.inventory.error || 'Some items are no longer available in the requested quantity');
         setProcessing(false);
+        setCheckoutStatus('');
         return;
       }
 
@@ -324,11 +330,13 @@ function CartPageContent() {
         console.error(`[CHECKOUT] ❌ Shipping validation failed:`, validation.shipping.error);
         setValidationError(validation.shipping.error || 'We cannot ship to this address. Please check your address and try again.');
         setProcessing(false);
+        setCheckoutStatus('');
         return;
       }
 
       // Create Shopify checkout and redirect
       console.log(`[CHECKOUT] 🛒 Creating Shopify checkout...`);
+      setCheckoutStatus('Creating checkout...');
       const checkoutCreateStartTime = Date.now();
       const checkoutResponse = await fetch('/api/checkout/create-shopify-checkout', {
         method: 'POST',
@@ -372,6 +380,7 @@ function CartPageContent() {
       });
       setValidationError(err.message || 'An error occurred during checkout. Please try again.');
       setProcessing(false);
+      setCheckoutStatus('');
     }
   };
 
@@ -614,10 +623,8 @@ function CartPageContent() {
                   }
                 }}
               >
-                {processing ? (
-                  'Processing...'
-                ) : validatingShipping ? (
-                  'Validating...'
+                {processing || validatingShipping ? (
+                  checkoutStatus || (validatingShipping ? 'Validating...' : 'Processing...')
                 ) : (
                   'Proceed to Checkout'
                 )}
