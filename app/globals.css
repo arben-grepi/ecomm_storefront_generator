@@ -108,6 +108,25 @@ html {
 }
 
 .animate-shimmer {
-  animation: shimmer 2s infinite;
+  animation: shimmer 1.7s infinite; /* Slightly faster: was 2s, now 1.5s */
+}
+
+/**
+ * FASTER PULSE ANIMATION
+ * 
+ * Override Tailwind's default animate-pulse (2s) to be slightly faster (1.5s)
+ * This makes skeleton/ghost cards animate faster to indicate quicker loading
+ */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; /* Slightly faster: was 2s, now 1.5s */
 }
 
