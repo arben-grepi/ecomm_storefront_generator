@@ -17,7 +17,14 @@
  *   node scripts/check-shipping-rates.js FI
  */
 
-require('dotenv').config({ path: '.env.local' });
+// Load environment variables from .env.local automatically (only in development)
+// In production, environment variables should be set via hosting platform
+try {
+  require('dotenv').config({ path: '.env.local' });
+} catch (error) {
+  // dotenv not available in production - environment variables should be set via hosting platform
+  // This is expected in production builds (standalone mode)
+}
 
 const SHOPIFY_STORE_URL = process.env.SHOPIFY_STORE_URL;
 const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
