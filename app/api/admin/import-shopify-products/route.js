@@ -12,6 +12,7 @@ import { promisify } from 'util';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
+import { existsSync } from 'fs';
 
 const execAsync = promisify(exec);
 const __filename = fileURLToPath(import.meta.url);
@@ -55,10 +56,25 @@ export async function POST(request) {
     // Get the script path
     const scriptPath = path.join(process.cwd(), 'scripts', 'import-shopify-products.js');
     
+    // Detect standalone build mode (Next.js standalone output)
+    // In standalone builds, node_modules are in .next/standalone/node_modules/
+    const standaloneNodeModules = path.join(process.cwd(), '.next', 'standalone', 'node_modules');
+    const isStandalone = existsSync(standaloneNodeModules);
+    
     // Build environment variables
     const env = { ...process.env };
     if (selectedItems && selectedItems.length > 0) {
       env.SELECTED_SHOPIFY_ITEMS_JSON = JSON.stringify(selectedItems);
+    }
+    
+    // Set NODE_PATH to include standalone node_modules if in standalone mode
+    // This allows the script to resolve modules like firebase-admin
+    if (isStandalone) {
+      const existingNodePath = env.NODE_PATH || '';
+      env.NODE_PATH = existingNodePath 
+        ? `${standaloneNodeModules}${path.delimiter}${existingNodePath}`
+        : standaloneNodeModules;
+      console.log(`[Import API] Detected standalone build, setting NODE_PATH: ${env.NODE_PATH}`);
     }
     
     // Helper to add log line

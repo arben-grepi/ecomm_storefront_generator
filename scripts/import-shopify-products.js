@@ -38,8 +38,44 @@ try {
  */
 
 const admin = require('firebase-admin');
+const path = require('path');
+const fs = require('fs');
 
 const DEFAULT_PROJECT_ID = 'ecom-store-generator-41064';
+
+/**
+ * Resolve lib module path for dynamic imports
+ * Handles both development and standalone build paths
+ */
+function resolveLibPath(moduleName) {
+  // __dirname is available in CommonJS scripts
+  // Try multiple possible paths for the lib directory
+  const possiblePaths = [
+    // Development path (relative to scripts/)
+    path.join(__dirname, '..', 'lib', moduleName),
+    // Standalone build path (if lib is copied)
+    path.join(process.cwd(), 'lib', moduleName),
+    // Standalone build path (if in .next/standalone)
+    path.join(process.cwd(), '.next', 'standalone', 'lib', moduleName),
+    // Fallback: relative from current working directory
+    path.join(process.cwd(), '..', 'lib', moduleName),
+  ];
+  
+  // Return the first path that exists, or the development path as fallback
+  for (const libPath of possiblePaths) {
+    try {
+      const fullPath = libPath.endsWith('.js') ? libPath : libPath + '.js';
+      if (fs.existsSync(fullPath)) {
+        return fullPath;
+      }
+    } catch (e) {
+      // Continue to next path
+    }
+  }
+  
+  // Return development path as fallback (will fail gracefully with .catch())
+  return path.join(__dirname, '..', 'lib', moduleName);
+}
 
 /**
  * Look up category by Shopify product ID from storefront collections
@@ -113,9 +149,24 @@ function initializeAdmin() {
       }),
     });
   } else {
-    admin.initializeApp({
-      projectId: DEFAULT_PROJECT_ID,
-    });
+    // Use Application Default Credentials (ADC) - automatically available in Firebase App Hosting
+    // For local development: run `gcloud auth application-default login`
+    try {
+      admin.initializeApp({
+        credential: admin.credential.applicationDefault(),
+        projectId: process.env.GOOGLE_CLOUD_PROJECT || 
+                   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 
+                   DEFAULT_PROJECT_ID,
+      });
+    } catch (error) {
+      // Fallback to projectId only if ADC fails
+      console.warn('⚠️  Application Default Credentials not available, using projectId only:', error.message);
+      admin.initializeApp({
+        projectId: process.env.GOOGLE_CLOUD_PROJECT || 
+                   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 
+                   DEFAULT_PROJECT_ID,
+      });
+    }
   }
 
   return admin.app();
@@ -661,7 +712,11 @@ async function fetchShippingRatesFromAdmin(storeUrl, accessToken) {
  */
 async function fetchProductMarketData(productId, market) {
   try {
-    const storefrontModule = await import('../lib/shopify-storefront-api.js').catch(() => null);
+    // Try to import with resolved path, fallback to relative path
+    const libPath = resolveLibPath('shopify-storefront-api.js');
+    const storefrontModule = await import(libPath).catch(() => 
+      import('../lib/shopify-storefront-api.js').catch(() => null)
+    );
     if (!storefrontModule?.fetchProductForMarket) {
       console.warn(`  ⚠️  fetchProductForMarket not available, skipping market data for ${market}`);
       return null;
@@ -704,7 +759,10 @@ async function buildMarketsObject(productId, marketsArray, shippingRates = null)
       shippingEstimate = shippingRates[market].standard;
     } else {
       // Fallback to market config estimate
-      const marketUtilsModule = await import('../lib/market-utils.js').catch(() => null);
+      const libPath = resolveLibPath('market-utils.js');
+      const marketUtilsModule = await import(libPath).catch(() => 
+        import('../lib/market-utils.js').catch(() => null)
+      );
       const marketConfig = marketUtilsModule?.getMarketConfig?.(market) || {};
       shippingEstimate = marketConfig.shippingEstimate || '0.00';
     }
@@ -751,7 +809,10 @@ const buildShopifyDocument = async (product, matchedCategorySlug, markets = [], 
   } else if (finalMarkets.length > 0) {
     // Fallback: create markets object without fetching (will be updated later)
     // Get shipping estimate: prefer Admin API rates, fallback to market config
-    const marketUtilsModule = await import('../lib/market-utils.js').catch(() => null);
+    const libPath = resolveLibPath('market-utils.js');
+    const marketUtilsModule = await import(libPath).catch(() => 
+      import('../lib/market-utils.js').catch(() => null)
+    );
     
     finalMarkets.forEach(market => {
       let shippingEstimate = '0.00';
@@ -819,7 +880,7 @@ async function getStorefronts() {
         // Check if this collection has a 'products' subcollection
         try {
           const itemsSnapshot = await coll.doc('products').collection('items').limit(1).get();
-          if (!itemsSnapshot.empty || id === 'LUNERA') {
+          if (!itemsSnapshot.empty) {
             // It's a storefront
             storefronts.push(id);
           }
@@ -1119,7 +1180,11 @@ async function importProducts() {
     if (publishedToOnlineStore) {
       try {
         // Use dynamic import with .catch() to handle ES module import in CommonJS context
-        const graphqlModule = await import('../lib/shopify-admin-graphql.js').catch(() => null);
+        // Try resolved path first, fallback to relative path
+        const libPath = resolveLibPath('shopify-admin-graphql.js');
+        const graphqlModule = await import(libPath).catch(() => 
+          import('../lib/shopify-admin-graphql.js').catch(() => null)
+        );
         if (graphqlModule?.checkProductStorefrontAccessibility) {
           const productGid = `gid://shopify/Product/${product.id}`;
           const accessibilityCheck = await graphqlModule.checkProductStorefrontAccessibility(productGid);

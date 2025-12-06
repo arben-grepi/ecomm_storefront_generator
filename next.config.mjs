@@ -2,6 +2,9 @@
 const nextConfig = {
   /* config options here */
   reactCompiler: true,
+  // Enable standalone output for Firebase App Hosting
+  // This creates a minimal server bundle with only necessary dependencies
+  output: 'standalone',
   // Suppress favicon.ico 404 errors in development
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
