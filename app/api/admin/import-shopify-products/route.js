@@ -75,6 +75,16 @@ export async function POST(request) {
         ? `${standaloneNodeModules}${path.delimiter}${existingNodePath}`
         : standaloneNodeModules;
       console.log(`[Import API] Detected standalone build, setting NODE_PATH: ${env.NODE_PATH}`);
+      console.log(`[Import API] Standalone node_modules path: ${standaloneNodeModules}`);
+      console.log(`[Import API] Checking if firebase-admin exists in standalone build...`);
+      
+      // Check if firebase-admin exists in standalone build
+      const firebaseAdminPath = path.join(standaloneNodeModules, 'firebase-admin');
+      const firebaseAdminExists = existsSync(firebaseAdminPath);
+      console.log(`[Import API] firebase-admin exists in standalone: ${firebaseAdminExists}`);
+      if (!firebaseAdminExists) {
+        console.warn(`[Import API] ⚠️  firebase-admin not found in standalone build. The script will try alternative resolution methods.`);
+      }
     }
     
     // Helper to add log line

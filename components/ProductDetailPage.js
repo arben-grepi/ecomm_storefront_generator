@@ -333,7 +333,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
     return groupVariants[0] || null;
   }, [selectedGroup, selectedSize, groupVariants]);
 
-  const displayedPrice = selectedVariant?.priceOverride ?? product.basePrice ?? 0;
+  // Price priority: variant.price (from webhook) > priceOverride (legacy) > product.basePrice
+  const displayedPrice = selectedVariant?.price ?? selectedVariant?.priceOverride ?? product.basePrice ?? 0;
 
   // Gallery images: variant photos first, then main product photos
   const galleryImages = useMemo(() => {

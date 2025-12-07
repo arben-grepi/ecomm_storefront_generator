@@ -37,11 +37,69 @@ try {
  *   node scripts/import-shopify-products.js
  */
 
-const admin = require('firebase-admin');
 const path = require('path');
 const fs = require('fs');
 
 const DEFAULT_PROJECT_ID = 'ecom-store-generator-41064';
+
+/**
+ * Dynamically require firebase-admin with fallback paths for standalone builds
+ */
+function requireFirebaseAdmin() {
+  // First try normal require (works in development and when NODE_PATH is set correctly)
+  try {
+    return require('firebase-admin');
+  } catch (error) {
+    console.warn(`[Import Script] Failed to require firebase-admin normally: ${error.message}`);
+    console.log(`[Import Script] Current working directory: ${process.cwd()}`);
+    console.log(`[Import Script] NODE_PATH: ${process.env.NODE_PATH || 'not set'}`);
+    
+    // In standalone builds, try explicit paths
+    const possiblePaths = [
+      // Standalone build path (Firebase App Hosting - /workspace/.next/standalone/node_modules)
+      path.join(process.cwd(), '.next', 'standalone', 'node_modules', 'firebase-admin'),
+      // Root node_modules (if script runs from project root)
+      path.join(process.cwd(), 'node_modules', 'firebase-admin'),
+      // If NODE_PATH is set, try resolving from there
+      process.env.NODE_PATH ? path.join(process.env.NODE_PATH.split(path.delimiter)[0], 'firebase-admin') : null,
+    ].filter(Boolean);
+    
+    console.log(`[Import Script] Trying alternative paths: ${possiblePaths.join(', ')}`);
+    
+    for (const modulePath of possiblePaths) {
+      try {
+        // Check if the path exists first
+        const indexPath = path.join(modulePath, 'lib', 'index.js');
+        const packageJsonPath = path.join(modulePath, 'package.json');
+        
+        if (fs.existsSync(indexPath) || fs.existsSync(packageJsonPath)) {
+          console.log(`[Import Script] Found firebase-admin at: ${modulePath}`);
+          // Use require.resolve to get the actual module path
+          const resolvedPath = require.resolve(modulePath);
+          return require(resolvedPath);
+        } else {
+          console.log(`[Import Script] Path does not exist: ${modulePath}`);
+        }
+      } catch (resolveError) {
+        console.log(`[Import Script] Failed to resolve ${modulePath}: ${resolveError.message}`);
+        // Continue to next path
+        continue;
+      }
+    }
+    
+    // If all paths fail, provide helpful error message
+    const errorMsg = `Failed to load firebase-admin. 
+Tried paths: ${possiblePaths.join(', ')}
+Current directory: ${process.cwd()}
+NODE_PATH: ${process.env.NODE_PATH || 'not set'}
+Original error: ${error.message}
+
+Make sure firebase-admin is included in the standalone build or NODE_PATH is set correctly.`;
+    throw new Error(errorMsg);
+  }
+}
+
+const admin = requireFirebaseAdmin();
 
 /**
  * Resolve lib module path for dynamic imports

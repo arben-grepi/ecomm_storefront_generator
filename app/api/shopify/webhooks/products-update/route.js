@@ -210,6 +210,11 @@ function getAdminCredentials() {
 /**
  * Fetch product market data using Storefront API with @inContext
  */
+/**
+ * Fetch market-specific availability and currency from Storefront API
+ * NOTE: We do NOT fetch prices here - variant prices come from the Admin API webhook payload
+ * Prices are stored per-variant, not per-market
+ */
 async function fetchProductMarketData(productId, market) {
   try {
     const { fetchProductForMarket } = await import('@/lib/shopify-storefront-api');
@@ -220,10 +225,13 @@ async function fetchProductMarketData(productId, market) {
       return null;
     }
     
+    // Only return availability and currency - NOT price
+    // Price comes from variant.price in the webhook payload
     return {
       available: productData.availableForSale || false,
-      price: productData.priceRange?.minVariantPrice?.amount || '0.00',
       currency: productData.priceRange?.minVariantPrice?.currencyCode || 'EUR'
+      // NOTE: We intentionally do NOT include price here
+      // Variant prices are stored per-variant from the Admin API, not per-market
     };
   } catch (error) {
     console.warn(`[Webhook] Failed to fetch market data for ${market}:`, error.message);
@@ -272,8 +280,8 @@ async function buildMarketsObjectForWebhook(productId, marketsArray, shippingRat
       // Fallback: assume available if we can't fetch data
       marketsObject[market] = {
         available: true,
-        price: '0.00',
-        currency: 'EUR',
+        currency: 'EUR', // Default currency
+        // NOTE: No price here - prices come from variant.price in the webhook payload
         shippingRate: shippingRate,
         shippingEstimate: shippingRate, // Keep for backward compatibility
         isShippingEstimate: isEstimate,
@@ -319,13 +327,15 @@ async function updateShopifyItem(db, shopifyProduct) {
       console.warn(`[Product Webhook] ⚠️  Product ${shopifyProduct.id} (${shopifyProduct.title}) is NOT published to Online Store - will not be accessible via Storefront API`);
     }
     
-    // Fetch marketsObject with market-specific prices and shipping if product is published
+    // Fetch marketsObject with market-specific availability, currency, and shipping if product is published
+    // NOTE: Prices are NOT market-specific - they come from variant.price in the webhook payload
     if (publishedToOnlineStore && markets.length > 0) {
       try {
-        console.log(`[Product Webhook] Fetching market-specific data (prices/shipping) for ${markets.length} market(s)...`);
+        console.log(`[Product Webhook] Fetching market-specific data (availability/currency/shipping) for ${markets.length} market(s)...`);
         const shippingRates = await fetchShippingRatesFromAdmin();
         marketsObject = await buildMarketsObjectForWebhook(shopifyProduct.id, markets, shippingRates);
-        console.log(`[Product Webhook] ✅ Updated marketsObject with latest prices and shipping rates`);
+        console.log(`[Product Webhook] ✅ Updated marketsObject with market availability, currency, and shipping rates`);
+        console.log(`[Product Webhook] ℹ️  Note: Variant prices are stored per-variant (from webhook payload), not per-market`);
       } catch (error) {
         console.warn(`[Product Webhook] ⚠️  Failed to fetch marketsObject: ${error.message}`);
         // Keep existing marketsObject if fetch fails
@@ -574,17 +584,19 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
                 ? [...new Set([...variantImageUrls, ...newImageUrls])]
                 : newImageUrls;
 
+              // Get variant price from webhook payload - this is the single price for this variant across all markets
               const variantPrice = shopifyVariant.price != null ? parseFloat(shopifyVariant.price) : NaN;
               
               await variantRef.update({
                 shopifyVariantId: shopifyVariant.id.toString(), // Always preserve Shopify variant ID
                 shopifyInventoryItemId: shopifyVariant.inventory_item_id || undefined, // Preserve inventory item ID
                 stock: shopifyVariant.inventory_quantity || 0,
-                priceOverride: Number.isFinite(variantPrice) ? variantPrice : null,
+                price: Number.isFinite(variantPrice) ? variantPrice : null, // Single price per variant (not market-specific)
+                priceOverride: Number.isFinite(variantPrice) ? variantPrice : null, // Keep for backward compatibility
                 images: allVariantImages.length > 0 ? allVariantImages : undefined,
                 updatedAt: FieldValue.serverTimestamp(),
               });
-              console.log(`Updated variant: ${variantRef.id} (shopifyVariantId: ${shopifyVariant.id}, stock: ${shopifyVariant.inventory_quantity || 0}, images: ${allVariantImages.length})`);
+              console.log(`Updated variant: ${variantRef.id} (shopifyVariantId: ${shopifyVariant.id}, price: ${variantPrice}, stock: ${shopifyVariant.inventory_quantity || 0}, images: ${allVariantImages.length})`);
             } else {
               console.log(`Could not match Shopify variant ${shopifyVariant.id} to existing variant`);
             }
