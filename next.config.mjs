@@ -29,6 +29,15 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'picsum.photos',
       },
+      // Firebase Storage (for uploaded banner images)
+      {
+        protocol: 'https',
+        hostname: '**.firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
       // Add your Shopify store domain if using custom CDN
       // {
       //   protocol: 'https',

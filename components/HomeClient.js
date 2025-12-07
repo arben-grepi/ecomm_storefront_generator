@@ -8,11 +8,13 @@ import SettingsMenu from '@/components/SettingsMenu';
 import CategoryCarousel from '@/components/CategoryCarousel';
 import ProductCard from '@/components/ProductCard';
 import SkeletonProductCard from '@/components/SkeletonProductCard';
+import Banner from '@/components/Banner';
 import { useCategories, useAllProducts, useProductsByCategory } from '@/lib/firestore-data';
 import { useCart } from '@/lib/cart';
 import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getStorefrontTheme } from '@/lib/storefront-logos';
+import { getTextColorProps } from '@/lib/text-color-utils';
 import dynamic from 'next/dynamic';
 
 const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
@@ -187,6 +189,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     companyTagline: '',
     heroMainHeading: '',
     heroDescription: '',
+    heroBannerImage: '',
     categorySectionHeading: '',
     categorySectionDescription: '',
     allCategoriesTagline: '',
@@ -363,28 +366,53 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                     }}
                   />
                 </Link>
-                {siteInfo.companyTagline && (
-                  <span className="rounded-full px-4 py-1 text-xs font-medium uppercase tracking-[0.3em] text-primary">
-                    {siteInfo.companyTagline}
-                  </span>
-                )}
+                {siteInfo.companyTagline && (() => {
+                  const colorPalette = {
+                    colorPrimary: siteInfo.colorPrimary,
+                    colorSecondary: siteInfo.colorSecondary,
+                    colorTertiary: siteInfo.colorTertiary,
+                  };
+                  const primaryColor = colorPalette.colorPrimary || '#ec4899';
+                  return (
+                    <span 
+                      className="rounded-full px-4 py-1 text-xs font-medium uppercase tracking-[0.3em]"
+                      style={{ color: primaryColor }}
+                    >
+                      {siteInfo.companyTagline}
+                    </span>
+                  );
+                })()}
               </div>
               {/* Spacer for mobile to push buttons to right */}
               <div className="flex-1 sm:hidden" />
               <div className="flex w-full items-center justify-end gap-3 sm:w-auto sm:gap-4">
                 {/* Cart icon - only show if cart has items (after hydration to avoid mismatch) */}
-                {hasMounted && getCartItemCount() > 0 && (
-                  <Link
-                    href={`/cart?storefront=${encodeURIComponent(storefront)}`}
-                    onClick={() => {
-                      // Ensure storefront is saved to cache before navigating to cart
-                      if (storefront && typeof window !== 'undefined') {
-                        saveStorefrontToCache(storefront);
-                      }
-                    }}
-                    className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2.5 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
-                    aria-label="Shopping cart"
-                  >
+                {hasMounted && getCartItemCount() > 0 && (() => {
+                  const colorPalette = {
+                    colorPrimary: siteInfo.colorPrimary,
+                    colorSecondary: siteInfo.colorSecondary,
+                    colorTertiary: siteInfo.colorTertiary,
+                  };
+                  const primaryColor = colorPalette.colorPrimary || '#ec4899';
+                  return (
+                    <Link
+                      href={`/cart?storefront=${encodeURIComponent(storefront)}`}
+                      onClick={() => {
+                        // Ensure storefront is saved to cache before navigating to cart
+                        if (storefront && typeof window !== 'undefined') {
+                          saveStorefrontToCache(storefront);
+                        }
+                      }}
+                      className="relative ml-2 flex items-center justify-center rounded-full border bg-white/80 p-2.5 shadow-sm transition-colors hover:bg-secondary"
+                      style={{ 
+                        borderColor: `${primaryColor}4D`,
+                        color: primaryColor,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = primaryColor;
+                      }}
+                      aria-label="Shopping cart"
+                    >
                     <svg
                       className="h-5 w-5"
                       fill="none"
@@ -398,35 +426,62 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                         d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
                       />
                     </svg>
-                    <span 
-                      className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold text-white" 
-                      style={{ backgroundColor: theme.primaryColor }}
-                      suppressHydrationWarning
-                    >
-                      {getCartItemCount() > 9 ? '9+' : getCartItemCount()}
-                    </span>
-                  </Link>
-                )}
+                      <span 
+                        className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold text-white" 
+                        style={{ backgroundColor: primaryColor }}
+                        suppressHydrationWarning
+                      >
+                        {getCartItemCount() > 9 ? '9+' : getCartItemCount()}
+                      </span>
+                    </Link>
+                  );
+                })()}
                 <SettingsMenu />
               </div>
             </div>
           </header>
 
-      {/* Hero Section */}
-      <section className="mt-10 px-4 py-10 sm:px-6 sm:py-16">
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-          {siteInfo.heroMainHeading && !siteInfo.heroMainHeading.includes('Something went wrong') && (
-            <h2 className="text-3xl font-light text-primary sm:text-5xl">
-              {siteInfo.heroMainHeading}
-            </h2>
-          )}
-          {siteInfo.heroDescription && (
-            <p className="text-base text-slate-600 sm:text-lg">
-              {siteInfo.heroDescription}
-            </p>
-          )}
-        </div>
-      </section>
+      {/* Hero Section with Banner */}
+      <Banner 
+        imageSrc={siteInfo.heroBannerImage} 
+        maxHeight={siteInfo.heroBannerMaxHeight || 550}
+        marginBottom={siteInfo.heroBannerMarginBottom || 40}
+      >
+        {/* Hero text content centered on banner */}
+        <section className="w-full px-4 py-10 sm:px-6 sm:py-16">
+          <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+            {siteInfo.heroMainHeading && !siteInfo.heroMainHeading.includes('Something went wrong') && (() => {
+              const colorPalette = {
+                colorPrimary: siteInfo.colorPrimary,
+                colorSecondary: siteInfo.colorSecondary,
+                colorTertiary: siteInfo.colorTertiary,
+              };
+              const primaryColor = colorPalette.colorPrimary || '#ec4899';
+              return (
+                <h2 
+                  className="text-3xl font-light sm:text-5xl"
+                  style={{ color: primaryColor }}
+                >
+                  {siteInfo.heroMainHeading}
+                </h2>
+              );
+            })()}
+            {siteInfo.heroDescription && (() => {
+              const colorPalette = {
+                colorPrimary: siteInfo.colorPrimary,
+                colorSecondary: siteInfo.colorSecondary,
+                colorTertiary: siteInfo.colorTertiary,
+              };
+              const colorProps = getTextColorProps(siteInfo.heroDescriptionColor || 'secondary', colorPalette);
+              return (
+                <p className={`text-base sm:text-lg ${colorProps.className}`} style={colorProps.style}>
+                  {siteInfo.heroDescription}
+                </p>
+              );
+            })()}
+          </div>
+        </section>
+      </Banner>
 
       {/* Products Grid */}
       <main id="collection" className="mx-auto max-w-7xl px-3 pb-16 sm:px-6 lg:px-8">
@@ -444,8 +499,14 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             if (selectedCategory) {
               const selectedCategoryData = categories.find(cat => cat.id === selectedCategory);
               if (selectedCategoryData?.description) {
+                const colorPalette = {
+                  colorPrimary: siteInfo.colorPrimary,
+                  colorSecondary: siteInfo.colorSecondary,
+                  colorTertiary: siteInfo.colorTertiary,
+                };
+                const colorProps = getTextColorProps(siteInfo.categoryDescriptionColor || 'secondary', colorPalette);
                 return (
-                  <p className="text-sm text-slate-600 sm:text-base mt-2">
+                  <p className={`text-sm sm:text-base mt-2 ${colorProps.className}`} style={colorProps.style}>
                     {selectedCategoryData.description}
                   </p>
                 );
@@ -455,8 +516,14 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             }
             // Show "All Categories" tagline when no category is selected
             if (siteInfo.allCategoriesTagline) {
+              const colorPalette = {
+                colorPrimary: siteInfo.colorPrimary,
+                colorSecondary: siteInfo.colorSecondary,
+                colorTertiary: siteInfo.colorTertiary,
+              };
+              const colorProps = getTextColorProps(siteInfo.categoryDescriptionColor || 'secondary', colorPalette);
               return (
-                <p className="text-sm text-slate-600 sm:text-base mt-2">
+                <p className={`text-sm sm:text-base mt-2 ${colorProps.className}`} style={colorProps.style}>
                   {siteInfo.allCategoriesTagline}
                 </p>
               );
@@ -490,45 +557,95 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
           </div>
         ) : (
           // No products
-          <div className="rounded-3xl border border-secondary/70 bg-white/80 p-6 text-center text-slate-500">
-            {selectedCategory ? 'No products found in this category.' : 'Products will appear here soon. Check back shortly.'}
-          </div>
+          (() => {
+            const colorPalette = {
+              colorPrimary: siteInfo.colorPrimary,
+              colorSecondary: siteInfo.colorSecondary,
+              colorTertiary: siteInfo.colorTertiary,
+            };
+            const colorProps = getTextColorProps(siteInfo.categoryDescriptionColor || 'secondary', colorPalette);
+            return (
+              <div className={`rounded-3xl border border-secondary/70 bg-white/80 p-6 text-center ${colorProps.className}`} style={colorProps.style}>
+                {selectedCategory ? 'No products found in this category.' : 'Products will appear here soon. Check back shortly.'}
+              </div>
+            );
+          })()
         )}
         {/* Load More button - show if we have more products to display (client-side pagination) or server-side pagination for All Categories */}
         {!loading && !isFiltering && (
           <>
             {/* Client-side pagination for both All Categories and category views */}
-            {hasMoreProductsToShow && (
-              <div className="mt-8 flex justify-center">
-                <button
-                  onClick={handleLoadMore}
-                  className="rounded-full border border-primary/30 bg-white/80 px-6 py-3 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Load More Products ({filteredProducts.length - displayedProductsCount} more)
-                </button>
-              </div>
-            )}
+            {hasMoreProductsToShow && (() => {
+              const colorPalette = {
+                colorPrimary: siteInfo.colorPrimary,
+                colorSecondary: siteInfo.colorSecondary,
+                colorTertiary: siteInfo.colorTertiary,
+              };
+              const primaryColor = colorPalette.colorPrimary || '#ec4899';
+              return (
+                <div className="mt-8 flex justify-center">
+                  <button
+                    onClick={handleLoadMore}
+                    className="rounded-full border bg-white/80 px-6 py-3 text-sm font-medium shadow-sm transition-colors hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ 
+                      borderColor: `${primaryColor}4D`,
+                      color: primaryColor,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = primaryColor;
+                    }}
+                  >
+                    Load More Products ({filteredProducts.length - displayedProductsCount} more)
+                  </button>
+                </div>
+              );
+            })()}
             {/* Server-side pagination for All Categories (load more from Firestore) */}
-            {!selectedCategory && hasMoreProducts && !hasMoreProductsToShow && (
-              <div className="mt-8 flex justify-center">
-                <button
-                  onClick={loadMoreProducts}
-                  disabled={productsLoading}
-                  className="rounded-full border border-primary/30 bg-white/80 px-6 py-3 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {productsLoading ? 'Loading...' : 'Load More Products'}
-                </button>
-              </div>
-            )}
+            {!selectedCategory && hasMoreProducts && !hasMoreProductsToShow && (() => {
+              const colorPalette = {
+                colorPrimary: siteInfo.colorPrimary,
+                colorSecondary: siteInfo.colorSecondary,
+                colorTertiary: siteInfo.colorTertiary,
+              };
+              const primaryColor = colorPalette.colorPrimary || '#ec4899';
+              return (
+                <div className="mt-8 flex justify-center">
+                  <button
+                    onClick={loadMoreProducts}
+                    disabled={productsLoading}
+                    className="rounded-full border bg-white/80 px-6 py-3 text-sm font-medium shadow-sm transition-colors hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ 
+                      borderColor: `${primaryColor}4D`,
+                      color: primaryColor,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = primaryColor;
+                    }}
+                  >
+                    {productsLoading ? 'Loading...' : 'Load More Products'}
+                  </button>
+                </div>
+              );
+            })()}
           </>
         )}
       </main>
 
       {/* Footer */}
       <footer className="border-t border-secondary/70 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 text-center text-sm text-slate-500 sm:px-6 lg:px-8">
-          {siteInfo.footerText}
-        </div>
+        {(() => {
+          const colorPalette = {
+            colorPrimary: siteInfo.colorPrimary,
+            colorSecondary: siteInfo.colorSecondary,
+            colorTertiary: siteInfo.colorTertiary,
+          };
+          const colorProps = getTextColorProps(siteInfo.footerTextColor || 'tertiary', colorPalette);
+          return (
+            <div className={`mx-auto max-w-7xl px-4 py-10 text-center text-sm sm:px-6 lg:px-8 ${colorProps.className}`} style={colorProps.style}>
+              {siteInfo.footerText}
+            </div>
+          );
+        })()}
       </footer>
     </div>
   );
