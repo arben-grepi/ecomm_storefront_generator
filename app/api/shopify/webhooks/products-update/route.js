@@ -317,24 +317,16 @@ async function updateShopifyItem(db, shopifyProduct) {
   
   try {
     const productGid = `gid://shopify/Product/${shopifyProduct.id}`;
-    console.log(`[Product Webhook] Updating markets/publication status for product: ${shopifyProduct.id} (${shopifyProduct.title}), Existing Markets: [${markets.join(', ') || 'none'}], Online Store: ${publishedToOnlineStore ? '✅' : '❌'}`);
     const marketInfo = await getProductMarkets(productGid);
     markets = buildMarketsArray(marketInfo);
     publishedToOnlineStore = marketInfo.publishedToOnlineStore || false;
-    console.log(`[Product Webhook] Product ${shopifyProduct.id} updated - Markets: [${markets.join(', ') || 'none'}], Online Store: ${publishedToOnlineStore ? '✅' : '❌'}`);
-    
-    if (!publishedToOnlineStore) {
-      console.warn(`[Product Webhook] ⚠️  Product ${shopifyProduct.id} (${shopifyProduct.title}) is NOT published to Online Store - will not be accessible via Storefront API`);
-    }
     
     // Fetch marketsObject with market-specific availability, currency, and shipping if product is published
     // NOTE: Prices are NOT market-specific - they come from variant.price in the webhook payload
     if (publishedToOnlineStore && markets.length > 0) {
       try {
-        console.log(`[Product Webhook] Fetching market-specific data (availability/currency/shipping) for ${markets.length} market(s)...`);
         const shippingRates = await fetchShippingRatesFromAdmin();
         marketsObject = await buildMarketsObjectForWebhook(shopifyProduct.id, markets, shippingRates);
-        console.log(`[Product Webhook] ✅ Updated marketsObject with market availability, currency, and shipping rates`);
         console.log(`[Product Webhook] ℹ️  Note: Variant prices are stored per-variant (from webhook payload), not per-market`);
       } catch (error) {
         console.warn(`[Product Webhook] ⚠️  Failed to fetch marketsObject: ${error.message}`);
@@ -470,21 +462,11 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
     // This respects admin decisions about which storefronts should contain the product
     if (shopifyItemData.storefronts && Array.isArray(shopifyItemData.storefronts) && shopifyItemData.storefronts.length > 0) {
       targetStorefronts = shopifyItemData.storefronts;
-      console.log(`[Webhook] Product ${shopifyProduct.id} has explicit storefronts: [${targetStorefronts.join(', ')}]`);
-    } else {
-      console.log(`[Webhook] Product ${shopifyProduct.id} has no explicit storefronts, will update all storefronts where product exists`);
     }
-  } else {
-    console.log(`[Webhook] Product ${shopifyProduct.id} not found in shopifyItems, will update all storefronts where product exists`);
   }
 
-  // Get all storefronts (for fallback or if targetStorefronts is null)
   const allStorefronts = await getStorefronts(db);
-  // Use target storefronts if specified, otherwise use all storefronts (backward compatibility)
   const storefrontsToUpdate = targetStorefronts || allStorefronts;
-  
-  console.log(`[Webhook] Will check ${storefrontsToUpdate.length} storefront(s) for product ${shopifyProduct.id}: [${storefrontsToUpdate.join(', ')}]`);
-  
   const updatedIds = [];
 
   const firstVariant = shopifyProduct.variants?.[0];
@@ -494,55 +476,18 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
   // Search for products in each target storefront
   for (const storefront of storefrontsToUpdate) {
     try {
-      // Path structure: {storefront}/products/items/{productId}
       const productsCollection = db.collection(storefront).doc('products').collection('items');
-      const collectionPath = `${storefront}/products/items`;
-      console.log(`[Webhook] Checking storefront "${storefront}" at path: ${collectionPath}`);
-
-      // First, let's check if the collection exists and has any products
-      const allProductsSnapshot = await productsCollection.limit(5).get();
-      console.log(`[Webhook] Storefront "${storefront}" has ${allProductsSnapshot.size} total product(s) (sampled first 5)`);
-      
-      if (allProductsSnapshot.size > 0) {
-        // Log sample products to see their structure
-        const sampleProduct = allProductsSnapshot.docs[0].data();
-        console.log(`[Webhook] Sample product from "${storefront}":`, {
-          id: allProductsSnapshot.docs[0].id,
-          hasSourceShopifyId: !!sampleProduct.sourceShopifyId,
-          sourceShopifyId: sampleProduct.sourceShopifyId,
-          sourceShopifyIdType: typeof sampleProduct.sourceShopifyId,
-          title: sampleProduct.title || sampleProduct.name,
-        });
-      }
 
       // Convert shopifyProduct.id to number for query (products store sourceShopifyId as number)
-      // Shopify webhook sends id as string, but we store it as number in Firestore
       const shopifyIdAsNumber = typeof shopifyProduct.id === 'string' 
         ? Number(shopifyProduct.id) 
         : shopifyProduct.id;
       
-      console.log(`[Webhook] Querying for product with sourceShopifyId: ${shopifyIdAsNumber} (type: ${typeof shopifyIdAsNumber})`);
       const snapshot = await productsCollection
         .where('sourceShopifyId', '==', shopifyIdAsNumber)
         .get();
 
-      console.log(`[Webhook] Found ${snapshot.empty ? 0 : snapshot.docs.length} product(s) in storefront "${storefront}" with sourceShopifyId: ${shopifyIdAsNumber}`);
-      
       if (snapshot.empty) {
-        // Log sample sourceShopifyId values for debugging
-        const allSourceIds = [];
-        for (const doc of allProductsSnapshot.docs) {
-          const data = doc.data();
-          if (data.sourceShopifyId) {
-            allSourceIds.push({
-              value: data.sourceShopifyId,
-              type: typeof data.sourceShopifyId,
-              productId: doc.id,
-            });
-          }
-        }
-        console.log(`[Webhook] Sample sourceShopifyId values in "${storefront}":`, allSourceIds.slice(0, 5));
-        console.log(`[Webhook] ⚠️  No products found in storefront "${storefront}" with sourceShopifyId: ${shopifyIdAsNumber}. Product may not have been imported to this storefront yet.`);
         continue; // No products in this storefront
       }
 
@@ -632,38 +577,23 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
               const variantPrice = shopifyVariant.price != null ? parseFloat(shopifyVariant.price) : NaN;
               
               await variantRef.update({
-                shopifyVariantId: shopifyVariant.id.toString(), // Always preserve Shopify variant ID
-                shopifyInventoryItemId: shopifyVariant.inventory_item_id || undefined, // Preserve inventory item ID
+                shopifyVariantId: shopifyVariant.id.toString(),
+                shopifyInventoryItemId: shopifyVariant.inventory_item_id || undefined,
                 stock: shopifyVariant.inventory_quantity || 0,
-                price: Number.isFinite(variantPrice) ? variantPrice : null, // Single price per variant (not market-specific)
-                priceOverride: Number.isFinite(variantPrice) ? variantPrice : null, // Keep for backward compatibility
+                price: Number.isFinite(variantPrice) ? variantPrice : null,
+                priceOverride: Number.isFinite(variantPrice) ? variantPrice : null,
                 images: allVariantImages.length > 0 ? allVariantImages : undefined,
                 updatedAt: FieldValue.serverTimestamp(),
               });
-              console.log(`Updated variant: ${variantRef.id} (shopifyVariantId: ${shopifyVariant.id}, price: ${variantPrice}, stock: ${shopifyVariant.inventory_quantity || 0}, images: ${allVariantImages.length})`);
-            } else {
-              console.log(`Could not match Shopify variant ${shopifyVariant.id} to existing variant`);
             }
           }
         }
 
-        console.log(`[Webhook] ✅ Updated processed product: ${productDoc.id} in storefront: ${storefront}`);
         updatedIds.push({ id: productDoc.id, storefront });
       }
     } catch (error) {
-      console.error(`[Webhook] ❌ Error updating products in storefront ${storefront}:`, error);
-      // Continue with other storefronts
+      console.error(`[Webhook] Error updating products in storefront ${storefront}:`, error);
     }
-  }
-
-  if (updatedIds.length === 0) {
-    console.log(`[Webhook] ⚠️  No products were updated. This could mean:`);
-    console.log(`[Webhook]   1. Product ${shopifyProduct.id} has not been imported to any storefront yet`);
-    console.log(`[Webhook]   2. Product exists but sourceShopifyId field is missing or incorrect`);
-    console.log(`[Webhook]   3. Product exists in storefronts not included in shopifyItems.storefronts array`);
-    console.log(`[Webhook]   To fix: Import the product from Shopify Admin UI to assign it to storefront(s)`);
-  } else {
-    console.log(`[Webhook] ✅ Successfully updated ${updatedIds.length} product(s) across ${new Set(updatedIds.map(p => p.storefront)).size} storefront(s)`);
   }
 
   return updatedIds;
@@ -690,8 +620,6 @@ export async function POST(request) {
 
     // Log webhook payload structure for debugging
     console.log(`[Product Webhook] Received webhook for Shopify product: ${shopifyProduct.id}`);
-    console.log(`[Product Webhook] Product title in payload: "${shopifyProduct.title || 'MISSING'}"`);
-    console.log(`[Product Webhook] Product handle: "${shopifyProduct.handle || 'MISSING'}"`);
     
     // Validate that title exists in payload
     if (!shopifyProduct.title) {
