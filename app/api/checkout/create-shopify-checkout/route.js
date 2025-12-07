@@ -89,9 +89,10 @@ export async function POST(request) {
         // Otherwise, fetch from Firestore
         try {
           // Path: {storefront}/products/items/{productId}/variants/{variantId}
+          // Note: Admin SDK requires .doc() between collection calls
           const variantRef = db
             .collection(storefront)
-            .collection('products')
+            .doc('products')
             .collection('items')
             .doc(item.productId)
             .collection('variants')

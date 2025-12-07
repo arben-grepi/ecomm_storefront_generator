@@ -53,13 +53,23 @@ export async function POST(request) {
       console.log('[Import API] Importing all products (no selection provided)');
     }
     
-    // Get the script path
-    const scriptPath = path.join(process.cwd(), 'scripts', 'import-shopify-products.js');
-    
     // Detect standalone build mode (Next.js standalone output)
     // In standalone builds, node_modules are in .next/standalone/node_modules/
     const standaloneNodeModules = path.join(process.cwd(), '.next', 'standalone', 'node_modules');
     const isStandalone = existsSync(standaloneNodeModules);
+    
+    // Get the script path
+    // In standalone builds, scripts are copied to .next/standalone/scripts/
+    let scriptPath = path.join(process.cwd(), 'scripts', 'import-shopify-products.js');
+    if (isStandalone) {
+      const standaloneScriptPath = path.join(process.cwd(), '.next', 'standalone', 'scripts', 'import-shopify-products.js');
+      if (existsSync(standaloneScriptPath)) {
+        scriptPath = standaloneScriptPath;
+        console.log(`[Import API] Using standalone script path: ${scriptPath}`);
+      } else {
+        console.log(`[Import API] Standalone script not found at ${standaloneScriptPath}, using default: ${scriptPath}`);
+      }
+    }
     
     // Build environment variables
     const env = { ...process.env };
@@ -99,9 +109,21 @@ export async function POST(request) {
       }
     };
     
+    // Determine the correct working directory for the script
+    // In standalone builds, scripts are copied to .next/standalone/scripts/
+    // and the script should run from .next/standalone/ directory
+    let scriptCwd = process.cwd();
+    if (isStandalone) {
+      const standaloneDir = path.join(process.cwd(), '.next', 'standalone');
+      if (existsSync(standaloneDir)) {
+        scriptCwd = standaloneDir;
+        console.log(`[Import API] Running script from standalone directory: ${scriptCwd}`);
+      }
+    }
+    
     // Execute the script and capture output in real-time
     const childProcess = exec(`node "${scriptPath}"`, {
-      cwd: process.cwd(),
+      cwd: scriptCwd, // Use standalone directory if in standalone build
       env: env,
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large output
     });
