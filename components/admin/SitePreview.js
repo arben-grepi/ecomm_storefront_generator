@@ -5,6 +5,7 @@ import Banner from '@/components/Banner';
 import CategoryCarousel from '@/components/CategoryCarousel';
 import SkeletonProductCard from '@/components/SkeletonProductCard';
 import { getTextColorProps } from '@/lib/text-color-utils';
+import { preventOrphanedWords } from '@/lib/text-wrap-utils';
 
 /**
  * SitePreview - Full-screen preview of the homepage
@@ -57,14 +58,16 @@ export default function SitePreview({
                 priority
               />
             </div>
-            {companyTagline && (
-              <span 
-                className="rounded-full px-4 py-1 text-xs font-medium uppercase tracking-[0.3em]"
-                style={{ color: primaryColor }}
-              >
-                {companyTagline}
-              </span>
-            )}
+            {companyTagline && (() => {
+              const wrappedText = preventOrphanedWords(companyTagline);
+              return (
+                <span 
+                  className="rounded-full px-4 py-1 text-xs font-medium uppercase tracking-[0.3em]"
+                  style={{ color: primaryColor }}
+                  dangerouslySetInnerHTML={{ __html: wrappedText }}
+                />
+              );
+            })()}
           </div>
         </div>
       </header>
@@ -79,19 +82,22 @@ export default function SitePreview({
         >
           <section className="w-full px-4 py-10 sm:px-6 sm:py-16">
             <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              {heroMainHeading && (
-                <h2 
-                  className="text-3xl font-light sm:text-5xl"
-                  style={{ color: colorPalette?.colorPrimary || '#ec4899' }}
-                >
-                  {heroMainHeading}
-                </h2>
-              )}
-              {heroDescription && (
-                <p className={`text-base sm:text-lg ${heroDescColorProps.className}`} style={heroDescColorProps.style}>
-                  {heroDescription}
-                </p>
-              )}
+              {heroMainHeading && (() => {
+                const wrappedText = preventOrphanedWords(heroMainHeading);
+                return (
+                  <h2 
+                    className="text-3xl font-light sm:text-5xl"
+                    style={{ color: colorPalette?.colorPrimary || '#ec4899' }}
+                    dangerouslySetInnerHTML={{ __html: wrappedText }}
+                  />
+                );
+              })()}
+              {heroDescription && (() => {
+                const wrappedText = preventOrphanedWords(heroDescription);
+                return (
+                  <p className={`text-base sm:text-lg ${heroDescColorProps.className}`} style={heroDescColorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+                );
+              })()}
             </div>
           </section>
         </Banner>
@@ -100,19 +106,22 @@ export default function SitePreview({
         (heroMainHeading || heroDescription) && (
           <section className="w-full px-4 py-10 sm:px-6 sm:py-16">
             <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-              {heroMainHeading && (
-                <h2 
-                  className="text-3xl font-light sm:text-5xl"
-                  style={{ color: colorPalette?.colorPrimary || '#ec4899' }}
-                >
-                  {heroMainHeading}
-                </h2>
-              )}
-              {heroDescription && (
-                <p className={`text-base sm:text-lg ${heroDescColorProps.className}`} style={heroDescColorProps.style}>
-                  {heroDescription}
-                </p>
-              )}
+              {heroMainHeading && (() => {
+                const wrappedText = preventOrphanedWords(heroMainHeading);
+                return (
+                  <h2 
+                    className="text-3xl font-light sm:text-5xl"
+                    style={{ color: colorPalette?.colorPrimary || '#ec4899' }}
+                    dangerouslySetInnerHTML={{ __html: wrappedText }}
+                  />
+                );
+              })()}
+              {heroDescription && (() => {
+                const wrappedText = preventOrphanedWords(heroDescription);
+                return (
+                  <p className={`text-base sm:text-lg ${heroDescColorProps.className}`} style={heroDescColorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+                );
+              })()}
             </div>
           </section>
         )
@@ -126,11 +135,12 @@ export default function SitePreview({
             products={[]}
             selectedCategory={null}
           />
-          {allCategoriesTagline && (
-            <p className={`text-sm sm:text-base mt-2 ${categoryDescColorProps.className}`} style={categoryDescColorProps.style}>
-              {allCategoriesTagline}
-            </p>
-          )}
+          {allCategoriesTagline && (() => {
+            const wrappedText = preventOrphanedWords(allCategoriesTagline);
+            return (
+              <p className={`text-sm sm:text-base mt-2 ${categoryDescColorProps.className}`} style={categoryDescColorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+            );
+          })()}
         </div>
       </div>
 
@@ -144,13 +154,14 @@ export default function SitePreview({
       </div>
 
       {/* Footer */}
-      {footerText && (
-        <footer className="border-t border-secondary/70 bg-white">
-          <div className={`mx-auto max-w-7xl px-4 py-10 text-center text-sm sm:px-6 lg:px-8 ${footerColorProps.className}`} style={footerColorProps.style}>
-            {footerText}
-          </div>
-        </footer>
-      )}
+      {footerText && (() => {
+        const wrappedText = preventOrphanedWords(footerText);
+        return (
+          <footer className="border-t border-secondary/70 bg-white">
+            <div className={`mx-auto max-w-7xl px-4 py-10 text-center text-sm sm:px-6 lg:px-8 ${footerColorProps.className}`} style={footerColorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+          </footer>
+        );
+      })()}
     </div>
   );
 }

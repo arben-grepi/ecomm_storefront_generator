@@ -15,6 +15,7 @@ import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getStorefrontTheme } from '@/lib/storefront-logos';
 import { getTextColorProps } from '@/lib/text-color-utils';
+import { preventOrphanedWords } from '@/lib/text-wrap-utils';
 import dynamic from 'next/dynamic';
 
 const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
@@ -373,13 +374,13 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                     colorTertiary: siteInfo.colorTertiary,
                   };
                   const primaryColor = colorPalette.colorPrimary || '#ec4899';
+                  const wrappedText = preventOrphanedWords(siteInfo.companyTagline);
                   return (
                     <span 
                       className="rounded-full px-4 py-1 text-xs font-medium uppercase tracking-[0.3em]"
                       style={{ color: primaryColor }}
-                    >
-                      {siteInfo.companyTagline}
-                    </span>
+                      dangerouslySetInnerHTML={{ __html: wrappedText }}
+                    />
                   );
                 })()}
               </div>
@@ -457,13 +458,13 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                 colorTertiary: siteInfo.colorTertiary,
               };
               const primaryColor = colorPalette.colorPrimary || '#ec4899';
+              const wrappedText = preventOrphanedWords(siteInfo.heroMainHeading);
               return (
                 <h2 
                   className="text-3xl font-light sm:text-5xl"
                   style={{ color: primaryColor }}
-                >
-                  {siteInfo.heroMainHeading}
-                </h2>
+                  dangerouslySetInnerHTML={{ __html: wrappedText }}
+                />
               );
             })()}
             {siteInfo.heroDescription && (() => {
@@ -473,10 +474,9 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                 colorTertiary: siteInfo.colorTertiary,
               };
               const colorProps = getTextColorProps(siteInfo.heroDescriptionColor || 'secondary', colorPalette);
+              const wrappedText = preventOrphanedWords(siteInfo.heroDescription);
               return (
-                <p className={`text-base sm:text-lg ${colorProps.className}`} style={colorProps.style}>
-                  {siteInfo.heroDescription}
-                </p>
+                <p className={`text-base sm:text-lg ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
               );
             })()}
           </div>
@@ -505,10 +505,9 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   colorTertiary: siteInfo.colorTertiary,
                 };
                 const colorProps = getTextColorProps(siteInfo.categoryDescriptionColor || 'secondary', colorPalette);
+                const wrappedText = preventOrphanedWords(selectedCategoryData.description);
                 return (
-                  <p className={`text-sm sm:text-base mt-2 ${colorProps.className}`} style={colorProps.style}>
-                    {selectedCategoryData.description}
-                  </p>
+                  <p className={`text-sm sm:text-base mt-2 ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
                 );
               }
               // If category is selected but has no description, show nothing
@@ -522,10 +521,9 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                 colorTertiary: siteInfo.colorTertiary,
               };
               const colorProps = getTextColorProps(siteInfo.categoryDescriptionColor || 'secondary', colorPalette);
+              const wrappedText = preventOrphanedWords(siteInfo.allCategoriesTagline);
               return (
-                <p className={`text-sm sm:text-base mt-2 ${colorProps.className}`} style={colorProps.style}>
-                  {siteInfo.allCategoriesTagline}
-                </p>
+                <p className={`text-sm sm:text-base mt-2 ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
               );
             }
             return null;
@@ -564,10 +562,10 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               colorTertiary: siteInfo.colorTertiary,
             };
             const colorProps = getTextColorProps(siteInfo.categoryDescriptionColor || 'secondary', colorPalette);
+            const noProductsText = selectedCategory ? 'No products found in this category.' : 'Products will appear here soon. Check back shortly.';
+            const wrappedText = preventOrphanedWords(noProductsText);
             return (
-              <div className={`rounded-3xl border border-secondary/70 bg-white/80 p-6 text-center ${colorProps.className}`} style={colorProps.style}>
-                {selectedCategory ? 'No products found in this category.' : 'Products will appear here soon. Check back shortly.'}
-              </div>
+              <div className={`rounded-3xl border border-secondary/70 bg-white/80 p-6 text-center ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
             );
           })()
         )}
@@ -640,10 +638,9 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             colorTertiary: siteInfo.colorTertiary,
           };
           const colorProps = getTextColorProps(siteInfo.footerTextColor || 'tertiary', colorPalette);
+          const wrappedText = preventOrphanedWords(siteInfo.footerText);
           return (
-            <div className={`mx-auto max-w-7xl px-4 py-10 text-center text-sm sm:px-6 lg:px-8 ${colorProps.className}`} style={colorProps.style}>
-              {siteInfo.footerText}
-            </div>
+            <div className={`mx-auto max-w-7xl px-4 py-10 text-center text-sm sm:px-6 lg:px-8 ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
           );
         })()}
       </footer>
