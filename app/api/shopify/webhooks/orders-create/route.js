@@ -145,78 +145,175 @@ function transformShopifyOrder(shopifyOrder) {
  * Create or update order in Firestore
  */
 async function syncOrderToFirestore(db, shopifyOrder) {
-  // Extract storefront from note_attributes
-  const storefront = shopifyOrder.note_attributes?.find(
-    (attr) => attr.name === 'storefront'
-  )?.value || 'LUNERA';
-  
-  // Save to storefront-specific orders collection
-  // Path: {storefront}/orders/items/{orderId}
-  const ordersCollection = db.collection(storefront).collection('orders').collection('items');
-  
-  // Check if order already exists (by Shopify order ID)
-  const existingOrderSnapshot = await ordersCollection
-    .where('shopifyOrderId', '==', shopifyOrder.id.toString())
-    .limit(1)
-    .get();
+  try {
+    // Extract storefront from note_attributes
+    // Support both old format (storefront) and new format (_storefront)
+    const noteAttributes = shopifyOrder.note_attributes || [];
+    console.log(`[Order Webhook] Note attributes:`, JSON.stringify(noteAttributes));
+    
+    const storefrontAttr = noteAttributes.find(
+      (attr) => attr.name === '_storefront' || attr.name === 'storefront'
+    );
+    const storefront = storefrontAttr?.value || 'LUNERA';
+    
+    console.log(`[Order Webhook] Extracted storefront: "${storefront}" (from attribute: ${storefrontAttr?.name || 'none'})`);
+    console.log(`[Order Webhook] Order ID: ${shopifyOrder.id}, Order Number: ${shopifyOrder.order_number || shopifyOrder.name}`);
+    
+    // Save to storefront-specific orders collection
+    // Path: {storefront}/orders/items/{orderId}
+    const collectionPath = `${storefront}/orders/items`;
+    console.log(`[Order Webhook] Target Firestore collection path: ${collectionPath}`);
+    
+    const ordersCollection = db.collection(storefront).doc('orders').collection('items');
+    console.log(`[Order Webhook] Collection reference created successfully`);
+    
+    // Check if order already exists (by Shopify order ID)
+    const shopifyOrderId = shopifyOrder.id.toString();
+    console.log(`[Order Webhook] Checking for existing order with shopifyOrderId: ${shopifyOrderId}`);
+    
+    const existingOrderSnapshot = await ordersCollection
+      .where('shopifyOrderId', '==', shopifyOrderId)
+      .limit(1)
+      .get();
+    
+    console.log(`[Order Webhook] Existing order check complete. Found ${existingOrderSnapshot.empty ? '0' : '1'} existing order(s)`);
 
-  const orderData = transformShopifyOrder(shopifyOrder);
+    const orderData = transformShopifyOrder(shopifyOrder);
+    console.log(`[Order Webhook] Order data transformed. Storefront: ${orderData.storefront}, Market: ${orderData.market}, Status: ${orderData.status}, Items: ${orderData.items?.length || 0}`);
+    console.log(`[Order Webhook] Order totals - Subtotal: ${orderData.totals?.subtotal}, Tax: ${orderData.totals?.tax}, Shipping: ${orderData.totals?.shipping}, Grand Total: ${orderData.totals?.grandTotal}`);
 
-  if (!existingOrderSnapshot.empty) {
-    // Update existing order
-    const orderDoc = existingOrderSnapshot.docs[0];
-    // Don't update createdAt, but update everything else
-    const { createdAt, ...updateData } = orderData;
-    await orderDoc.ref.update({
-      ...updateData,
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    console.log(`Updated order: ${orderDoc.id} (Shopify order ${shopifyOrder.id})`);
-    return orderDoc.id;
-  } else {
-    // Create new order
-    const orderRef = await ordersCollection.add(orderData);
-    console.log(`Created order in Firestore: ${orderRef.id} (Shopify order ${shopifyOrder.id}) for storefront: ${storefront}`);
-    return orderRef.id;
+    if (!existingOrderSnapshot.empty) {
+      // Update existing order
+      const orderDoc = existingOrderSnapshot.docs[0];
+      const existingOrderId = orderDoc.id;
+      console.log(`[Order Webhook] Updating existing order document: ${existingOrderId}`);
+      
+      // Don't update createdAt, but update everything else
+      const { createdAt, ...updateData } = orderData;
+      console.log(`[Order Webhook] Update data prepared (excluding createdAt). Fields to update: ${Object.keys(updateData).join(', ')}`);
+      
+      await orderDoc.ref.update({
+        ...updateData,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      
+      console.log(`[Order Webhook] ✅ Successfully updated order: ${existingOrderId} (Shopify order ${shopifyOrder.id}) in collection: ${collectionPath}`);
+      return existingOrderId;
+    } else {
+      // Create new order
+      console.log(`[Order Webhook] Creating new order document in collection: ${collectionPath}`);
+      console.log(`[Order Webhook] Order data fields: ${Object.keys(orderData).join(', ')}`);
+      
+      const orderRef = await ordersCollection.add(orderData);
+      const newOrderId = orderRef.id;
+      
+      console.log(`[Order Webhook] ✅ Successfully created order: ${newOrderId} (Shopify order ${shopifyOrder.id}) in collection: ${collectionPath}`);
+      return newOrderId;
+    }
+  } catch (error) {
+    console.error(`[Order Webhook] ❌ Error in syncOrderToFirestore for order ${shopifyOrder.id}:`, error);
+    console.error(`[Order Webhook] Error name: ${error.name}, message: ${error.message}`);
+    console.error(`[Order Webhook] Error stack:`, error.stack);
+    console.error(`[Order Webhook] Error code: ${error.code || 'N/A'}`);
+    
+    // Log context about what we were trying to do
+    try {
+      const storefront = shopifyOrder.note_attributes?.find(
+        (attr) => attr.name === '_storefront' || attr.name === 'storefront'
+      )?.value || 'LUNERA';
+      console.error(`[Order Webhook] Failed operation context:`, {
+        storefront,
+        collectionPath: `${storefront}/orders/items`,
+        shopifyOrderId: shopifyOrder.id?.toString(),
+        orderNumber: shopifyOrder.order_number || shopifyOrder.name,
+      });
+    } catch (contextError) {
+      console.error(`[Order Webhook] Failed to log context:`, contextError);
+    }
+    
+    throw error; // Re-throw to be caught by the main handler
   }
 }
 
 export async function POST(request) {
+  let shopifyOrderId = 'unknown';
+  let orderNumber = 'unknown';
+  
   try {
+    console.log(`[Order Webhook] ===== Received POST request =====`);
+    
     const rawBody = await request.text();
     const hmacHeader = request.headers.get('x-shopify-hmac-sha256');
 
     if (!hmacHeader) {
-      console.error('Missing x-shopify-hmac-sha256 header');
+      console.error('[Order Webhook] ❌ Missing x-shopify-hmac-sha256 header');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    console.log(`[Order Webhook] HMAC header present, verifying signature...`);
 
     // Verify webhook signature
     if (!verifyShopifyWebhook(rawBody, hmacHeader)) {
-      console.error('Invalid webhook signature');
+      console.error('[Order Webhook] ❌ Invalid webhook signature');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    console.log(`[Order Webhook] ✅ Webhook signature verified`);
+
     const payload = JSON.parse(rawBody);
     const shopifyOrder = payload;
+    
+    shopifyOrderId = shopifyOrder.id?.toString() || 'unknown';
+    orderNumber = shopifyOrder.order_number?.toString() || shopifyOrder.name || 'unknown';
 
-    console.log(`Received order creation webhook: order_id=${shopifyOrder.id}, order_number=${shopifyOrder.order_number || shopifyOrder.name}`);
+    console.log(`[Order Webhook] Parsed payload. Order ID: ${shopifyOrderId}, Order Number: ${orderNumber}`);
+    console.log(`[Order Webhook] Order email: ${shopifyOrder.email || 'N/A'}, Financial status: ${shopifyOrder.financial_status || 'N/A'}, Fulfillment status: ${shopifyOrder.fulfillment_status || 'N/A'}`);
 
     const db = getAdminDb();
+    console.log(`[Order Webhook] ✅ Firestore admin database instance obtained`);
 
     // Sync order to Firestore
+    console.log(`[Order Webhook] Starting sync to Firestore...`);
     const orderId = await syncOrderToFirestore(db, shopifyOrder);
+    console.log(`[Order Webhook] ✅ Sync completed. Firestore order ID: ${orderId}`);
 
-    return NextResponse.json({ 
+    const response = { 
       ok: true, 
       shopifyOrderId: shopifyOrder.id,
       orderId,
       orderNumber: shopifyOrder.order_number || shopifyOrder.name,
-    });
+    };
+    
+    console.log(`[Order Webhook] ===== Successfully processed order webhook =====`);
+    return NextResponse.json(response);
+    
   } catch (error) {
-    console.error('Order creation webhook processing error:', error);
+    console.error(`[Order Webhook] ===== ERROR PROCESSING ORDER WEBHOOK =====`);
+    console.error(`[Order Webhook] Order ID: ${shopifyOrderId}, Order Number: ${orderNumber}`);
+    console.error(`[Order Webhook] Error type: ${error.constructor.name}`);
+    console.error(`[Order Webhook] Error name: ${error.name || 'N/A'}`);
+    console.error(`[Order Webhook] Error message: ${error.message || 'N/A'}`);
+    console.error(`[Order Webhook] Error code: ${error.code || 'N/A'}`);
+    console.error(`[Order Webhook] Error stack:`, error.stack);
+    
+    // Log additional context if available
+    if (error.code) {
+      console.error(`[Order Webhook] Firestore error code: ${error.code}`);
+      if (error.code === 'permission-denied') {
+        console.error(`[Order Webhook] ⚠️  Permission denied - check Firestore security rules`);
+      } else if (error.code === 'not-found') {
+        console.error(`[Order Webhook] ⚠️  Collection or document not found - check collection path`);
+      } else if (error.code === 'invalid-argument') {
+        console.error(`[Order Webhook] ⚠️  Invalid argument - check data structure`);
+      }
+    }
+    
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      { 
+        error: 'Internal server error', 
+        message: error.message,
+        code: error.code || 'unknown',
+      },
       { status: 500 }
     );
   }
