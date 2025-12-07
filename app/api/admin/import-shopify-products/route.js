@@ -80,10 +80,9 @@ export async function POST(request) {
     // Set NODE_PATH to include standalone node_modules if in standalone mode
     // This allows the script to resolve modules like firebase-admin
     if (isStandalone) {
-      const existingNodePath = env.NODE_PATH || '';
-      env.NODE_PATH = existingNodePath 
-        ? `${standaloneNodeModules}${path.delimiter}${existingNodePath}`
-        : standaloneNodeModules;
+      // Always set NODE_PATH to standalone node_modules (even if already set)
+      // This ensures the script can find firebase-admin
+      env.NODE_PATH = standaloneNodeModules;
       console.log(`[Import API] Detected standalone build, setting NODE_PATH: ${env.NODE_PATH}`);
       console.log(`[Import API] Standalone node_modules path: ${standaloneNodeModules}`);
       console.log(`[Import API] Checking if firebase-admin exists in standalone build...`);
@@ -92,8 +91,14 @@ export async function POST(request) {
       const firebaseAdminPath = path.join(standaloneNodeModules, 'firebase-admin');
       const firebaseAdminExists = existsSync(firebaseAdminPath);
       console.log(`[Import API] firebase-admin exists in standalone: ${firebaseAdminExists}`);
+      
       if (!firebaseAdminExists) {
-        console.warn(`[Import API] ⚠️  firebase-admin not found in standalone build. The script will try alternative resolution methods.`);
+        console.error(`[Import API] ❌ firebase-admin NOT found in standalone build at: ${firebaseAdminPath}`);
+        console.error(`[Import API] This means firebase-admin was not included in the Next.js standalone build.`);
+        console.error(`[Import API] The script will try alternative resolution methods, but this may fail.`);
+        console.error(`[Import API] Solution: Ensure firebase-admin is used in API routes so Next.js includes it.`);
+      } else {
+        console.log(`[Import API] ✅ firebase-admin found in standalone build`);
       }
     }
     

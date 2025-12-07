@@ -515,30 +515,21 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
         });
       }
 
-      console.log(`[Webhook] Querying for product with sourceShopifyId: ${shopifyProduct.id} (type: ${typeof shopifyProduct.id})`);
+      // Convert shopifyProduct.id to number for query (products store sourceShopifyId as number)
+      // Shopify webhook sends id as string, but we store it as number in Firestore
+      const shopifyIdAsNumber = typeof shopifyProduct.id === 'string' 
+        ? Number(shopifyProduct.id) 
+        : shopifyProduct.id;
+      
+      console.log(`[Webhook] Querying for product with sourceShopifyId: ${shopifyIdAsNumber} (type: ${typeof shopifyIdAsNumber})`);
       const snapshot = await productsCollection
-        .where('sourceShopifyId', '==', shopifyProduct.id.toString())
+        .where('sourceShopifyId', '==', shopifyIdAsNumber)
         .get();
 
-      console.log(`[Webhook] Found ${snapshot.empty ? 0 : snapshot.docs.length} product(s) in storefront "${storefront}" with sourceShopifyId: ${shopifyProduct.id}`);
+      console.log(`[Webhook] Found ${snapshot.empty ? 0 : snapshot.docs.length} product(s) in storefront "${storefront}" with sourceShopifyId: ${shopifyIdAsNumber}`);
       
       if (snapshot.empty) {
-        // Try alternative queries to debug
-        console.log(`[Webhook] ⚠️  No products found with exact match. Trying alternative queries...`);
-        
-        // Try as number
-        const numSnapshot = await productsCollection
-          .where('sourceShopifyId', '==', Number(shopifyProduct.id))
-          .get();
-        console.log(`[Webhook] Query as number (${Number(shopifyProduct.id)}): Found ${numSnapshot.size} product(s)`);
-        
-        // Try without toString
-        const rawSnapshot = await productsCollection
-          .where('sourceShopifyId', '==', shopifyProduct.id)
-          .get();
-        console.log(`[Webhook] Query as raw value (${shopifyProduct.id}): Found ${rawSnapshot.size} product(s)`);
-        
-        // List all sourceShopifyId values in this storefront (first 10)
+        // Log sample sourceShopifyId values for debugging
         const allSourceIds = [];
         for (const doc of allProductsSnapshot.docs) {
           const data = doc.data();
@@ -551,8 +542,7 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
           }
         }
         console.log(`[Webhook] Sample sourceShopifyId values in "${storefront}":`, allSourceIds.slice(0, 5));
-        
-        console.log(`[Webhook] ⚠️  No products found in storefront "${storefront}" with sourceShopifyId: ${shopifyProduct.id}. Product may not have been imported to this storefront yet.`);
+        console.log(`[Webhook] ⚠️  No products found in storefront "${storefront}" with sourceShopifyId: ${shopifyIdAsNumber}. Product may not have been imported to this storefront yet.`);
         continue; // No products in this storefront
       }
 

@@ -102,8 +102,12 @@ async function handleProductDeletion(db, shopifyProductId) {
   for (const storefront of storefrontsToUpdate) {
     try {
       const productsCollection = db.collection(storefront).doc('products').collection('items');
+      // Convert to number for query (products store sourceShopifyId as number)
+      const shopifyIdAsNumber = typeof shopifyProductId === 'string' 
+        ? Number(shopifyProductId) 
+        : shopifyProductId;
       const productSnapshot = await productsCollection
-        .where('sourceShopifyId', '==', shopifyProductId.toString())
+        .where('sourceShopifyId', '==', shopifyIdAsNumber)
         .get();
 
       for (const productDoc of productSnapshot.docs) {

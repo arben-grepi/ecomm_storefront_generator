@@ -5,6 +5,11 @@ const nextConfig = {
   // Enable standalone output for Firebase App Hosting
   // This creates a minimal server bundle with only necessary dependencies
   output: 'standalone',
+  // Ensure firebase-admin is included in standalone build
+  // This is needed for scripts that run separately from the Next.js server
+  experimental: {
+    serverComponentsExternalPackages: ['firebase-admin'],
+  },
   // Suppress favicon.ico 404 errors in development
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
