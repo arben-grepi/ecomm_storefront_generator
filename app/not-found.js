@@ -12,9 +12,9 @@ export default function NotFound() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Get storefront from context first, then calculate it
-    // getStorefront() will check cookie (set by middleware), then cache, then URL
-    // This ensures we get the most accurate storefront
+    // Get storefront from cookie/cache (set by middleware) - don't use URL parameters
+    // This ensures 404 page uses the correct storefront even if URL is wrong
+    // Priority: Context (from cookie) > getStorefront() (checks cookie, then cache)
     const currentStorefront = storefrontFromContext || getStorefront();
     setStorefront(currentStorefront);
     setMounted(true);

@@ -20,10 +20,12 @@ function ProductCard({ product, categorySlug }) {
     setTimeout(() => setIsNavigating(false), 2000);
   };
 
-  // LUNERA is the default storefront at root path
+  // Product URLs no longer include category
+  // Root (LUNERA): /product-slug
+  // Other storefronts: /storefront/product-slug
   const productPath = storefront === 'LUNERA' 
-    ? `/${categorySlug}/${product.slug}`
-    : `/${storefront}/${categorySlug}/${product.slug}`;
+    ? `/${product.slug}`
+    : `/${storefront}/${product.slug}`;
 
   return (
     <div className="relative">

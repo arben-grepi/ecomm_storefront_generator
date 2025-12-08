@@ -109,10 +109,11 @@ export async function middleware(request) {
   }
 
   // Extract storefront from URL path
-  // Root (/) is now LUNERA (default storefront)
+  // Root (/) is LUNERA (default storefront)
   // Other storefronts are at /FIVESTARFINDS, etc.
+  // Product URLs: /product-slug (LUNERA) or /storefront/product-slug
   const segments = pathname.split('/').filter(Boolean);
-  const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart', 'orders'];
+  const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart', 'orders', 'checkout'];
   let storefront = null;
   
   // Check if we're on the cart page - if so, use existing storefront cookie or default
@@ -123,8 +124,15 @@ export async function middleware(request) {
   } else if (segments.length === 0 || pathname === '/') {
     // Root path (/) is LUNERA (default storefront)
     storefront = 'LUNERA';
-  } else if (segments.length > 0 && !excludedSegments.includes(segments[0].toLowerCase())) {
-    // First segment is a storefront name (e.g., /FIVESTARFINDS)
+  } else if (segments.length === 1 && !excludedSegments.includes(segments[0].toLowerCase())) {
+    // Single segment - could be storefront home (e.g., /FIVESTARFINDS) or product (e.g., /product-slug)
+    // If it's all uppercase and no hyphens, treat as storefront; otherwise treat as product (LUNERA)
+    const firstSegment = segments[0];
+    const isLikelyStorefront = firstSegment === firstSegment.toUpperCase() && !firstSegment.includes('-');
+    storefront = isLikelyStorefront ? firstSegment.toUpperCase() : 'LUNERA';
+  } else if (segments.length >= 2 && !excludedSegments.includes(segments[0].toLowerCase())) {
+    // Two or more segments (e.g., /FIVESTARFINDS/product-slug)
+    // First segment is a storefront name
     storefront = segments[0].toUpperCase();
   } else {
     // For excluded paths (order-confirmation, orders, etc.), use existing cookie or default to LUNERA

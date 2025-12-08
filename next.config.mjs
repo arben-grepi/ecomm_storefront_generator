@@ -7,9 +7,8 @@ const nextConfig = {
   output: 'standalone',
   // Ensure firebase-admin is included in standalone build
   // This is needed for scripts that run separately from the Next.js server
-  experimental: {
-    serverComponentsExternalPackages: ['firebase-admin'],
-  },
+  // Note: In Next.js 16+, serverComponentsExternalPackages moved to serverExternalPackages
+  serverExternalPackages: ['firebase-admin'],
   // Suppress favicon.ico 404 errors in development
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,

@@ -22,10 +22,16 @@ function CategoryCard({ category, products }) {
     setTimeout(() => setIsNavigating(false), 2000);
   };
 
+  // Categories are now filters on the home page, not separate pages
+  // Link to home page with category filter
+  const categoryLink = storefront === 'LUNERA' 
+    ? `/?category=${category.id}`
+    : `/${storefront}?category=${category.id}`;
+
   return (
     <div className="relative">
       <Link
-        href={`/${storefront}/${category.slug}`}
+        href={categoryLink}
         onClick={handleClick}
         className="group flex flex-col overflow-hidden rounded-2xl border border-secondary/70 bg-white/90 shadow-sm transition hover:-translate-y-1 hover:shadow-xl sm:rounded-3xl"
         prefetch

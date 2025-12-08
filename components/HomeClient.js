@@ -449,8 +449,15 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
         marginBottom={siteInfo.heroBannerMarginBottom || 40}
       >
         {/* Hero text content centered on banner */}
-        <section className="w-full px-4 py-10 sm:px-6 sm:py-16">
-          <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+        <section 
+          className="px-4 py-10 sm:px-6 sm:py-16"
+          style={{ 
+            maxWidth: `${siteInfo.heroBannerTextWidth ?? 75}%`,
+            margin: '0 auto',
+            width: '100%',
+          }}
+        >
+          <div className="mx-auto flex flex-col items-center gap-6 text-center">
             {siteInfo.heroMainHeading && !siteInfo.heroMainHeading.includes('Something went wrong') && (() => {
               const colorPalette = {
                 colorPrimary: siteInfo.colorPrimary,

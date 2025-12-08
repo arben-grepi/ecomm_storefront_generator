@@ -23,6 +23,7 @@ export default function EditSiteInfoButton({ className = '' }) {
     heroBannerImage: '',
     heroBannerMaxHeight: 550,
     heroBannerMarginBottom: 40,
+    heroBannerTextWidth: 75,
     categorySectionHeading: '',
     categorySectionDescription: '',
     allCategoriesTagline: '',
@@ -40,6 +41,7 @@ export default function EditSiteInfoButton({ className = '' }) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [textWidthChanged, setTextWidthChanged] = useState(false);
 
   // Initialize selectedStorefront when modal opens
   useEffect(() => {
@@ -78,6 +80,7 @@ export default function EditSiteInfoButton({ className = '' }) {
           heroBannerImage: data.heroBannerImage || '',
           heroBannerMaxHeight: data.heroBannerMaxHeight || 550,
           heroBannerMarginBottom: data.heroBannerMarginBottom || 40,
+          heroBannerTextWidth: data.heroBannerTextWidth || 75,
           categorySectionHeading: data.categorySectionHeading || '',
           categorySectionDescription: data.categorySectionDescription || '',
           allCategoriesTagline: data.allCategoriesTagline || '',
@@ -100,6 +103,7 @@ export default function EditSiteInfoButton({ className = '' }) {
           heroBannerImage: '',
           heroBannerMaxHeight: 550,
           heroBannerMarginBottom: 40,
+          heroBannerTextWidth: 75,
           categorySectionHeading: '',
           categorySectionDescription: '',
           allCategoriesTagline: '',
@@ -130,6 +134,7 @@ export default function EditSiteInfoButton({ className = '' }) {
       heroBannerImage: '',
       heroBannerMaxHeight: 550,
       heroBannerMarginBottom: 40,
+      heroBannerTextWidth: 75,
       categorySectionHeading: '',
           categorySectionDescription: '',
           allCategoriesTagline: '',
@@ -168,6 +173,7 @@ export default function EditSiteInfoButton({ className = '' }) {
         heroBannerImage: form.heroBannerImage.trim() || '',
         heroBannerMaxHeight: form.heroBannerMaxHeight || 550,
         heroBannerMarginBottom: form.heroBannerMarginBottom || 40,
+        heroBannerTextWidth: form.heroBannerTextWidth || 75,
         categorySectionHeading: form.categorySectionHeading.trim() || '',
         categorySectionDescription: form.categorySectionDescription.trim() || '',
         allCategoriesTagline: form.allCategoriesTagline.trim() || '',
@@ -243,8 +249,10 @@ export default function EditSiteInfoButton({ className = '' }) {
               heroBannerImage={form.heroBannerImage}
               allCategoriesTagline={form.allCategoriesTagline}
               footerText={form.footerText}
-              maxHeight={form.heroBannerMaxHeight}
-              marginBottom={form.heroBannerMarginBottom}
+              maxHeight={form.heroBannerMaxHeight || 550}
+              marginBottom={form.heroBannerMarginBottom || 40}
+              textWidth={form.heroBannerTextWidth || 75}
+              highlightTextWidth={textWidthChanged}
               colorPalette={{
                 colorPrimary: form.colorPrimary,
                 colorSecondary: form.colorSecondary,
@@ -401,7 +409,11 @@ export default function EditSiteInfoButton({ className = '' }) {
                           {form.heroBannerImage && (
                             <button
                               type="button"
-                              onClick={() => setForm((prev) => ({ ...prev, heroBannerImage: '' }))}
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to remove the banner image? This will remove the banner from your homepage and the hero text will be displayed without a background image.')) {
+                                  setForm((prev) => ({ ...prev, heroBannerImage: '' }));
+                                }
+                              }}
                               className="mt-1.5 w-full rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
                             >
                               Remove
@@ -431,6 +443,24 @@ export default function EditSiteInfoButton({ className = '' }) {
                             max="200"
                             value={form.heroBannerMarginBottom}
                             onChange={(e) => setForm((prev) => ({ ...prev, heroBannerMarginBottom: Number(e.target.value) }))}
+                            className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                            Text Width: {form.heroBannerTextWidth}%
+                          </label>
+                          <input
+                            type="range"
+                            min="10"
+                            max="100"
+                            step="1"
+                            value={form.heroBannerTextWidth}
+                            onChange={(e) => {
+                              setForm((prev) => ({ ...prev, heroBannerTextWidth: Number(e.target.value) }));
+                              setTextWidthChanged(true);
+                              setTimeout(() => setTextWidthChanged(false), 1000);
+                            }}
                             className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
                           />
                         </div>

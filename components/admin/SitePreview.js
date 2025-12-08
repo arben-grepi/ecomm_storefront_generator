@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Banner from '@/components/Banner';
 import CategoryCarousel from '@/components/CategoryCarousel';
@@ -23,6 +24,8 @@ export default function SitePreview({
   // Banner settings
   maxHeight,
   marginBottom,
+  textWidth,
+  highlightTextWidth,
   // Colors
   colorPalette,
   heroDescriptionColor,
@@ -40,6 +43,18 @@ export default function SitePreview({
   const footerColorProps = getTextColorProps(footerTextColor || 'tertiary', colorPalette);
 
   const primaryColor = colorPalette?.colorPrimary || '#ec4899';
+  const [showTextWidthBorder, setShowTextWidthBorder] = useState(false);
+
+  // Handle text width highlight
+  useEffect(() => {
+    if (highlightTextWidth) {
+      setShowTextWidthBorder(true);
+      const timer = setTimeout(() => {
+        setShowTextWidthBorder(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightTextWidth]);
 
   return (
     <div className="relative bg-white overflow-y-auto h-full w-full">
@@ -80,8 +95,18 @@ export default function SitePreview({
           marginBottom={marginBottom || 40}
           className="w-full"
         >
-          <section className="w-full px-4 py-10 sm:px-6 sm:py-16">
-            <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+          <section 
+            className="px-4 py-10 sm:px-6 sm:py-16 transition-all duration-300"
+            style={{ 
+              maxWidth: `${textWidth ?? 75}%`,
+              margin: '0 auto',
+              width: '100%',
+              border: showTextWidthBorder ? `3px solid ${primaryColor}` : '3px solid transparent',
+              borderRadius: showTextWidthBorder ? '8px' : '0px',
+              padding: showTextWidthBorder ? 'calc(1rem + 8px) calc(1rem + 8px)' : undefined,
+            }}
+          >
+            <div className="mx-auto flex flex-col items-center gap-6 text-center">
               {heroMainHeading && (() => {
                 const wrappedText = preventOrphanedWords(heroMainHeading);
                 return (
@@ -104,8 +129,18 @@ export default function SitePreview({
       ) : (
         // Hero section without banner
         (heroMainHeading || heroDescription) && (
-          <section className="w-full px-4 py-10 sm:px-6 sm:py-16">
-            <div className="mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
+          <section 
+            className="px-4 py-10 sm:px-6 sm:py-16 transition-all duration-300"
+            style={{ 
+              maxWidth: `${textWidth ?? 75}%`,
+              margin: '0 auto',
+              width: '100%',
+              border: showTextWidthBorder ? `3px solid ${primaryColor}` : '3px solid transparent',
+              borderRadius: showTextWidthBorder ? '8px' : '0px',
+              padding: showTextWidthBorder ? 'calc(1rem + 8px) calc(1rem + 8px)' : undefined,
+            }}
+          >
+            <div className="mx-auto flex flex-col items-center gap-6 text-center">
               {heroMainHeading && (() => {
                 const wrappedText = preventOrphanedWords(heroMainHeading);
                 return (
