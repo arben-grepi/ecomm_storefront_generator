@@ -26,6 +26,11 @@ export default function SitePreview({
   marginBottom,
   textWidth,
   highlightTextWidth,
+  // Hero text styling
+  heroMainHeadingFontFamily,
+  heroMainHeadingFontStyle,
+  heroMainHeadingFontWeight,
+  heroMainHeadingFontSize,
   // Colors
   colorPalette,
   heroDescriptionColor,
@@ -57,7 +62,7 @@ export default function SitePreview({
   }, [highlightTextWidth]);
 
   return (
-    <div className="relative bg-white overflow-y-auto h-full w-full">
+    <div className="relative bg-white overflow-y-auto" style={{ height: '100vh', width: '100vw' }}>
       {/* Mock Header - Non-clickable */}
       <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
@@ -111,8 +116,13 @@ export default function SitePreview({
                 const wrappedText = preventOrphanedWords(heroMainHeading);
                 return (
                   <h2 
-                    className="text-3xl font-light sm:text-5xl"
-                    style={{ color: colorPalette?.colorPrimary || '#ec4899' }}
+                    style={{ 
+                      color: colorPalette?.colorPrimary || '#ec4899',
+                      fontFamily: heroMainHeadingFontFamily || 'inherit',
+                      fontStyle: heroMainHeadingFontStyle || 'normal',
+                      fontWeight: heroMainHeadingFontWeight || '300',
+                      fontSize: `${heroMainHeadingFontSize || 48}px`,
+                    }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />
                 );
@@ -145,8 +155,13 @@ export default function SitePreview({
                 const wrappedText = preventOrphanedWords(heroMainHeading);
                 return (
                   <h2 
-                    className="text-3xl font-light sm:text-5xl"
-                    style={{ color: colorPalette?.colorPrimary || '#ec4899' }}
+                    style={{ 
+                      color: colorPalette?.colorPrimary || '#ec4899',
+                      fontFamily: heroMainHeadingFontFamily || 'inherit',
+                      fontStyle: heroMainHeadingFontStyle || 'normal',
+                      fontWeight: heroMainHeadingFontWeight || '300',
+                      fontSize: `${heroMainHeadingFontSize || 48}px`,
+                    }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />
                 );

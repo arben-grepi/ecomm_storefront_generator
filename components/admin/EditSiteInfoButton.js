@@ -24,6 +24,10 @@ export default function EditSiteInfoButton({ className = '' }) {
     heroBannerMaxHeight: 550,
     heroBannerMarginBottom: 40,
     heroBannerTextWidth: 75,
+    heroMainHeadingFontFamily: 'inherit',
+    heroMainHeadingFontStyle: 'normal',
+    heroMainHeadingFontWeight: '300',
+    heroMainHeadingFontSize: 48,
     categorySectionHeading: '',
     categorySectionDescription: '',
     allCategoriesTagline: '',
@@ -81,6 +85,10 @@ export default function EditSiteInfoButton({ className = '' }) {
           heroBannerMaxHeight: data.heroBannerMaxHeight || 550,
           heroBannerMarginBottom: data.heroBannerMarginBottom || 40,
           heroBannerTextWidth: data.heroBannerTextWidth || 75,
+          heroMainHeadingFontFamily: data.heroMainHeadingFontFamily || 'inherit',
+          heroMainHeadingFontStyle: data.heroMainHeadingFontStyle || 'normal',
+          heroMainHeadingFontWeight: data.heroMainHeadingFontWeight || '300',
+          heroMainHeadingFontSize: data.heroMainHeadingFontSize || 48,
           categorySectionHeading: data.categorySectionHeading || '',
           categorySectionDescription: data.categorySectionDescription || '',
           allCategoriesTagline: data.allCategoriesTagline || '',
@@ -104,6 +112,10 @@ export default function EditSiteInfoButton({ className = '' }) {
           heroBannerMaxHeight: 550,
           heroBannerMarginBottom: 40,
           heroBannerTextWidth: 75,
+          heroMainHeadingFontFamily: 'inherit',
+          heroMainHeadingFontStyle: 'normal',
+          heroMainHeadingFontWeight: '300',
+          heroMainHeadingFontSize: 48,
           categorySectionHeading: '',
           categorySectionDescription: '',
           allCategoriesTagline: '',
@@ -135,6 +147,10 @@ export default function EditSiteInfoButton({ className = '' }) {
       heroBannerMaxHeight: 550,
       heroBannerMarginBottom: 40,
       heroBannerTextWidth: 75,
+      heroMainHeadingFontFamily: 'inherit',
+      heroMainHeadingFontStyle: 'normal',
+      heroMainHeadingFontWeight: '300',
+      heroMainHeadingFontSize: 48,
       categorySectionHeading: '',
           categorySectionDescription: '',
           allCategoriesTagline: '',
@@ -174,6 +190,10 @@ export default function EditSiteInfoButton({ className = '' }) {
         heroBannerMaxHeight: form.heroBannerMaxHeight || 550,
         heroBannerMarginBottom: form.heroBannerMarginBottom || 40,
         heroBannerTextWidth: form.heroBannerTextWidth || 75,
+        heroMainHeadingFontFamily: form.heroMainHeadingFontFamily || 'inherit',
+        heroMainHeadingFontStyle: form.heroMainHeadingFontStyle || 'normal',
+        heroMainHeadingFontWeight: form.heroMainHeadingFontWeight || '300',
+        heroMainHeadingFontSize: form.heroMainHeadingFontSize || 48,
         categorySectionHeading: form.categorySectionHeading.trim() || '',
         categorySectionDescription: form.categorySectionDescription.trim() || '',
         allCategoriesTagline: form.allCategoriesTagline.trim() || '',
@@ -241,7 +261,7 @@ export default function EditSiteInfoButton({ className = '' }) {
       {createPortal(
         <div className="fixed inset-0 z-50 flex flex-col bg-white">
           {/* Full-screen Preview */}
-          <div className="flex-1 overflow-hidden">
+          <div className="overflow-hidden" style={{ height: '100vh', width: '100vw' }}>
             <SitePreview
               companyTagline={form.companyTagline}
               heroMainHeading={form.heroMainHeading}
@@ -253,6 +273,10 @@ export default function EditSiteInfoButton({ className = '' }) {
               marginBottom={form.heroBannerMarginBottom || 40}
               textWidth={form.heroBannerTextWidth || 75}
               highlightTextWidth={textWidthChanged}
+              heroMainHeadingFontFamily={form.heroMainHeadingFontFamily}
+              heroMainHeadingFontStyle={form.heroMainHeadingFontStyle}
+              heroMainHeadingFontWeight={form.heroMainHeadingFontWeight}
+              heroMainHeadingFontSize={form.heroMainHeadingFontSize}
               colorPalette={{
                 colorPrimary: form.colorPrimary,
                 colorSecondary: form.colorSecondary,
@@ -463,6 +487,88 @@ export default function EditSiteInfoButton({ className = '' }) {
                             }}
                             className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
                           />
+                        </div>
+                      </div>
+
+                      {/* Hero Text Settings Section */}
+                      <div className="space-y-3 border-r border-zinc-200/50 dark:border-zinc-700 pr-4">
+                        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Hero Text Settings</h3>
+                        <div>
+                          <label htmlFor="heroMainHeadingFontFamily" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                            Font Family
+                          </label>
+                          <select
+                            id="heroMainHeadingFontFamily"
+                            value={form.heroMainHeadingFontFamily}
+                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontFamily: e.target.value }))}
+                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          >
+                            <option value="inherit">Default (System)</option>
+                            <option value="serif">Serif</option>
+                            <option value="sans-serif">Sans Serif</option>
+                            <option value="monospace">Monospace</option>
+                            <option value="cursive">Cursive</option>
+                            <option value="fantasy">Fantasy</option>
+                            <option value="'Playfair Display', serif">Playfair Display</option>
+                            <option value="'Roboto', sans-serif">Roboto</option>
+                            <option value="'Open Sans', sans-serif">Open Sans</option>
+                            <option value="'Montserrat', sans-serif">Montserrat</option>
+                            <option value="'Lora', serif">Lora</option>
+                            <option value="'Merriweather', serif">Merriweather</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="heroMainHeadingFontStyle" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                            Font Style
+                          </label>
+                          <select
+                            id="heroMainHeadingFontStyle"
+                            value={form.heroMainHeadingFontStyle}
+                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontStyle: e.target.value }))}
+                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                          >
+                            <option value="normal">Normal</option>
+                            <option value="italic">Italic</option>
+                            <option value="oblique">Oblique</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label htmlFor="heroMainHeadingFontWeight" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                            Font Weight: {form.heroMainHeadingFontWeight}
+                          </label>
+                          <input
+                            type="range"
+                            min="100"
+                            max="900"
+                            step="100"
+                            value={form.heroMainHeadingFontWeight}
+                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontWeight: e.target.value }))}
+                            className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                          />
+                          <div className="mt-1 flex justify-between text-[10px] text-zinc-500">
+                            <span>Thin</span>
+                            <span>Normal</span>
+                            <span>Bold</span>
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="heroMainHeadingFontSize" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                            Font Size: {form.heroMainHeadingFontSize}px
+                          </label>
+                          <input
+                            type="range"
+                            min="24"
+                            max="120"
+                            step="2"
+                            value={form.heroMainHeadingFontSize}
+                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontSize: Number(e.target.value) }))}
+                            className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                          />
+                          <div className="mt-1 flex justify-between text-[10px] text-zinc-500">
+                            <span>Small</span>
+                            <span>Medium</span>
+                            <span>Large</span>
+                          </div>
                         </div>
                       </div>
 

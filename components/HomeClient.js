@@ -198,11 +198,17 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   };
   
   // Filter out error messages from heroMainHeading (in case it's stored in DB)
+  // Include all font properties from rawInfo
   const siteInfo = {
     ...rawInfo,
     heroMainHeading: rawInfo.heroMainHeading && rawInfo.heroMainHeading.includes('Something went wrong')
       ? ''
       : rawInfo.heroMainHeading || '',
+    // Ensure font properties are included (they should come from rawInfo, but explicitly include them)
+    heroMainHeadingFontFamily: rawInfo.heroMainHeadingFontFamily,
+    heroMainHeadingFontStyle: rawInfo.heroMainHeadingFontStyle,
+    heroMainHeadingFontWeight: rawInfo.heroMainHeadingFontWeight,
+    heroMainHeadingFontSize: rawInfo.heroMainHeadingFontSize,
   };
   
   // Log if we filtered out an error message
@@ -468,8 +474,13 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               const wrappedText = preventOrphanedWords(siteInfo.heroMainHeading);
               return (
                 <h2 
-                  className="text-3xl font-light sm:text-5xl"
-                  style={{ color: primaryColor }}
+                  style={{ 
+                    color: primaryColor,
+                    fontFamily: siteInfo.heroMainHeadingFontFamily || 'inherit',
+                    fontStyle: siteInfo.heroMainHeadingFontStyle || 'normal',
+                    fontWeight: siteInfo.heroMainHeadingFontWeight || '300',
+                    fontSize: `${siteInfo.heroMainHeadingFontSize || 48}px`,
+                  }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />
               );
