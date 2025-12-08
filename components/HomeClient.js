@@ -479,7 +479,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                     fontFamily: siteInfo.heroMainHeadingFontFamily || 'inherit',
                     fontStyle: siteInfo.heroMainHeadingFontStyle || 'normal',
                     fontWeight: siteInfo.heroMainHeadingFontWeight || '300',
-                    fontSize: `${siteInfo.heroMainHeadingFontSize || 48}px`,
+                    fontSize: `clamp(1.5rem, ${siteInfo.heroMainHeadingFontSize || 4}vw, 6rem)`,
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />

@@ -121,7 +121,7 @@ export default function SitePreview({
                       fontFamily: heroMainHeadingFontFamily || 'inherit',
                       fontStyle: heroMainHeadingFontStyle || 'normal',
                       fontWeight: heroMainHeadingFontWeight || '300',
-                      fontSize: `${heroMainHeadingFontSize || 48}px`,
+                      fontSize: `clamp(1.5rem, ${heroMainHeadingFontSize || 4}vw, 6rem)`,
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />
@@ -160,7 +160,7 @@ export default function SitePreview({
                       fontFamily: heroMainHeadingFontFamily || 'inherit',
                       fontStyle: heroMainHeadingFontStyle || 'normal',
                       fontWeight: heroMainHeadingFontWeight || '300',
-                      fontSize: `${heroMainHeadingFontSize || 48}px`,
+                      fontSize: `clamp(1.5rem, ${heroMainHeadingFontSize || 4}vw, 6rem)`,
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />

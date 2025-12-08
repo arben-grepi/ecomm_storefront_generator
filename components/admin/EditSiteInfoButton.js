@@ -27,7 +27,7 @@ export default function EditSiteInfoButton({ className = '' }) {
     heroMainHeadingFontFamily: 'inherit',
     heroMainHeadingFontStyle: 'normal',
     heroMainHeadingFontWeight: '300',
-    heroMainHeadingFontSize: 48,
+    heroMainHeadingFontSize: 4,
     categorySectionHeading: '',
     categorySectionDescription: '',
     allCategoriesTagline: '',
@@ -88,7 +88,7 @@ export default function EditSiteInfoButton({ className = '' }) {
           heroMainHeadingFontFamily: data.heroMainHeadingFontFamily || 'inherit',
           heroMainHeadingFontStyle: data.heroMainHeadingFontStyle || 'normal',
           heroMainHeadingFontWeight: data.heroMainHeadingFontWeight || '300',
-          heroMainHeadingFontSize: data.heroMainHeadingFontSize || 48,
+          heroMainHeadingFontSize: data.heroMainHeadingFontSize || 4,
           categorySectionHeading: data.categorySectionHeading || '',
           categorySectionDescription: data.categorySectionDescription || '',
           allCategoriesTagline: data.allCategoriesTagline || '',
@@ -115,7 +115,7 @@ export default function EditSiteInfoButton({ className = '' }) {
           heroMainHeadingFontFamily: 'inherit',
           heroMainHeadingFontStyle: 'normal',
           heroMainHeadingFontWeight: '300',
-          heroMainHeadingFontSize: 48,
+          heroMainHeadingFontSize: 4,
           categorySectionHeading: '',
           categorySectionDescription: '',
           allCategoriesTagline: '',
@@ -150,7 +150,7 @@ export default function EditSiteInfoButton({ className = '' }) {
       heroMainHeadingFontFamily: 'inherit',
       heroMainHeadingFontStyle: 'normal',
       heroMainHeadingFontWeight: '300',
-      heroMainHeadingFontSize: 48,
+      heroMainHeadingFontSize: 4,
       categorySectionHeading: '',
           categorySectionDescription: '',
           allCategoriesTagline: '',
@@ -193,7 +193,7 @@ export default function EditSiteInfoButton({ className = '' }) {
         heroMainHeadingFontFamily: form.heroMainHeadingFontFamily || 'inherit',
         heroMainHeadingFontStyle: form.heroMainHeadingFontStyle || 'normal',
         heroMainHeadingFontWeight: form.heroMainHeadingFontWeight || '300',
-        heroMainHeadingFontSize: form.heroMainHeadingFontSize || 48,
+        heroMainHeadingFontSize: form.heroMainHeadingFontSize || 4,
         categorySectionHeading: form.categorySectionHeading.trim() || '',
         categorySectionDescription: form.categorySectionDescription.trim() || '',
         allCategoriesTagline: form.allCategoriesTagline.trim() || '',
@@ -553,13 +553,13 @@ export default function EditSiteInfoButton({ className = '' }) {
                         </div>
                         <div>
                           <label htmlFor="heroMainHeadingFontSize" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Font Size: {form.heroMainHeadingFontSize}px
+                            Font Size: {form.heroMainHeadingFontSize}vw
                           </label>
                           <input
                             type="range"
-                            min="24"
-                            max="120"
-                            step="2"
+                            min="2"
+                            max="10"
+                            step="0.1"
                             value={form.heroMainHeadingFontSize}
                             onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontSize: Number(e.target.value) }))}
                             className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
@@ -569,6 +569,7 @@ export default function EditSiteInfoButton({ className = '' }) {
                             <span>Medium</span>
                             <span>Large</span>
                           </div>
+                          <p className="mt-1 text-[10px] text-zinc-400">Scales with viewport width</p>
                         </div>
                       </div>
 
