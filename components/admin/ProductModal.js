@@ -58,7 +58,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const [displayName, setDisplayName] = useState('');
   const [displayDescription, setDisplayDescription] = useState('');
   const [bulletPoints, setBulletPoints] = useState([]);
-  const [showOnlyInStock, setShowOnlyInStock] = useState(false);
+  const [showOnlyInStock, setShowOnlyInStock] = useState(true); // Default to showing only in-stock variants
   const [expandedVariants, setExpandedVariants] = useState(new Set());
   const [productId, setProductId] = useState(null); // For edit mode
   const [variantImages, setVariantImages] = useState({});
@@ -87,18 +87,33 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   
   const sortedVariants = useMemo(() => {
     if (mode === 'shopify') {
-      return sortVariantsList(item?.rawProduct?.variants || item?.variants || []);
+      return sortVariantsList(item?.rawProduct?.variants || item?.variants || [], itemOptions);
     }
     return sortVariantsList(manualVariants);
-  }, [mode, item, manualVariants]);
+  }, [mode, item, manualVariants, itemOptions]);
   
   const allVariants = sortedVariants;
 
+  // Wrapper functions that include product options for Shopify mode
+  const getVariantColorWithOptions = useCallback(
+    (variant) => {
+      return getVariantColor(variant, mode === 'shopify' ? itemOptions : null);
+    },
+    [mode, itemOptions]
+  );
+
+  const getVariantGroupKeyWithOptions = useCallback(
+    (variant) => {
+      return getVariantGroupKey(variant, mode === 'shopify' ? itemOptions : null);
+    },
+    [mode, itemOptions]
+  );
+
   const getSameColorVariantIds = useCallback(
     (variantId, variantsList = allVariants) => {
-      return getVariantsWithSameColor(variantsList, variantId);
+      return getVariantsWithSameColor(variantsList, variantId, mode === 'shopify' ? itemOptions : null);
     },
-    [allVariants]
+    [allVariants, mode, itemOptions]
   );
 
   const getVariantDefaultImages = (variant) => {
@@ -781,11 +796,11 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                     getSelectedVariantImages={getSelectedVariantImages}
                     selectedImages={selectedImages}
                     availableImages={availableImages}
-                    getVariantGroupKey={getVariantGroupKey}
+                    getVariantGroupKey={getVariantGroupKeyWithOptions}
                     getSameColorVariantIds={getSameColorVariantIds}
                     handleVariantImageToggle={handleVariantImageToggle}
                     handleRemoveVariant={handleRemoveVariant}
-                    getVariantColor={getVariantColor}
+                    getVariantColor={getVariantColorWithOptions}
                   />
                 ) : (
                   <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-8 text-center text-zinc-500">

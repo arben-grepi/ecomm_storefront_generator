@@ -318,11 +318,14 @@ async function updateStorefrontVariants(db, inventoryItemId, locationId, locatio
             }
 
             // Update variant with location-specific inventory
+            // CRITICAL: NEVER update images or defaultPhoto in storefront collections
+            // Images are manually selected during import and must never be touched by webhooks
             variantUpdates.push(
               variantDoc.ref.update({
                 inventory_levels: updatedLevels,
                 stock: totalAvailable, // Keep for backward compatibility
                 updatedAt: FieldValue.serverTimestamp(),
+                // NOTE: images and defaultPhoto are INTENTIONALLY NOT included
               })
             );
           }

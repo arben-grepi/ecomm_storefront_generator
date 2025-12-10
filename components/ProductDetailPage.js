@@ -152,9 +152,10 @@ export default function ProductDetailPage({ category, product, variants, info = 
     footerText: '',
   };
   
-  // Check if variants have colors (only if they match known colors)
+  // Check if variants have colors
+  // Trust that if variant.color exists, it IS a color (set using Shopify options during import)
   const hasColors = useMemo(() => {
-    return variants.some((v) => v.color && v.color !== 'default' && isKnownColor(v.color));
+    return variants.some((v) => v.color && v.color !== 'default' && !isCountry(v.color));
   }, [variants]);
   
   const hasTypes = useMemo(() => {
@@ -162,24 +163,22 @@ export default function ProductDetailPage({ category, product, variants, info = 
   }, [variants]);
 
   // Group variants by color or type (include all variants for grouping, filtering happens later)
+  // Trust variant.color field - it was set using Shopify options during import
   const variantsByGroup = useMemo(() => {
     if (!hasVariants) return new Map();
     const grouped = new Map();
     variants.forEach((variant) => {
-      // Use color if it's a known color, otherwise use type, otherwise 'default'
+      // Priority: color (if exists) > type > 'default'
+      // If variant.color exists, it IS a color (set using Shopify's "Color" option during import)
       let groupKey = 'default';
-      if (variant.color && isKnownColor(variant.color) && !isCountry(variant.color)) {
-        groupKey = variant.color;
+      if (variant.color && !isCountry(variant.color)) {
+        // Filter out countries but trust that it's a color
+        const filteredColor = filterOutCountries(variant.color);
+        groupKey = filteredColor || 'default';
       } else if (variant.type) {
         // Filter out countries from type
         const filteredType = filterOutCountries(variant.type);
         groupKey = filteredType || 'default';
-      } else if (variant.color) {
-        // If color exists but isn't a known color, treat it as type (after filtering countries)
-        const filteredColor = filterOutCountries(variant.color);
-        if (filteredColor && !isCountry(variant.color)) {
-          groupKey = filteredColor;
-        }
       }
       if (!grouped.has(groupKey)) {
         grouped.set(groupKey, []);
@@ -213,15 +212,18 @@ export default function ProductDetailPage({ category, product, variants, info = 
   }, [product.defaultVariantId, variants, hasVariants]);
 
   // Initialize selected group and size from default variant
+  // Trust variant.color field - it was set using Shopify options during import
   const getInitialGroup = () => {
     if (defaultVariant) {
-      if (defaultVariant.color && isKnownColor(defaultVariant.color)) {
-        return defaultVariant.color;
-      } else if (defaultVariant.type) {
-        return defaultVariant.type;
-      } else if (defaultVariant.color) {
-        // If color exists but isn't a known color, use it as type
-        return defaultVariant.color;
+      // If color exists, use it (trust that it's a color from Shopify options)
+      if (defaultVariant.color && !isCountry(defaultVariant.color)) {
+        const filteredColor = filterOutCountries(defaultVariant.color);
+        if (filteredColor) return filteredColor;
+      }
+      // Fallback to type
+      if (defaultVariant.type) {
+        const filteredType = filterOutCountries(defaultVariant.type);
+        if (filteredType) return filteredType;
       }
     }
     return availableGroups.length > 0 ? availableGroups[0] : null;
@@ -436,22 +438,15 @@ export default function ProductDetailPage({ category, product, variants, info = 
             const size = selectedVariant.size ? filterOutCountries(selectedVariant.size) : null;
             if (size) parts.push(size);
             
-            // Only include color if it's a known color and not a country
-            if (selectedVariant.color && isKnownColor(selectedVariant.color) && !isCountry(selectedVariant.color)) {
-              parts.push(selectedVariant.color);
+            // Include color if it exists (trust that it's a color from Shopify options)
+            if (selectedVariant.color && !isCountry(selectedVariant.color)) {
+              const filteredColor = filterOutCountries(selectedVariant.color);
+              if (filteredColor) parts.push(filteredColor);
             }
             
             // Filter out countries from type
             const type = selectedVariant.type ? filterOutCountries(selectedVariant.type) : null;
             if (type) parts.push(type);
-            
-            // If color exists but isn't a known color and no type, use it as type (after filtering countries)
-            if (selectedVariant.color && !isKnownColor(selectedVariant.color) && !selectedVariant.type) {
-              const filteredColor = filterOutCountries(selectedVariant.color);
-              if (filteredColor && !isCountry(selectedVariant.color)) {
-                parts.push(filteredColor);
-              }
-            }
             return parts.length > 0 ? parts.join(' ') : 'One size';
           })()
         : 'One size';
@@ -700,8 +695,11 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 <div className="space-y-3">
                   <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
                     {(() => {
-                      // Determine label based on whether selected group is a known color
-                      if (hasColors && isKnownColor(selectedGroup)) {
+                      // Determine label based on whether selected group has colors
+                      // Check if any variant in the selected group has a color field
+                      const groupVariants = variantsByGroup.get(selectedGroup) || [];
+                      const groupHasColor = groupVariants.some(v => v.color && !isCountry(v.color));
+                      if (groupHasColor) {
                         return 'Color';
                       } else if (hasTypes) {
                         return 'Type';
@@ -723,7 +721,9 @@ export default function ProductDetailPage({ category, product, variants, info = 
                           ? firstVariantWithImage.images[0]
                           : firstVariantWithImage.image
                         : null;
-                      const isGroupAColor = isKnownColor(group);
+                      // Check if this group is a color by checking if any variant in the group has a color field
+                      // Trust that if variant.color exists, it IS a color (set using Shopify options during import)
+                      const isGroupAColor = groupVariantsForGroup.some(v => v.color && !isCountry(v.color));
                       return (
                         <button
                           key={group}
@@ -810,22 +810,15 @@ export default function ProductDetailPage({ category, product, variants, info = 
                         const size = selectedVariant.size ? filterOutCountries(selectedVariant.size) : null;
                         if (size) parts.push(size);
                         
-                        // Only include color if it's a known color and not a country
-                        if (selectedVariant.color && isKnownColor(selectedVariant.color) && !isCountry(selectedVariant.color)) {
-                          parts.push(selectedVariant.color);
+                        // Include color if it exists (trust that it's a color from Shopify options)
+                        if (selectedVariant.color && !isCountry(selectedVariant.color)) {
+                          const filteredColor = filterOutCountries(selectedVariant.color);
+                          if (filteredColor) parts.push(filteredColor);
                         }
                         
                         // Filter out countries from type
                         const type = selectedVariant.type ? filterOutCountries(selectedVariant.type) : null;
                         if (type) parts.push(type);
-                        
-                        // If color exists but isn't a known color and no type, use it as type (after filtering countries)
-                        if (selectedVariant.color && !isKnownColor(selectedVariant.color) && !selectedVariant.type) {
-                          const filteredColor = filterOutCountries(selectedVariant.color);
-                          if (filteredColor && !isCountry(selectedVariant.color)) {
-                            parts.push(filteredColor);
-                          }
-                        }
                         return parts.length > 0 ? parts.join(' • ') : 'One size';
                       })()}
                     </span>

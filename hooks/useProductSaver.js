@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc, getDocs, setDoc, serverTimestamp, collection, addDoc, updateDoc, query, where, limit, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { getCollectionPath, getDocumentPath } from '@/lib/store-collections';
-import { getVariantColor, getVariantSize, getVariantGroupKey, cleanVariantName } from '@/lib/variant-utils';
+import { getVariantColor, getVariantSize, getVariantGroupKey, cleanVariantName, normalizeVariantName, cleanBrackets } from '@/lib/variant-utils';
 import { getFullQualityImageUrl } from '@/lib/image-utils';
 
 const slugify = (value) =>
@@ -441,21 +441,51 @@ export function useProductSaver({
         }
       });
       
+      // Get product options for Shopify mode to correctly identify size/color
+      const productOptions = mode === 'shopify' ? (item?.rawProduct?.options || null) : null;
+      
       const normalizedColor = mode === 'shopify' 
-        ? getVariantColor(variant) 
+        ? getVariantColor(variant, productOptions) 
         : (variant.color || null);
       const normalizedSize = mode === 'shopify'
-        ? getVariantSize(variant)
+        ? getVariantSize(variant, productOptions)
         : (variant.size || null);
 
       // Construct variant name from variant data
+      // Always normalize to "color / size" format for consistent grouping
+      // Uses Shopify options ONLY - assumes options are always available
       let variantName = null;
       if (mode === 'shopify') {
-        variantName = variant.title || variant.name || null;
+        // Use normalizeVariantName which uses Shopify options
+        // This requires productOptions to be available
+        if (productOptions && Array.isArray(productOptions) && productOptions.length > 0) {
+          variantName = normalizeVariantName(variant, productOptions);
+        }
+        
+        // If normalization didn't work, construct from selectedOptions directly
         if (!variantName && variant.selectedOptions && Array.isArray(variant.selectedOptions) && variant.selectedOptions.length > 0) {
-          variantName = variant.selectedOptions.map((opt) => opt.value).join(' / ');
+          // Reorder selectedOptions to put color first, size second
+          const colorOptionIndex = productOptions?.findIndex(opt => opt.name && /color|colour/i.test(opt.name)) ?? -1;
+          const sizeOptionIndex = productOptions?.findIndex(opt => opt.name && /size/i.test(opt.name)) ?? -1;
+          
+          const orderedOptions = [];
+          if (colorOptionIndex >= 0 && variant.selectedOptions[colorOptionIndex]) {
+            orderedOptions.push(cleanBrackets(variant.selectedOptions[colorOptionIndex].value));
+          }
+          if (sizeOptionIndex >= 0 && variant.selectedOptions[sizeOptionIndex]) {
+            orderedOptions.push(cleanBrackets(variant.selectedOptions[sizeOptionIndex].value));
+          }
+          // Add any remaining options
+          variant.selectedOptions.forEach((opt, idx) => {
+            if (idx !== colorOptionIndex && idx !== sizeOptionIndex && opt.value) {
+              orderedOptions.push(cleanBrackets(opt.value));
+            }
+          });
+          
+          variantName = orderedOptions.length > 0 ? orderedOptions.join(' / ') : null;
         }
       } else {
+        // Manual mode: construct as "color / size" (already in correct order)
         const nameParts = [];
         if (normalizedColor) nameParts.push(normalizedColor);
         if (variant.type) nameParts.push(variant.type);
@@ -463,7 +493,9 @@ export function useProductSaver({
         variantName = nameParts.length > 0 ? nameParts.join(' / ') : null;
       }
       if (!variantName && variant.variantName) {
-        variantName = variant.variantName;
+        // If variant already has a variantName, try to normalize it
+        const tempVariant = { ...variant, title: variant.variantName };
+        variantName = normalizeVariantName(tempVariant, productOptions) || variant.variantName;
       }
       variantName = cleanVariantName(variantName);
 

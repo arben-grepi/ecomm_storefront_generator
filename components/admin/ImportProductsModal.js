@@ -6,6 +6,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import { getCollectionPath } from '@/lib/store-collections';
 import { useWebsite } from '@/lib/website-context';
+import { getVariantColor, cleanBrackets } from '@/lib/variant-utils';
 import Toast from '@/components/admin/Toast';
 
 export default function ImportProductsModal({ isOpen, onClose, onImport }) {
@@ -38,7 +39,9 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
 
         const shopifyProducts = data.products || [];
 
-        // Check which products already exist in shopifyItems collection
+        // Check which products already exist in shopifyItems collection AND have been imported
+        // Only count products that have storefrontIndexed: true (set by import script)
+        // Webhook-created entries don't have this, so they won't show as "already imported"
         const existingProductsSet = new Set();
         
         if (db) {
@@ -46,8 +49,11 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
             const shopifyItemsSnap = await getDocs(collection(db, ...getCollectionPath('shopifyItems')));
             shopifyItemsSnap.docs.forEach((doc) => {
               const itemData = doc.data();
-              // Check if product has shopifyId (the Shopify product ID)
-              if (itemData.shopifyId) {
+              // Only count as "already imported" if:
+              // 1. Product has shopifyId (the Shopify product ID)
+              // 2. Product has storefrontIndexed: true (indicates it was imported via import script)
+              // This excludes webhook-created entries that haven't been imported yet
+              if (itemData.shopifyId && itemData.storefrontIndexed === true) {
                 existingProductsSet.add(itemData.shopifyId.toString());
               }
             });
@@ -72,6 +78,7 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
             title: product.title,
             variants: product.variants,
             images: product.images,
+            options: product.options || [], // Include product options for size/color detection
           },
         }));
 
@@ -106,14 +113,18 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
       const publishedToOnlineStore = item.publishedToOnlineStore === true;
       const isPublished = isActive && publishedToOnlineStore;
       
-      if (exists) {
-        // Products already in database go to existing list
+      // Only mark as "already imported" if product exists AND is published
+      // If product exists but is not published, it should go to unpublished list
+      // because it can't be imported again until it's published
+      if (exists && isPublished) {
+        // Products already in database AND published go to existing list
         existingProds.push(item);
       } else if (isPublished) {
         // Only published (active + publishedToOnlineStore) products can be imported
         published.push(item);
       } else {
         // All other products (not active, not published to Online Store, or both) go to unpublished
+        // This includes products that exist in DB but are now unpublished
         unpublished.push(item);
       }
     });
@@ -170,19 +181,25 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
     return [];
   };
 
-  // Group variants by the first part of their title (before the first "/")
-  const groupVariantsByFirstPart = (variants) => {
+  // Group variants by color/style (using getVariantColor for proper extraction)
+  // This ensures correct grouping regardless of whether Shopify has "size / color" or "color / size"
+  const groupVariantsByFirstPart = (variants, productOptions = null) => {
     const groups = new Map();
     
     variants.forEach((variant) => {
-      const variantName = variant.title || variant.name || variant.selectedOptions?.map((opt) => opt.value).join(' / ') || 'Unnamed variant';
-      // Extract the first part before the first "/"
-      const firstPart = variantName.split(' / ')[0]?.trim() || 'Other';
+      // Use getVariantColor to extract color, which handles both orderings correctly
+      const color = getVariantColor(variant, productOptions);
+      // Fallback to first part of title if color extraction fails
+      const groupKey = color || (() => {
+        const rawVariantName = variant.title || variant.name || variant.selectedOptions?.map((opt) => cleanBrackets(opt.value || '')).join(' / ') || 'Unnamed variant';
+        const variantName = cleanBrackets(rawVariantName);
+        return variantName.split(' / ')[0]?.trim() || 'Other';
+      })();
       
-      if (!groups.has(firstPart)) {
-        groups.set(firstPart, []);
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
       }
-      groups.get(firstPart).push(variant);
+      groups.get(groupKey).push(variant);
     });
     
     // Convert Map to array of [groupName, variants] pairs, sorted by group name
@@ -543,7 +560,9 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
 
                         {/* Variants (when expanded) */}
                         {isExpanded && variants.length > 0 && (() => {
-                          const groupedVariants = groupVariantsByFirstPart(variants);
+                          // Get product options for proper color/size extraction
+                          const productOptions = item.rawProduct?.options || item.options || null;
+                          const groupedVariants = groupVariantsByFirstPart(variants, productOptions);
                           
                           return (
                             <div className="border-t border-zinc-200 bg-zinc-50/50 p-3 dark:border-zinc-700 dark:bg-zinc-900/30">
@@ -557,8 +576,9 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                                       const variantId = variant.id;
                                       const variantKey = `${productId}-${variantId}`;
                                       const isVariantSelected = selectedVariants.has(variantKey);
-                                      const variantName =
-                                        variant.title || variant.name || variant.selectedOptions?.map((opt) => opt.value).join(' / ') || 'Unnamed variant';
+                                      // Clean brackets from variant name for display
+                                      const rawVariantName = variant.title || variant.name || variant.selectedOptions?.map((opt) => cleanBrackets(opt.value || '')).join(' / ') || 'Unnamed variant';
+                                      const variantName = cleanBrackets(rawVariantName);
                                       const stock = variant.inventory_quantity || variant.inventoryQuantity || 0;
 
                                       return (

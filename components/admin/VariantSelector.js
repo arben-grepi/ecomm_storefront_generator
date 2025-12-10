@@ -1,6 +1,7 @@
 'use client';
 
 import { getDisplayImageUrl } from '@/lib/image-utils';
+import { cleanBrackets, normalizeVariantName } from '@/lib/variant-utils';
 import VariantExpandedView from './VariantExpandedView';
 
 /**
@@ -107,7 +108,7 @@ export default function VariantSelector({
           const isExpanded = expandedVariants.has(variantId);
           const selectedAttributeLabels = (variant.selectedOptions || []).map((option) => ({
             label: option?.name || 'Option',
-            value: option?.value || '',
+            value: cleanBrackets(option?.value || ''), // Clean brackets from option values
           }));
 
           return (
@@ -145,7 +146,24 @@ export default function VariantSelector({
                   </div>
                   <label htmlFor={`variant-${variantId}`} className="flex flex-col text-sm">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
-                      {variant.variantName || variant.title || variant.name || variant.selectedOptions?.map((opt) => opt.value).join(' / ') || 'Unnamed variant'}
+                      {(() => {
+                        // Use normalizeVariantName if available (for Shopify mode with options)
+                        // Otherwise clean brackets from fallback values
+                        if (variant.variantName) {
+                          return cleanBrackets(variant.variantName);
+                        }
+                        if (variant.title) {
+                          return cleanBrackets(variant.title);
+                        }
+                        if (variant.name) {
+                          return cleanBrackets(variant.name);
+                        }
+                        if (variant.selectedOptions && Array.isArray(variant.selectedOptions) && variant.selectedOptions.length > 0) {
+                          // Clean brackets from each option value
+                          return variant.selectedOptions.map((opt) => cleanBrackets(opt.value || '')).join(' / ');
+                        }
+                        return 'Unnamed variant';
+                      })()}
                     </span>
                     <span className="flex flex-wrap gap-2 text-xs text-zinc-500 dark:text-zinc-400">
                       {selectedAttributeLabels.map((attr) => (

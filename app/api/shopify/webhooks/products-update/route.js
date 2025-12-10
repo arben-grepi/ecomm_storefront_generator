@@ -491,6 +491,13 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
         continue; // No products in this storefront
       }
 
+      // Helper function to normalize image URLs for comparison (remove query params)
+      // This allows matching images even if URLs have different query parameters
+      const normalizeImageUrl = (url) => {
+        if (!url) return '';
+        return url.split('?')[0];
+      };
+
       for (const productDoc of snapshot.docs) {
         const productRef = productDoc.ref;
         const variantsCollection = productRef.collection('variants');
@@ -513,13 +520,55 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
             : publishedToOnlineStore;
         }
 
+        // Check if product was manually edited - if so, preserve selected images
+        const isManuallyEdited = productData.manuallyEdited === true;
+        
+        // Handle product images: only update existing images that match Shopify
+        let productImages = productData.images || [];
+        if (isManuallyEdited && productImages.length > 0) {
+          // Product has manually selected images - only update existing images that match Shopify
+          // Normalize Shopify images for matching (base URL only)
+          const normalizedShopifyImages = new Map();
+          newImageUrls.forEach(shopifyImg => {
+            const normalized = normalizeImageUrl(shopifyImg);
+            if (normalized && !normalizedShopifyImages.has(normalized)) {
+              normalizedShopifyImages.set(normalized, shopifyImg);
+            }
+          });
+          
+          // Update existing images: if an existing image matches a Shopify image (by base URL), update to new URL
+          // Keep images that don't match (preserve manually selected images not in Shopify)
+          const updatedImages = productImages.map(existingImg => {
+            const normalizedExisting = normalizeImageUrl(existingImg);
+            // Check if this existing image matches any Shopify image
+            if (normalizedShopifyImages.has(normalizedExisting)) {
+              // Match found - update to new Shopify URL (may have different query params)
+              return normalizedShopifyImages.get(normalizedExisting);
+            }
+            // No match - preserve original manually selected image
+            return existingImg;
+          });
+          
+          // Only update if there were any changes
+          const hasChanges = updatedImages.some((img, idx) => img !== productImages[idx]);
+          if (hasChanges) {
+            productImages = updatedImages;
+          }
+        } else if (!isManuallyEdited) {
+          // Product not manually edited - update with all Shopify images
+          productImages = newImageUrls.length > 0 ? newImageUrls : productData.images || [];
+        }
+        
+        // CRITICAL: Product-level images can be updated (they're not manually selected per variant)
+        // But variant images are NEVER updated - they're manually selected during import
         const productUpdate = {
           basePrice: normalizedBasePrice,
-          images: newImageUrls.length > 0 ? newImageUrls : productData.images || [],
+          images: productImages, // Product-level images (OK to update)
           ...(markets.length > 0 ? { markets } : {}),
           ...(marketsObject && Object.keys(marketsObject).length > 0 ? { marketsObject } : {}),
           ...(publishedToOnlineStore !== undefined ? { publishedToOnlineStore } : {}),
           updatedAt: FieldValue.serverTimestamp(),
+          // NOTE: Variant images are handled separately below and are NEVER updated
         };
 
         await productRef.update(productUpdate);
@@ -533,10 +582,12 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
 
           for (const shopifyVariant of shopifyProduct.variants) {
             let variantRef = null;
+            let existingVariantData = null;
 
             if (shopifyVariant.sku) {
               const matchedBySku = existingVariants.find((v) => v.sku === shopifyVariant.sku);
               if (matchedBySku) {
+                existingVariantData = matchedBySku;
                 variantRef = variantsCollection.doc(matchedBySku.id);
               }
             }
@@ -554,37 +605,93 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
               });
 
               if (matchedByAttributes) {
+                existingVariantData = matchedByAttributes;
                 variantRef = variantsCollection.doc(matchedByAttributes.id);
               }
             }
 
             if (variantRef) {
-              // Get variant-specific images from Shopify
-              const variantImageUrls = (shopifyProduct.images || [])
-                .filter((img) => {
-                  const imgVariantIds = img.variant_ids || [];
-                  return imgVariantIds.includes(shopifyVariant.id);
-                })
-                .map((img) => (typeof img === 'object' ? img.src : img))
-                .filter(Boolean);
-              
-              // Combine variant-specific images with main product images
-              const allVariantImages = variantImageUrls.length > 0
-                ? [...new Set([...variantImageUrls, ...newImageUrls])]
-                : newImageUrls;
-
-              // Get variant price from webhook payload - this is the single price for this variant across all markets
+              // Get variant price from webhook payload
               const variantPrice = shopifyVariant.price != null ? parseFloat(shopifyVariant.price) : NaN;
               
-              await variantRef.update({
+              // Get existing variant images
+              const existingImages = existingVariantData?.images;
+              const variantHasImages = existingVariantData && 
+                existingImages !== null && 
+                existingImages !== undefined && 
+                Array.isArray(existingImages) && 
+                existingImages.length > 0;
+              
+              // Build base update payload
+              const variantUpdate = {
                 shopifyVariantId: shopifyVariant.id.toString(),
                 shopifyInventoryItemId: shopifyVariant.inventory_item_id || undefined,
                 stock: shopifyVariant.inventory_quantity || 0,
                 price: Number.isFinite(variantPrice) ? variantPrice : null,
                 priceOverride: Number.isFinite(variantPrice) ? variantPrice : null,
-                images: allVariantImages.length > 0 ? allVariantImages : undefined,
                 updatedAt: FieldValue.serverTimestamp(),
-              });
+              };
+              
+              // Handle images: ONLY update existing images that match Shopify (by base URL)
+              // NEVER add new images, NEVER change defaultPhoto
+              if (variantHasImages) {
+                // Get variant-specific images from Shopify
+                const variantImageUrls = (shopifyProduct.images || [])
+                  .filter((img) => {
+                    const imgVariantIds = img.variant_ids || [];
+                    return imgVariantIds.includes(shopifyVariant.id);
+                  })
+                  .map((img) => (typeof img === 'object' ? img.src : img))
+                  .filter(Boolean);
+                
+                // Also include main product images (some variants may use product-level images)
+                const allShopifyImagesForVariant = variantImageUrls.length > 0
+                  ? [...new Set([...variantImageUrls, ...newImageUrls])]
+                  : newImageUrls;
+                
+                // Normalize Shopify images for matching (base URL only, ignoring query params)
+                const normalizedShopifyImages = new Map();
+                allShopifyImagesForVariant.forEach(shopifyImg => {
+                  const normalized = normalizeImageUrl(shopifyImg);
+                  if (normalized && !normalizedShopifyImages.has(normalized)) {
+                    normalizedShopifyImages.set(normalized, shopifyImg);
+                  }
+                });
+                
+                // Update existing images: if an existing image matches a Shopify image (by base URL), update to new URL
+                // Keep images that don't match (preserve manually selected images not in Shopify)
+                // NEVER add new images - only update existing ones
+                const updatedImages = existingImages.map(existingImg => {
+                  const normalizedExisting = normalizeImageUrl(existingImg);
+                  // Check if this existing image matches any Shopify image
+                  if (normalizedShopifyImages.has(normalizedExisting)) {
+                    // Match found - update to new Shopify URL (may have different query params)
+                    return normalizedShopifyImages.get(normalizedExisting);
+                  }
+                  // No match - preserve original manually selected image
+                  return existingImg;
+                });
+                
+                // CRITICAL: Ensure we never add new images - array length must stay the same
+                if (updatedImages.length !== existingImages.length) {
+                  // This should never happen, but if it does, don't update images
+                  console.error(`[Webhook] Image count mismatch for variant ${variantRef.id} - preserving existing images`);
+                  // Don't include images in update - preserve existing
+                } else {
+                  // Only update if there were any changes
+                  const hasImageChanges = updatedImages.some((img, idx) => img !== existingImages[idx]);
+                  if (hasImageChanges) {
+                    variantUpdate.images = updatedImages;
+                  }
+                  // If no changes, don't include images field - Firestore won't touch it
+                }
+              }
+              // If variant has no images, don't set any (preserve empty state)
+              
+              // NEVER update defaultPhoto - it's manually selected during import
+              // Explicitly ensure defaultPhoto is NOT in the update payload
+              
+              await variantRef.update(variantUpdate);
             }
           }
         }

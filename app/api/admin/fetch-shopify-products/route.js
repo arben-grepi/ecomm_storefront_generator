@@ -178,6 +178,7 @@ export async function GET() {
     const transformedProducts = products.map((product) => {
       const productId = product.id.toString();
       const publishedToOnlineStore = publicationStatuses[productId] || false;
+      const productOptions = product.options || [];
       
       return {
         id: productId,
@@ -188,6 +189,10 @@ export async function GET() {
         vendor: product.vendor,
         productType: product.product_type,
         tags: product.tags,
+        options: productOptions.map((opt) => ({
+          name: opt.name || '',
+          values: opt.values || [],
+        })), // Include product options for size/color detection
         variants: (product.variants || []).map((variant) => ({
           id: variant.id.toString(),
           title: variant.title,
@@ -200,9 +205,9 @@ export async function GET() {
           option2: variant.option2,
           option3: variant.option3,
           selectedOptions: [
-            { name: 'Option 1', value: variant.option1 },
-            { name: 'Option 2', value: variant.option2 },
-            { name: 'Option 3', value: variant.option3 },
+            { name: productOptions[0]?.name || 'Option 1', value: variant.option1 },
+            { name: productOptions[1]?.name || 'Option 2', value: variant.option2 },
+            { name: productOptions[2]?.name || 'Option 3', value: variant.option3 },
           ].filter((opt) => opt.value), // Remove empty options
         })),
         images: (product.images || []).map((img) => ({
