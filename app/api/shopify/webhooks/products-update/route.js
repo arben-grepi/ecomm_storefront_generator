@@ -703,7 +703,86 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
     }
   }
 
+  // Update cart prices for all users who have this product in their cart
+  try {
+    await updateCartPrices(db, shopifyProduct);
+  } catch (error) {
+    console.error(`[Webhook] Error updating cart prices:`, error);
+    // Don't fail the webhook if cart update fails
+  }
+
   return updatedIds;
+}
+
+/**
+ * Update cart prices when product prices change
+ * Finds all carts containing variants of this product and updates their prices
+ */
+async function updateCartPrices(db, shopifyProduct) {
+  if (!shopifyProduct.variants || shopifyProduct.variants.length === 0) {
+    return;
+  }
+
+  // Build a map of shopifyVariantId -> new price
+  const variantPriceMap = new Map();
+  shopifyProduct.variants.forEach(variant => {
+    const price = variant.price != null ? parseFloat(variant.price) : null;
+    if (price !== null && !isNaN(price)) {
+      variantPriceMap.set(variant.id.toString(), price);
+    }
+  });
+
+  if (variantPriceMap.size === 0) {
+    return; // No prices to update
+  }
+
+  // Get all carts
+  const cartsCollection = db.collection('carts');
+  const cartsSnapshot = await cartsCollection.get();
+
+  let updatedCarts = 0;
+  const cartUpdates = [];
+
+  for (const cartDoc of cartsSnapshot.docs) {
+    const cartData = cartDoc.data();
+    const items = cartData.items || [];
+
+    if (items.length === 0) {
+      continue;
+    }
+
+    // Check if any cart items match the updated variants
+    let cartNeedsUpdate = false;
+    const updatedItems = items.map(item => {
+      // Check if this cart item has a shopifyVariantId that matches an updated variant
+      if (item.shopifyVariantId && variantPriceMap.has(item.shopifyVariantId)) {
+        const newPrice = variantPriceMap.get(item.shopifyVariantId);
+        if (item.priceAtAdd !== newPrice) {
+          cartNeedsUpdate = true;
+          return {
+            ...item,
+            priceAtAdd: newPrice,
+          };
+        }
+      }
+      return item;
+    });
+
+    if (cartNeedsUpdate) {
+      cartUpdates.push(
+        cartDoc.ref.update({
+          items: updatedItems,
+          lastUpdated: FieldValue.serverTimestamp(),
+        })
+      );
+      updatedCarts++;
+    }
+  }
+
+  if (cartUpdates.length > 0) {
+    await Promise.all(cartUpdates);
+    console.log(`[Webhook] Updated prices in ${updatedCarts} cart(s)`);
+  }
 }
 
 export async function POST(request) {
