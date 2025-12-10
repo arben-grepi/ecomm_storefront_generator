@@ -720,30 +720,43 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
  */
 async function updateCartPrices(db, shopifyProduct) {
   if (!shopifyProduct.variants || shopifyProduct.variants.length === 0) {
+    console.log(`[Cart Update] No variants in product, skipping cart update`);
     return;
   }
 
   // Build a map of shopifyVariantId -> new price
+  // Normalize IDs to strings for consistent comparison
   const variantPriceMap = new Map();
   shopifyProduct.variants.forEach(variant => {
     const price = variant.price != null ? parseFloat(variant.price) : null;
     if (price !== null && !isNaN(price)) {
-      variantPriceMap.set(variant.id.toString(), price);
+      // Normalize variant ID to string (Shopify IDs can be numbers or strings)
+      const variantId = String(variant.id);
+      variantPriceMap.set(variantId, price);
+      console.log(`[Cart Update] Mapped variant ${variantId} -> price ${price}`);
     }
   });
 
   if (variantPriceMap.size === 0) {
+    console.log(`[Cart Update] No valid prices found, skipping cart update`);
     return; // No prices to update
   }
+
+  console.log(`[Cart Update] Updating carts for ${variantPriceMap.size} variant(s)`);
 
   // Get all carts
   const cartsCollection = db.collection('carts');
   const cartsSnapshot = await cartsCollection.get();
 
+  console.log(`[Cart Update] Found ${cartsSnapshot.size} cart(s) to check`);
+
   let updatedCarts = 0;
+  let checkedCarts = 0;
+  let matchedItems = 0;
   const cartUpdates = [];
 
   for (const cartDoc of cartsSnapshot.docs) {
+    checkedCarts++;
     const cartData = cartDoc.data();
     const items = cartData.items || [];
 
@@ -754,11 +767,19 @@ async function updateCartPrices(db, shopifyProduct) {
     // Check if any cart items match the updated variants
     let cartNeedsUpdate = false;
     const updatedItems = items.map(item => {
-      // Check if this cart item has a shopifyVariantId that matches an updated variant
-      if (item.shopifyVariantId && variantPriceMap.has(item.shopifyVariantId)) {
-        const newPrice = variantPriceMap.get(item.shopifyVariantId);
-        if (item.priceAtAdd !== newPrice) {
+      // Normalize shopifyVariantId to string for comparison
+      const itemVariantId = item.shopifyVariantId ? String(item.shopifyVariantId) : null;
+      
+      if (itemVariantId && variantPriceMap.has(itemVariantId)) {
+        const newPrice = variantPriceMap.get(itemVariantId);
+        const oldPrice = typeof item.priceAtAdd === 'number' ? item.priceAtAdd : parseFloat(item.priceAtAdd) || 0;
+        
+        // Compare prices with tolerance for floating point precision
+        const priceDiff = Math.abs(oldPrice - newPrice);
+        if (priceDiff > 0.01) { // Only update if price difference is more than 1 cent
+          matchedItems++;
           cartNeedsUpdate = true;
+          console.log(`[Cart Update] Cart ${cartDoc.id}: Updating item ${item.productId}/${item.variantId} price ${oldPrice} -> ${newPrice}`);
           return {
             ...item,
             priceAtAdd: newPrice,
@@ -773,6 +794,9 @@ async function updateCartPrices(db, shopifyProduct) {
         cartDoc.ref.update({
           items: updatedItems,
           lastUpdated: FieldValue.serverTimestamp(),
+        }).catch(error => {
+          console.error(`[Cart Update] Failed to update cart ${cartDoc.id}:`, error);
+          throw error;
         })
       );
       updatedCarts++;
@@ -780,8 +804,15 @@ async function updateCartPrices(db, shopifyProduct) {
   }
 
   if (cartUpdates.length > 0) {
-    await Promise.all(cartUpdates);
-    console.log(`[Webhook] Updated prices in ${updatedCarts} cart(s)`);
+    try {
+      await Promise.all(cartUpdates);
+      console.log(`[Cart Update] ✅ Successfully updated ${updatedCarts} cart(s) with ${matchedItems} item(s)`);
+    } catch (error) {
+      console.error(`[Cart Update] ❌ Error updating carts:`, error);
+      throw error;
+    }
+  } else {
+    console.log(`[Cart Update] No carts needed price updates (checked ${checkedCarts} cart(s))`);
   }
 }
 
