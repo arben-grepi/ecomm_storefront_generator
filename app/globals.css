@@ -130,3 +130,18 @@ html {
   animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; /* Slightly faster: was 2s, now 1.5s */
 }
 
+/**
+ * HIDE SCROLLBAR
+ * 
+ * Utility class to hide scrollbars while maintaining scroll functionality
+ * Used for horizontal scrolling carousels and similar components
+ */
+.hide-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+

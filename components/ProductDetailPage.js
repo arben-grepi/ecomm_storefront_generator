@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/lib/cart';
 import SettingsMenu from '@/components/SettingsMenu';
 import { useStorefront } from '@/lib/storefront-context';
@@ -10,7 +11,7 @@ import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getMarket } from '@/lib/get-market';
 import { getStorefrontTheme } from '@/lib/storefront-logos';
 import { getFirebaseDb } from '@/lib/firebase';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { getDocumentPath } from '@/lib/store-collections';
 
 // Format price based on market (EUR for EU markets)
@@ -81,7 +82,7 @@ const filterOutCountries = (value) => {
 export default function ProductDetailPage({ category, product, variants, info = null }) {
   const { addToCart, getCartItemCount, cart } = useCart();
   const storefront = useStorefront(); // Get storefront for dynamic links
-  const theme = getStorefrontTheme(storefront); // Get theme for cart badge
+  const searchParams = useSearchParams();
   const [addingToCart, setAddingToCart] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
@@ -146,11 +147,110 @@ export default function ProductDetailPage({ category, product, variants, info = 
     updateViewCount();
   }, [product?.id, storefront]);
   
-  // Use info from server (for SEO), with empty strings as fallback
-  const siteInfo = info || {
-    companyName: '',
-    footerText: '',
-  };
+  // Get colors from URL parameters (passed from product card) or fetch from Firestore
+  const [siteInfo, setSiteInfo] = useState({
+    companyName: info?.companyName || '',
+    footerText: info?.footerText || '',
+    colorPrimary: '#ec4899',
+    colorSecondary: '#64748b',
+    colorTertiary: '#94a3b8',
+  });
+  
+  // Get colors from URL params if available, otherwise use info prop or fetch from Firestore
+  useEffect(() => {
+    const fetchColors = async () => {
+      // First, try to get colors from URL params
+      if (searchParams) {
+        const colorPrimary = searchParams.get('colorPrimary');
+        const colorSecondary = searchParams.get('colorSecondary');
+        const colorTertiary = searchParams.get('colorTertiary');
+        
+        if (colorPrimary || colorSecondary || colorTertiary) {
+          setSiteInfo(prev => ({
+            ...prev,
+            colorPrimary: colorPrimary ? decodeURIComponent(colorPrimary) : prev.colorPrimary,
+            colorSecondary: colorSecondary ? decodeURIComponent(colorSecondary) : prev.colorSecondary,
+            colorTertiary: colorTertiary ? decodeURIComponent(colorTertiary) : prev.colorTertiary,
+          }));
+          return; // URL params take precedence
+        }
+      }
+      
+      // If no URL params, use info prop if available
+      if (info?.colorPrimary || info?.colorSecondary || info?.colorTertiary) {
+        setSiteInfo(prev => ({
+          ...prev,
+          companyName: info.companyName || prev.companyName,
+          footerText: info.footerText || prev.footerText,
+          colorPrimary: info.colorPrimary || prev.colorPrimary,
+          colorSecondary: info.colorSecondary || prev.colorSecondary,
+          colorTertiary: info.colorTertiary || prev.colorTertiary,
+        }));
+        return;
+      }
+      
+      // If no info prop, try cache first, then fetch from Firestore based on storefront
+      if (storefront) {
+        try {
+          // Try to get from cache first
+          if (typeof window !== 'undefined') {
+            const { getCachedInfo } = require('@/lib/info-cache');
+            const cachedInfo = getCachedInfo(storefront);
+            if (cachedInfo) {
+              setSiteInfo(prev => ({
+                ...prev,
+                companyName: cachedInfo.companyName || prev.companyName,
+                footerText: cachedInfo.footerText || prev.footerText,
+                colorPrimary: cachedInfo.colorPrimary || prev.colorPrimary,
+                colorSecondary: cachedInfo.colorSecondary || prev.colorSecondary,
+                colorTertiary: cachedInfo.colorTertiary || prev.colorTertiary,
+              }));
+              return; // Use cached data
+            }
+          }
+          
+          // If no cache, fetch from Firestore
+          const db = getFirebaseDb();
+          if (db) {
+            const infoDoc = await getDoc(doc(db, storefront, 'Info'));
+            if (infoDoc.exists()) {
+              const data = infoDoc.data();
+              setSiteInfo(prev => ({
+                ...prev,
+                companyName: data.companyName || prev.companyName,
+                footerText: data.footerText || prev.footerText,
+                colorPrimary: data.colorPrimary || prev.colorPrimary,
+                colorSecondary: data.colorSecondary || prev.colorSecondary,
+                colorTertiary: data.colorTertiary || prev.colorTertiary,
+              }));
+              
+              // Cache the fetched data
+              if (typeof window !== 'undefined') {
+                const { saveInfoToCache } = require('@/lib/info-cache');
+                saveInfoToCache(storefront, data);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[ProductDetailPage] Failed to fetch colors from Firestore:', error);
+          // Keep default colors on error
+        }
+      }
+    };
+    
+    fetchColors();
+  }, [searchParams, storefront, info]);
+  
+  // Use colors from siteInfo instead of static theme
+  const theme = useMemo(() => {
+    const primaryColor = siteInfo.colorPrimary || '#ec4899';
+    return {
+      primaryColor: primaryColor,
+      primaryColorHover: primaryColor, // Could calculate darker version if needed
+      textColor: primaryColor,
+      borderColor: primaryColor,
+    };
+  }, [siteInfo.colorPrimary]);
   
   // Check if variants have colors
   // Trust that if variant.color exists, it IS a color (set using Shopify options during import)
@@ -487,7 +587,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
               href={storefront === 'LUNERA' 
                 ? `/?category=${category.id}` 
                 : `/${storefront}?category=${category.id}`}
-              className="flex items-center text-primary transition hover:text-primary"
+              className="flex items-center transition"
+              style={{ color: siteInfo.colorPrimary || '#ec4899' }}
               aria-label={`Back to ${category.label}`}
             >
               <svg
@@ -511,8 +612,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   priority
                 />
               </Link>
-              <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] text-primary sm:flex">
-                <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="transition hover:text-primary">
+              <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] sm:flex" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
+                <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="transition" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                   Home
                 </Link>
                 <span>•</span>
@@ -520,12 +621,13 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   href={storefront === 'LUNERA' 
                     ? `/?category=${category.id}` 
                     : `/${storefront}?category=${category.id}`} 
-                  className="transition hover:text-primary"
+                  className="transition"
+                  style={{ color: siteInfo.colorPrimary || '#ec4899' }}
                 >
                   {category.label}
                 </Link>
                 <span>•</span>
-                <span className="text-primary">{product.name}</span>
+                <span style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{product.name}</span>
               </nav>
             </div>
           </div>
@@ -533,16 +635,22 @@ export default function ProductDetailPage({ category, product, variants, info = 
             {/* Cart icon - only show if cart has items (after hydration to avoid mismatch) */}
             {hasMounted && getCartItemCount() > 0 && (
               <Link
-                href={`/cart?storefront=${encodeURIComponent(storefront)}`}
+                href={`/cart?storefront=${encodeURIComponent(storefront)}&colorPrimary=${encodeURIComponent(siteInfo.colorPrimary || '')}&colorSecondary=${encodeURIComponent(siteInfo.colorSecondary || '')}&colorTertiary=${encodeURIComponent(siteInfo.colorTertiary || '')}`}
                 onClick={() => {
                   // Ensure storefront is saved to cache before navigating to cart
                   if (storefront && typeof window !== 'undefined') {
                     saveStorefrontToCache(storefront);
                   }
                 }}
-                className="relative ml-2 flex items-center justify-center rounded-full border border-primary/30 bg-white/80 p-2 text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
+                className="relative ml-2 flex items-center justify-center rounded-full border bg-white/80 p-2 shadow-sm transition-colors hover:bg-secondary"
                 aria-label="Shopping cart"
-                style={{ borderColor: theme.borderColor, color: theme.textColor, '--hover-bg': theme.primaryColorHover }}
+                style={{ 
+                  borderColor: `${siteInfo.colorSecondary || '#64748b'}4D`,
+                  color: siteInfo.colorSecondary || '#64748b',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = siteInfo.colorSecondary || '#64748b';
+                }}
               >
                 <svg
                   className="h-5 w-5"
@@ -559,14 +667,14 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 </svg>
                 <span 
                   className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold text-white" 
-                  style={{ backgroundColor: theme.primaryColor }}
+                  style={{ backgroundColor: siteInfo.colorPrimary || '#ec4899' }}
                   suppressHydrationWarning
                 >
                   {getCartItemCount() > 9 ? '9+' : getCartItemCount()}
                 </span>
               </Link>
             )}
-            <SettingsMenu />
+            <SettingsMenu secondaryColor={siteInfo.colorSecondary || '#64748b'} />
           </div>
         </div>
       </header>
@@ -630,9 +738,22 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   onClick={() => setActiveImage(image)}
                   className={`overflow-hidden rounded-2xl border transition ${
                     activeImage === image
-                      ? 'border-primary shadow-md'
-                      : 'border-secondary/70 hover:border-primary/30'
+                      ? 'shadow-md'
+                      : ''
                   }`}
+                  style={{
+                    borderColor: activeImage === image ? (siteInfo.colorPrimary || '#ec4899') : 'rgba(100, 116, 139, 0.7)',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (activeImage !== image) {
+                      e.currentTarget.style.borderColor = `${siteInfo.colorPrimary || '#ec4899'}4D`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (activeImage !== image) {
+                      e.currentTarget.style.borderColor = 'rgba(100, 116, 139, 0.7)';
+                    }
+                  }}
                 >
                   <div className="aspect-square relative">
                     <Image src={image} alt="" fill sizes="(max-width: 1024px) 25vw, 12.5vw" className="object-cover" />
@@ -646,19 +767,19 @@ export default function ProductDetailPage({ category, product, variants, info = 
         {/* Product Info */}
         <section className="flex w-full flex-col gap-8 lg:w-1/2">
           <div className="space-y-4">
-            <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-primary">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
               {category.label}
             </div>
-            <h1 className="text-3xl font-light text-primary sm:text-4xl md:text-5xl">
+            <h1 className="text-3xl font-light sm:text-4xl md:text-5xl" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
               {product.name}
             </h1>
-            <p className="text-lg text-slate-600 sm:text-xl">{product.description}</p>
+            <p className="text-lg sm:text-xl" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{product.description}</p>
             {Array.isArray(product.bulletPoints) && product.bulletPoints.length > 0 && (
               <div className="space-y-2">
-                <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+                <h2 className="text-sm font-semibold uppercase tracking-[0.3em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                   Details
                 </h2>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
+                <ul className="list-disc space-y-1 pl-5 text-sm" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                   {product.bulletPoints
                     .filter((point) => typeof point === 'string' && point.trim().length > 0)
                     .map((point, index) => (
@@ -671,17 +792,17 @@ export default function ProductDetailPage({ category, product, variants, info = 
 
               <div className="space-y-1">
                 <div className="flex items-baseline gap-4">
-                  <p className="text-3xl font-semibold text-primary sm:text-4xl">
+                  <p className="text-3xl font-semibold sm:text-4xl" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                     {formatPrice(displayedPrice, market)}
                   </p>
                   {selectedVariant?.priceOverride && (
-                    <span className="rounded-full bg-secondary/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-primary">
+                    <span className="rounded-full bg-secondary/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                       Variant price
                     </span>
                   )}
                 </div>
                 {isEU && (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
                     Includes VAT
                   </p>
                 )}
@@ -693,7 +814,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
               {/* Color/Type Selector */}
               {availableGroups.length > 1 && (
                 <div className="space-y-3">
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.3em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                     {(() => {
                       // Determine label based on whether selected group has colors
                       // Check if any variant in the selected group has a color field
@@ -734,9 +855,22 @@ export default function ProductDetailPage({ category, product, variants, info = 
                           }}
                           className={`relative flex items-center gap-2 rounded-xl border-2 px-4 py-2 transition ${
                             isSelected
-                              ? 'border-primary bg-white shadow-md'
-                              : 'border-secondary/70 bg-white/60 hover:border-primary/30'
+                              ? 'bg-white shadow-md'
+                              : 'bg-white/60'
                           }`}
+                          style={{
+                            borderColor: isSelected ? (siteInfo.colorPrimary || '#ec4899') : 'rgba(100, 116, 139, 0.7)',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.borderColor = `${siteInfo.colorPrimary || '#ec4899'}4D`;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isSelected) {
+                              e.currentTarget.style.borderColor = 'rgba(100, 116, 139, 0.7)';
+                            }
+                          }}
                         >
                           {firstVariantImage && hasColors && isGroupAColor && (
                             <div className="relative h-8 w-8">
@@ -749,7 +883,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                               />
                             </div>
                           )}
-                          <span className="text-sm font-semibold text-slate-800">{filterOutCountries(group) || group}</span>
+                          <span className="text-sm font-semibold" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{filterOutCountries(group) || group}</span>
                         </button>
                       );
                     })}
@@ -760,7 +894,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
               {/* Size Selector (only show if there are multiple sizes for selected group) */}
               {availableSizes.length > 1 && (
                 <div className="space-y-3">
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.3em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                     Size
                   </h2>
                   <div className="grid grid-cols-4 gap-3">
@@ -783,13 +917,27 @@ export default function ProductDetailPage({ category, product, variants, info = 
                               }
                             }}
                             disabled={isOutOfStock}
-                            className={`flex flex-col items-center justify-center rounded-xl border-2 px-3 py-2 text-sm font-semibold transition ${
-                              isSelected
-                                ? 'border-primary bg-white shadow-md text-slate-800'
-                                : isOutOfStock
-                                ? 'border-secondary/30 bg-white/30 text-slate-400 cursor-not-allowed'
-                                : 'border-secondary/70 bg-white/60 text-slate-700 hover:border-primary/30'
-                            }`}
+                  className={`flex flex-col items-center justify-center rounded-xl border-2 px-3 py-2 text-sm font-semibold transition ${
+                    isSelected
+                      ? 'bg-white shadow-md'
+                      : isOutOfStock
+                      ? 'bg-white/30 cursor-not-allowed'
+                      : 'bg-white/60'
+                  }`}
+                  style={{
+                    borderColor: isSelected ? (siteInfo.colorPrimary || '#ec4899') : (isOutOfStock ? 'rgba(100, 116, 139, 0.3)' : 'rgba(100, 116, 139, 0.7)'),
+                    color: isSelected ? (siteInfo.colorPrimary || '#ec4899') : (isOutOfStock ? (siteInfo.colorTertiary || '#94a3b8') : (siteInfo.colorSecondary || '#64748b')),
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isOutOfStock && !isSelected) {
+                      e.currentTarget.style.borderColor = `${siteInfo.colorPrimary || '#ec4899'}4D`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isOutOfStock && !isSelected) {
+                      e.currentTarget.style.borderColor = 'rgba(100, 116, 139, 0.7)';
+                    }
+                  }}
                           >
                             <span>{size}</span>
                           </button>
@@ -803,7 +951,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
               {selectedVariant && (
                 <div className="rounded-xl border border-secondary/70 bg-white/60 px-4 py-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-800">
+                    <span className="text-sm font-semibold" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                       {(() => {
                         const parts = [];
                         // Filter out countries from size
@@ -823,14 +971,14 @@ export default function ProductDetailPage({ category, product, variants, info = 
                       })()}
                     </span>
                     {selectedVariant.priceOverride && (
-                      <span className="text-xs font-medium text-primary">
+                      <span className="text-xs font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                         {formatPrice(selectedVariant.priceOverride, market)}
                       </span>
                     )}
                   </div>
                   {/* Display flexible attributes (Material, Model, Style, etc.) */}
                   {selectedVariant.attributes && typeof selectedVariant.attributes === 'object' && Object.keys(selectedVariant.attributes).length > 0 && (
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                       {Object.entries(selectedVariant.attributes).map(([key, value]) => (
                         <div key={key} className="flex items-center gap-1">
                           <span className="font-medium">{key}:</span>
@@ -849,15 +997,22 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   type="button"
                   onClick={handleAddToBag}
                   disabled={addingToCart}
-                  className={`flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${
-                    justAdded
-                      ? 'bg-green-500 hover:bg-green-400 focus-visible:outline-green-500'
-                      : addingToCart
-                      ? 'bg-primary/80 cursor-wait'
-                      : currentCartItem
-                      ? 'bg-primary hover:bg-primary/90 focus-visible:outline-primary'
-                      : 'bg-primary hover:bg-primary/90 focus-visible:outline-primary'
-                  }`}
+                  className="flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 cursor-wait"
+                  style={{
+                    backgroundColor: justAdded ? (siteInfo.colorPrimary || '#ec4899') : (siteInfo.colorPrimary || '#ec4899'),
+                    opacity: addingToCart ? 0.8 : 1,
+                    cursor: addingToCart ? 'wait' : 'pointer',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!addingToCart && !justAdded) {
+                      e.currentTarget.style.backgroundColor = `${siteInfo.colorPrimary || '#ec4899'}E6`;
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!addingToCart && !justAdded) {
+                      e.currentTarget.style.backgroundColor = siteInfo.colorPrimary || '#ec4899';
+                    }
+                  }}
                 >
                   {addingToCart ? (
                     <>
@@ -937,21 +1092,21 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   )}
                 </button>
                 {currentCartItem && !justAdded && (
-                  <p className="text-xs text-primary font-medium">
+                  <p className="text-xs font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                     This item is already in your cart. Click to add another.
                   </p>
                 )}
-                <p className="text-xs text-slate-500">
+                <p className="text-xs" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
                   Free express shipping on orders over $150. Easy 30-day returns.
                 </p>
               </div>
 
               {product.careInstructions && (
             <div className="space-y-2 rounded-3xl bg-white/70 p-6 ring-1 ring-secondary/70">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.3em] text-primary">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.3em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                 Care instructions
               </h3>
-              <p className="text-sm text-slate-600 whitespace-pre-line">
+              <p className="text-sm whitespace-pre-line" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                 {product.careInstructions}
               </p>
             </div>

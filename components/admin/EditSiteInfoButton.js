@@ -11,51 +11,109 @@ import HexColorInput from '@/components/admin/HexColorInput';
 import PaletteColorSelector from '@/components/admin/PaletteColorSelector';
 import SitePreview from '@/components/admin/SitePreview';
 
-export default function EditSiteInfoButton({ className = '' }) {
+export default function EditSiteInfoButton({ className = '', open: controlledOpen, onOpenChange }) {
   const db = getFirebaseDb();
   const { selectedWebsite, availableWebsites, loading: websitesLoading } = useWebsite();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Use controlled state if provided, otherwise use internal state
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = (value) => {
+    if (onOpenChange) {
+      onOpenChange(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
   const [selectedStorefront, setSelectedStorefront] = useState(null);
   const [form, setForm] = useState({
     companyTagline: '',
+    companyTaglineColor: 'primary',
+    companyTaglineFont: 'primary',
+    companyTaglineFontSize: 0.75, // rem
     heroMainHeading: '',
+    heroMainHeadingColor: 'primary',
+    heroMainHeadingFont: 'primary',
+    heroMainHeadingFontSize: 4, // rem
     heroDescription: '',
+    heroDescriptionColor: 'secondary',
+    heroDescriptionFont: 'primary',
+    heroDescriptionFontSize: 1, // rem
     heroBannerImage: '',
-    heroBannerMaxHeight: 550,
-    heroBannerMarginBottom: 40,
     heroBannerTextWidth: 75,
-    heroMainHeadingFontFamily: 'inherit',
-    heroMainHeadingFontStyle: 'normal',
-    heroMainHeadingFontWeight: '300',
-    heroMainHeadingFontSize: 4,
     categorySectionHeading: '',
     categorySectionDescription: '',
     allCategoriesTagline: '',
+    allCategoriesTaglineColor: 'secondary',
+    allCategoriesTaglineFont: 'primary',
+    allCategoriesTaglineFontSize: 1, // rem
+    // Category Carousel styling
+    categoryCarouselColor: 'primary',
+    categoryCarouselFont: 'primary',
+    categoryCarouselFontSize: 0.875, // rem
+    // Product Card styling
+    productCardType: 'minimal', // 'minimal' | 'bordered' | 'overlay' | 'compact'
+    productCardAspectRatio: '3:4', // '3:4' | '1:1' | '4:3'
+    productCardNameColor: 'primary',
+    productCardNameFont: 'primary',
+    productCardNameFontSize: 0.65, // rem
+    productCardPriceColor: 'primary',
+    productCardPriceFont: 'primary',
+    productCardPriceFontSize: 1, // rem
+    productCardVatText: 'Includes VAT',
+    productCardVatColor: 'secondary',
+    productCardVatFont: 'primary',
+    productCardVatFontSize: 0.75, // rem
     footerText: '',
+    footerTextColor: 'tertiary',
+    footerTextFont: 'primary',
+    footerTextFontSize: 0.875, // rem
     // Color palette (hex values)
     colorPrimary: '#ec4899',
     colorSecondary: '#64748b',
     colorTertiary: '#94a3b8',
-    // Section-specific color selections (which palette color to use)
-    heroDescriptionColor: 'secondary',
-    categoryDescriptionColor: 'secondary',
-    footerTextColor: 'tertiary',
+    // Global Font palette
+    fontPrimary: 'inherit',
+    fontSecondary: 'inherit',
+    fontTertiary: 'inherit',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [textWidthChanged, setTextWidthChanged] = useState(false);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bannerUploadProgress, setBannerUploadProgress] = useState(0);
 
   // Initialize selectedStorefront when modal opens
   useEffect(() => {
     if (open && availableWebsites.length > 0) {
-      // Default to selectedWebsite if available, otherwise first available
-      if (availableWebsites.includes(selectedWebsite)) {
-        setSelectedStorefront(selectedWebsite);
-      } else {
-        setSelectedStorefront(availableWebsites[0]);
+      // Priority order:
+      // 1. Stored storefront from admin overview (admin_storefront in sessionStorage)
+      // 2. selectedWebsite from context
+      // 3. First available website
+      
+      let storefrontToSelect = null;
+      
+      // Check for stored storefront from admin overview
+      if (typeof window !== 'undefined') {
+        const storedStorefront = sessionStorage.getItem('admin_storefront');
+        if (storedStorefront && availableWebsites.includes(storedStorefront)) {
+          storefrontToSelect = storedStorefront;
+        }
       }
+      
+      // Fallback to selectedWebsite from context
+      if (!storefrontToSelect && selectedWebsite && availableWebsites.includes(selectedWebsite)) {
+        storefrontToSelect = selectedWebsite;
+      }
+      
+      // Final fallback to first available
+      if (!storefrontToSelect) {
+        storefrontToSelect = availableWebsites[0];
+      }
+      
+      setSelectedStorefront(storefrontToSelect);
     }
   }, [open, availableWebsites, selectedWebsite]);
 
@@ -79,55 +137,119 @@ export default function EditSiteInfoButton({ className = '' }) {
         const data = infoDoc.data();
         setForm({
           companyTagline: data.companyTagline || '',
+          companyTaglineColor: data.companyTaglineColor || 'primary',
+          companyTaglineFont: data.companyTaglineFont || 'primary',
+          companyTaglineFontSize: data.companyTaglineFontSize != null ? parseFloat(data.companyTaglineFontSize) || 0.75 : 0.75,
           heroMainHeading: data.heroMainHeading || '',
+          heroMainHeadingColor: data.heroMainHeadingColor || 'primary',
+          heroMainHeadingFont: data.heroMainHeadingFont || 'primary',
+          heroMainHeadingFontSize: data.heroMainHeadingFontSize != null ? parseFloat(data.heroMainHeadingFontSize) || 4 : 4,
           heroDescription: data.heroDescription || '',
+          heroDescriptionColor: data.heroDescriptionColor || 'secondary',
+          heroDescriptionFont: data.heroDescriptionFont || 'primary',
+          heroDescriptionFontSize: data.heroDescriptionFontSize != null ? parseFloat(data.heroDescriptionFontSize) || 1 : 1,
           heroBannerImage: data.heroBannerImage || '',
-          heroBannerMaxHeight: data.heroBannerMaxHeight || 550,
-          heroBannerMarginBottom: data.heroBannerMarginBottom || 40,
           heroBannerTextWidth: data.heroBannerTextWidth || 75,
-          heroMainHeadingFontFamily: data.heroMainHeadingFontFamily || 'inherit',
-          heroMainHeadingFontStyle: data.heroMainHeadingFontStyle || 'normal',
-          heroMainHeadingFontWeight: data.heroMainHeadingFontWeight || '300',
-          heroMainHeadingFontSize: data.heroMainHeadingFontSize || 4,
           categorySectionHeading: data.categorySectionHeading || '',
           categorySectionDescription: data.categorySectionDescription || '',
           allCategoriesTagline: data.allCategoriesTagline || '',
+          allCategoriesTaglineColor: data.allCategoriesTaglineColor || 'secondary',
+          allCategoriesTaglineFont: data.allCategoriesTaglineFont || 'primary',
+          allCategoriesTaglineFontSize: data.allCategoriesTaglineFontSize != null ? parseFloat(data.allCategoriesTaglineFontSize) || 1 : 1,
+          // Category Carousel styling
+          categoryCarouselColor: data.categoryCarouselColor || 'primary',
+          categoryCarouselFont: data.categoryCarouselFont || 'primary',
+          categoryCarouselFontSize: data.categoryCarouselFontSize != null ? parseFloat(data.categoryCarouselFontSize) || 0.875 : 0.875,
+          // Product Card styling
+          productCardType: data.productCardType || 'minimal',
+          productCardAspectRatio: data.productCardAspectRatio || '3:4',
+          productCardColumnsPhone: data.productCardColumnsPhone != null ? parseInt(data.productCardColumnsPhone) || 2 : 2,
+          productCardColumnsTablet: data.productCardColumnsTablet != null ? parseInt(data.productCardColumnsTablet) || 3 : 3,
+          productCardColumnsLaptop: data.productCardColumnsLaptop != null ? parseInt(data.productCardColumnsLaptop) || 4 : 4,
+          productCardColumnsDesktop: data.productCardColumnsDesktop != null ? parseInt(data.productCardColumnsDesktop) || 5 : 5,
+          productCardGap: data.productCardGap != null ? (isNaN(parseFloat(data.productCardGap)) ? 1 : parseFloat(data.productCardGap)) : 1,
+          productCardBorderRadius: data.productCardBorderRadius || 'medium',
+          productCardNameColor: data.productCardNameColor || 'primary',
+          productCardNameFont: data.productCardNameFont || 'primary',
+          productCardNameFontSize: data.productCardNameFontSize != null ? parseFloat(data.productCardNameFontSize) || 0.65 : 0.65,
+          productCardPriceColor: data.productCardPriceColor || 'primary',
+          productCardPriceFont: data.productCardPriceFont || 'primary',
+          productCardPriceFontSize: data.productCardPriceFontSize != null ? parseFloat(data.productCardPriceFontSize) || 1 : 1,
+          productCardVatText: data.productCardVatText || 'Includes VAT',
+          productCardVatColor: data.productCardVatColor || 'secondary',
+          productCardVatFont: data.productCardVatFont || 'primary',
+          productCardVatFontSize: data.productCardVatFontSize != null ? parseFloat(data.productCardVatFontSize) || 0.75 : 0.75,
           footerText: data.footerText || '',
+          footerTextColor: data.footerTextColor || 'tertiary',
+          footerTextFont: data.footerTextFont || 'primary',
+          footerTextFontSize: data.footerTextFontSize != null ? parseFloat(data.footerTextFontSize) || 0.875 : 0.875,
           // Color palette (hex values)
           colorPrimary: data.colorPrimary || '#ec4899',
           colorSecondary: data.colorSecondary || '#64748b',
           colorTertiary: data.colorTertiary || '#94a3b8',
-          // Section-specific color selections (which palette color to use)
-          heroDescriptionColor: data.heroDescriptionColor || 'secondary',
-          categoryDescriptionColor: data.categoryDescriptionColor || 'secondary',
-          footerTextColor: data.footerTextColor || 'tertiary',
+          // Global Font palette
+          fontPrimary: data.fontPrimary || 'inherit',
+          fontSecondary: data.fontSecondary || 'inherit',
+          fontTertiary: data.fontTertiary || 'inherit',
         });
       } else {
         // Initialize with empty values if document doesn't exist
         setForm({
           companyTagline: '',
+          companyTaglineColor: 'primary',
+          companyTaglineFont: 'primary',
+          companyTaglineFontSize: 0.75,
           heroMainHeading: '',
-          heroDescription: '',
-          heroBannerImage: '',
-          heroBannerMaxHeight: 550,
-          heroBannerMarginBottom: 40,
-          heroBannerTextWidth: 75,
-          heroMainHeadingFontFamily: 'inherit',
-          heroMainHeadingFontStyle: 'normal',
-          heroMainHeadingFontWeight: '300',
+          heroMainHeadingColor: 'primary',
+          heroMainHeadingFont: 'primary',
           heroMainHeadingFontSize: 4,
+          heroDescription: '',
+          heroDescriptionColor: 'secondary',
+          heroDescriptionFont: 'primary',
+          heroDescriptionFontSize: 1,
+          heroBannerImage: '',
+          heroBannerTextWidth: 75,
           categorySectionHeading: '',
           categorySectionDescription: '',
           allCategoriesTagline: '',
+          allCategoriesTaglineColor: 'secondary',
+          allCategoriesTaglineFont: 'primary',
+          allCategoriesTaglineFontSize: 1,
+          // Category Carousel styling
+          categoryCarouselColor: 'primary',
+          categoryCarouselFont: 'primary',
+          categoryCarouselFontSize: 0.875,
+          // Product Card styling
+          productCardType: 'minimal',
+          productCardAspectRatio: '3:4',
+          productCardColumnsPhone: 2, // 2 or 3 cards on phone
+          productCardColumnsTablet: 3, // 3 or 4 cards on tablet
+          productCardColumnsLaptop: 4, // 4 or 5 cards on laptop
+          productCardColumnsDesktop: 5, // 5 or 6 cards on desktop
+          productCardGap: 1,
+          productCardBorderRadius: 'medium', // 'none' | 'small' | 'medium' | 'large'
+          productCardNameColor: 'primary',
+          productCardNameFont: 'primary',
+          productCardNameFontSize: 0.65,
+          productCardPriceColor: 'primary',
+          productCardPriceFont: 'primary',
+          productCardPriceFontSize: 1,
+          productCardVatText: 'Includes VAT',
+          productCardVatColor: 'secondary',
+          productCardVatFont: 'primary',
+          productCardVatFontSize: 0.75,
           footerText: '',
+          footerTextColor: 'tertiary',
+          footerTextFont: 'primary',
+          footerTextFontSize: 0.875,
           // Color palette (hex values)
           colorPrimary: '#ec4899',
           colorSecondary: '#64748b',
           colorTertiary: '#94a3b8',
-          // Section-specific color selections (which palette color to use)
-          heroDescriptionColor: 'secondary',
-          categoryDescriptionColor: 'secondary',
-          footerTextColor: 'tertiary',
+          // Global Font palette
+          fontPrimary: 'inherit',
+          fontSecondary: 'inherit',
+          fontTertiary: 'inherit',
         });
       }
     } catch (err) {
@@ -141,28 +263,37 @@ export default function EditSiteInfoButton({ className = '' }) {
   const resetState = () => {
     setForm({
       companyTagline: '',
+      companyTaglineColor: 'primary',
+      companyTaglineFont: 'primary',
+      companyTaglineFontSize: 0.75,
       heroMainHeading: '',
-      heroDescription: '',
-      heroBannerImage: '',
-      heroBannerMaxHeight: 550,
-      heroBannerMarginBottom: 40,
-      heroBannerTextWidth: 75,
-      heroMainHeadingFontFamily: 'inherit',
-      heroMainHeadingFontStyle: 'normal',
-      heroMainHeadingFontWeight: '300',
+      heroMainHeadingColor: 'primary',
+      heroMainHeadingFont: 'primary',
       heroMainHeadingFontSize: 4,
+      heroDescription: '',
+      heroDescriptionColor: 'secondary',
+      heroDescriptionFont: 'primary',
+      heroDescriptionFontSize: 1,
+      heroBannerImage: '',
+      heroBannerTextWidth: 75,
       categorySectionHeading: '',
-          categorySectionDescription: '',
-          allCategoriesTagline: '',
-          footerText: '',
-          // Color palette (hex values)
-          colorPrimary: '#ec4899',
-          colorSecondary: '#64748b',
-          colorTertiary: '#94a3b8',
-          // Section-specific color selections (which palette color to use)
-          heroDescriptionColor: 'secondary',
-          categoryDescriptionColor: 'secondary',
-          footerTextColor: 'tertiary',
+      categorySectionDescription: '',
+      allCategoriesTagline: '',
+      allCategoriesTaglineColor: 'secondary',
+      allCategoriesTaglineFont: 'primary',
+      allCategoriesTaglineFontSize: 1,
+      footerText: '',
+      footerTextColor: 'tertiary',
+      footerTextFont: 'primary',
+      footerTextFontSize: 0.875,
+      // Color palette (hex values)
+      colorPrimary: '#ec4899',
+      colorSecondary: '#64748b',
+      colorTertiary: '#94a3b8',
+      // Global Font palette
+      fontPrimary: 'inherit',
+      fontSecondary: 'inherit',
+      fontTertiary: 'inherit',
     });
     setSelectedStorefront(null);
     setSubmitting(false);
@@ -182,35 +313,80 @@ export default function EditSiteInfoButton({ className = '' }) {
     setError(null);
 
     try {
+      // Ensure color values are valid hex colors
+      const validateHexColor = (color, defaultColor) => {
+        if (!color || typeof color !== 'string') return defaultColor;
+        const trimmed = color.trim();
+        return /^#[0-9A-Fa-f]{6}$/.test(trimmed) ? trimmed : defaultColor;
+      };
+
       const payload = {
         companyTagline: form.companyTagline.trim() || '',
+        companyTaglineColor: form.companyTaglineColor || 'primary',
+        companyTaglineFont: form.companyTaglineFont || 'primary',
+        companyTaglineFontSize: parseFloat(form.companyTaglineFontSize) || 0.75,
         heroMainHeading: form.heroMainHeading.trim() || '',
+        heroMainHeadingColor: form.heroMainHeadingColor || 'primary',
+        heroMainHeadingFont: form.heroMainHeadingFont || 'primary',
+        heroMainHeadingFontSize: parseFloat(form.heroMainHeadingFontSize) || 4,
         heroDescription: form.heroDescription.trim() || '',
+        heroDescriptionColor: form.heroDescriptionColor || 'secondary',
+        heroDescriptionFont: form.heroDescriptionFont || 'primary',
+        heroDescriptionFontSize: parseFloat(form.heroDescriptionFontSize) || 1,
         heroBannerImage: form.heroBannerImage.trim() || '',
-        heroBannerMaxHeight: form.heroBannerMaxHeight || 550,
-        heroBannerMarginBottom: form.heroBannerMarginBottom || 40,
-        heroBannerTextWidth: form.heroBannerTextWidth || 75,
-        heroMainHeadingFontFamily: form.heroMainHeadingFontFamily || 'inherit',
-        heroMainHeadingFontStyle: form.heroMainHeadingFontStyle || 'normal',
-        heroMainHeadingFontWeight: form.heroMainHeadingFontWeight || '300',
-        heroMainHeadingFontSize: form.heroMainHeadingFontSize || 4,
+        heroBannerTextWidth: Number(form.heroBannerTextWidth) || 75,
         categorySectionHeading: form.categorySectionHeading.trim() || '',
         categorySectionDescription: form.categorySectionDescription.trim() || '',
         allCategoriesTagline: form.allCategoriesTagline.trim() || '',
+        allCategoriesTaglineColor: form.allCategoriesTaglineColor || 'secondary',
+        allCategoriesTaglineFont: form.allCategoriesTaglineFont || 'primary',
+        allCategoriesTaglineFontSize: parseFloat(form.allCategoriesTaglineFontSize) || 1,
+        // Category Carousel styling
+        categoryCarouselColor: form.categoryCarouselColor || 'primary',
+        categoryCarouselFont: form.categoryCarouselFont || 'primary',
+        categoryCarouselFontSize: parseFloat(form.categoryCarouselFontSize) || 0.875,
+        // Product Card styling
+        productCardType: form.productCardType || 'minimal',
+        productCardAspectRatio: form.productCardAspectRatio || '3:4',
+        productCardColumnsPhone: form.productCardColumnsPhone != null ? (parseInt(form.productCardColumnsPhone, 10) || 2) : 2,
+        productCardColumnsTablet: form.productCardColumnsTablet != null ? (parseInt(form.productCardColumnsTablet, 10) || 3) : 3,
+        productCardColumnsLaptop: form.productCardColumnsLaptop != null ? (parseInt(form.productCardColumnsLaptop, 10) || 4) : 4,
+        productCardColumnsDesktop: form.productCardColumnsDesktop != null ? (parseInt(form.productCardColumnsDesktop, 10) || 5) : 5,
+        productCardGap: form.productCardGap != null ? (isNaN(parseFloat(form.productCardGap)) ? 1 : parseFloat(form.productCardGap)) : 1,
+        productCardBorderRadius: form.productCardBorderRadius || 'medium',
+        productCardNameColor: form.productCardNameColor || 'primary',
+        productCardNameFont: form.productCardNameFont || 'primary',
+        productCardNameFontSize: parseFloat(form.productCardNameFontSize) || 0.65,
+        productCardPriceColor: form.productCardPriceColor || 'primary',
+        productCardPriceFont: form.productCardPriceFont || 'primary',
+        productCardPriceFontSize: parseFloat(form.productCardPriceFontSize) || 1,
+        productCardVatText: form.productCardVatText.trim() || 'Includes VAT',
+        productCardVatColor: form.productCardVatColor || 'secondary',
+        productCardVatFont: form.productCardVatFont || 'primary',
+        productCardVatFontSize: parseFloat(form.productCardVatFontSize) || 0.75,
         footerText: form.footerText.trim() || '',
-        // Color palette (hex values)
-        colorPrimary: form.colorPrimary || '#ec4899',
-        colorSecondary: form.colorSecondary || '#64748b',
-        colorTertiary: form.colorTertiary || '#94a3b8',
-        // Section-specific color selections (which palette color to use)
-        heroDescriptionColor: form.heroDescriptionColor || 'secondary',
-        categoryDescriptionColor: form.categoryDescriptionColor || 'secondary',
         footerTextColor: form.footerTextColor || 'tertiary',
+        footerTextFont: form.footerTextFont || 'primary',
+        footerTextFontSize: parseFloat(form.footerTextFontSize) || 0.875,
+        // Color palette (hex values) - validate and ensure they're valid
+        colorPrimary: validateHexColor(form.colorPrimary, '#ec4899'),
+        colorSecondary: validateHexColor(form.colorSecondary, '#64748b'),
+        colorTertiary: validateHexColor(form.colorTertiary, '#94a3b8'),
+        // Global Font palette
+        fontPrimary: form.fontPrimary || 'inherit',
+        fontSecondary: form.fontSecondary || 'inherit',
+        fontTertiary: form.fontTertiary || 'inherit',
         storefront: selectedStorefront,
         updatedAt: serverTimestamp(),
       };
 
       await setDoc(doc(db, selectedStorefront, 'Info'), payload, { merge: true });
+
+      // Clear cached Info for this storefront so it gets refreshed on next load
+      if (typeof window !== 'undefined') {
+        const { clearCachedInfo } = require('@/lib/info-cache');
+        clearCachedInfo(selectedStorefront);
+      }
 
       // Close modal and reset
       setOpen(false);
@@ -231,7 +407,19 @@ export default function EditSiteInfoButton({ className = '' }) {
     resetState();
   };
 
+  // Only render the button if not controlled (when controlled, parent handles the trigger)
   if (!open) {
+    // If controlled, don't render the button (parent will handle it)
+    if (controlledOpen !== undefined) {
+      return toastMessage ? (
+        <Toast
+          message={toastMessage}
+          onDismiss={() => setToastMessage(null)}
+        />
+      ) : null;
+    }
+    
+    // If not controlled, render the button
     return (
       <>
         <button
@@ -264,46 +452,87 @@ export default function EditSiteInfoButton({ className = '' }) {
           <div className="overflow-hidden" style={{ height: '100vh', width: '100vw' }}>
             <SitePreview
               companyTagline={form.companyTagline}
+              companyTaglineColor={form.companyTaglineColor}
+              companyTaglineFont={form.companyTaglineFont}
+              companyTaglineFontSize={form.companyTaglineFontSize}
               heroMainHeading={form.heroMainHeading}
+              heroMainHeadingColor={form.heroMainHeadingColor}
+              heroMainHeadingFont={form.heroMainHeadingFont}
+              heroMainHeadingFontSize={form.heroMainHeadingFontSize}
               heroDescription={form.heroDescription}
+              heroDescriptionColor={form.heroDescriptionColor}
+              heroDescriptionFont={form.heroDescriptionFont}
+              heroDescriptionFontSize={form.heroDescriptionFontSize}
               heroBannerImage={form.heroBannerImage}
+              categoryCarouselColor={form.categoryCarouselColor}
+              categoryCarouselFont={form.categoryCarouselFont}
+              categoryCarouselFontSize={form.categoryCarouselFontSize}
               allCategoriesTagline={form.allCategoriesTagline}
+              allCategoriesTaglineColor={form.allCategoriesTaglineColor}
+              allCategoriesTaglineFont={form.allCategoriesTaglineFont}
+              allCategoriesTaglineFontSize={form.allCategoriesTaglineFontSize}
               footerText={form.footerText}
-              maxHeight={form.heroBannerMaxHeight || 550}
-              marginBottom={form.heroBannerMarginBottom || 40}
+              footerTextColor={form.footerTextColor}
+              footerTextFont={form.footerTextFont}
+              footerTextFontSize={form.footerTextFontSize}
+              // Product Card styling
+              productCardType={form.productCardType || 'minimal'}
+              productCardAspectRatio={form.productCardAspectRatio || '3:4'}
+              productCardColumnsPhone={form.productCardColumnsPhone}
+              productCardColumnsTablet={form.productCardColumnsTablet}
+              productCardColumnsLaptop={form.productCardColumnsLaptop}
+              productCardColumnsDesktop={form.productCardColumnsDesktop}
+              productCardGap={form.productCardGap}
+              productCardBorderRadius={form.productCardBorderRadius}
+              productCardNameColor={form.productCardNameColor}
+              productCardNameFont={form.productCardNameFont}
+              productCardNameFontSize={form.productCardNameFontSize}
+              productCardPriceColor={form.productCardPriceColor}
+              productCardPriceFont={form.productCardPriceFont}
+              productCardPriceFontSize={form.productCardPriceFontSize}
+              productCardVatText={form.productCardVatText}
+              productCardVatColor={form.productCardVatColor}
+              productCardVatFont={form.productCardVatFont}
+              productCardVatFontSize={form.productCardVatFontSize}
               textWidth={form.heroBannerTextWidth || 75}
               highlightTextWidth={textWidthChanged}
-              heroMainHeadingFontFamily={form.heroMainHeadingFontFamily}
-              heroMainHeadingFontStyle={form.heroMainHeadingFontStyle}
-              heroMainHeadingFontWeight={form.heroMainHeadingFontWeight}
-              heroMainHeadingFontSize={form.heroMainHeadingFontSize}
               colorPalette={{
                 colorPrimary: form.colorPrimary,
                 colorSecondary: form.colorSecondary,
                 colorTertiary: form.colorTertiary,
               }}
-              heroDescriptionColor={form.heroDescriptionColor}
-              categoryDescriptionColor={form.categoryDescriptionColor}
-              footerTextColor={form.footerTextColor}
+              fontPalette={{
+                fontPrimary: form.fontPrimary,
+                fontSecondary: form.fontSecondary,
+                fontTertiary: form.fontTertiary,
+              }}
             />
           </div>
 
-          {/* Bottom Editing Panel - 30% height, multi-column layout */}
-          <div className="fixed bottom-0 left-0 right-0 z-10 bg-white/70 backdrop-blur-sm border-t border-zinc-200/70 shadow-2xl dark:bg-zinc-900/70 dark:border-zinc-700" style={{ height: '30vh' }}>
+          {/* Bottom Editing Panel - 50% height, multi-column layout */}
+          <div className="fixed bottom-0 left-0 right-0 z-10 bg-white/70 backdrop-blur-sm border-t border-zinc-200/70 shadow-2xl dark:bg-zinc-900/70 dark:border-zinc-700" style={{ height: '50vh' }}>
             <div className="h-full flex flex-col">
               {/* Header - Fixed */}
               <div className="flex-shrink-0 px-4 py-2 flex items-center justify-between border-b border-zinc-200/50 dark:border-zinc-700">
                 <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Edit Site Content</h2>
-                <button
-                  onClick={handleClose}
-                  disabled={submitting}
-                  className="rounded-full p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                  aria-label="Close Preview"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    disabled={submitting}
+                    className="rounded border border-zinc-200/70 px-4 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800/80 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="submit"
+                    form="edit-site-form"
+                    disabled={submitting}
+                    className="rounded bg-emerald-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {submitting ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
               </div>
 
               {/* Content - Multi-column with vertical scroll */}
@@ -311,471 +540,1010 @@ export default function EditSiteInfoButton({ className = '' }) {
                 {loading || websitesLoading ? (
                   <div className="py-4 px-4 text-center text-zinc-500 text-sm">Loading site information...</div>
                 ) : (
-                  <form onSubmit={handleSubmit} className="h-full">
+                  <form id="edit-site-form" onSubmit={handleSubmit} className="h-full">
                     {error && (
                       <div className="absolute top-14 left-4 right-4 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-900/20 dark:text-red-300 z-20">
                         {error}
                       </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 px-4 py-3 h-full">
-                      {/* Storefront Selector */}
-                      <div className="flex-shrink-0 w-40">
-                        <label htmlFor="storefront-select" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
-                          Storefront *
-                        </label>
-                        {availableWebsites.length === 0 ? (
-                          <div className="rounded border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
-                            No storefronts
-                          </div>
-                        ) : (
-                          <select
-                            id="storefront-select"
-                            value={selectedStorefront || ''}
-                            onChange={(e) => setSelectedStorefront(e.target.value)}
-                            className="w-full rounded border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-                            required
-                          >
-                            <option value="">Select...</option>
-                            {availableWebsites.map((storefront) => (
-                              <option key={storefront} value={storefront}>
-                                {storefront}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-
-                      {/* Hero Section */}
-                      <div className="space-y-3 border-r border-zinc-200/50 dark:border-zinc-700 pr-4">
-                        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Hero Section</h3>
+                    <div className="grid grid-cols-3 gap-4 px-4 py-3 h-full">
+                      {/* Column 1 */}
+                      <div className="space-y-4 overflow-y-auto pr-4 border-r border-zinc-200/50 dark:border-zinc-700">
+                        {/* Storefront Selector */}
                         <div>
-                          <label htmlFor="companyTagline" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Company Tagline
+                          <label htmlFor="storefront-select" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5">
+                            Storefront *
                           </label>
-                          <input
-                            id="companyTagline"
-                            type="text"
-                            value={form.companyTagline}
-                            onChange={(e) => setForm((prev) => ({ ...prev, companyTagline: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            placeholder="Effortless softness..."
-                            maxLength={100}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="heroMainHeading" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Hero Main Heading
-                          </label>
-                          <input
-                            id="heroMainHeading"
-                            type="text"
-                            value={form.heroMainHeading}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeading: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            placeholder="Curated collections..."
-                            maxLength={80}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="heroDescription" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Hero Description
-                          </label>
-                          <textarea
-                            id="heroDescription"
-                            value={form.heroDescription}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroDescription: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 resize-none"
-                            placeholder="From delicate lace..."
-                            rows={3}
-                            maxLength={200}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Banner Section */}
-                      <div className="space-y-3 border-r border-zinc-200/50 dark:border-zinc-700 pr-4">
-                        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Banner Settings</h3>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Banner Image
-                          </label>
-                          <label className="flex cursor-pointer items-center justify-center rounded border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800">
-                            {form.heroBannerImage ? 'Replace' : 'Upload'}
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (!file || !selectedStorefront) return;
-                                try {
-                                  const { getFirebaseApp } = await import('@/lib/firebase');
-                                  const { getStorage, ref, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
-                                  const app = getFirebaseApp();
-                                  if (!app) return;
-                                  const storage = getStorage(app);
-                                  const timestamp = Date.now();
-                                  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                                  const storagePath = `banners/${selectedStorefront}/${timestamp}-${sanitizedFilename}`;
-                                  const storageRef = ref(storage, storagePath);
-                                  const uploadTask = uploadBytesResumable(storageRef, file);
-                                  uploadTask.on('state_changed', null, null, async () => {
-                                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                                    setForm((prev) => ({ ...prev, heroBannerImage: downloadURL }));
-                                  });
-                                } catch (err) {
-                                  console.error('Upload error:', err);
-                                }
-                              }}
-                              className="hidden"
-                            />
-                          </label>
-                          {form.heroBannerImage && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to remove the banner image? This will remove the banner from your homepage and the hero text will be displayed without a background image.')) {
-                                  setForm((prev) => ({ ...prev, heroBannerImage: '' }));
-                                }
-                              }}
-                              className="mt-1.5 w-full rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+                          {availableWebsites.length === 0 ? (
+                            <div className="rounded border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                              No storefronts
+                            </div>
+                          ) : (
+                            <select
+                              id="storefront-select"
+                              value={selectedStorefront || ''}
+                              onChange={(e) => setSelectedStorefront(e.target.value)}
+                              className="w-full rounded border border-zinc-200 bg-white px-2.5 py-1.5 text-xs text-zinc-700 focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                              required
                             >
-                              Remove
-                            </button>
+                              <option value="">Select...</option>
+                              {availableWebsites.map((storefront) => (
+                                <option key={storefront} value={storefront}>
+                                  {storefront}
+                                </option>
+                              ))}
+                            </select>
                           )}
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Max Height: {form.heroBannerMaxHeight}px
-                          </label>
-                          <input
-                            type="range"
-                            min="200"
-                            max="1000"
-                            value={form.heroBannerMaxHeight}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroBannerMaxHeight: Number(e.target.value) }))}
-                            className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Margin Bottom: {form.heroBannerMarginBottom}px
-                          </label>
-                          <input
-                            type="range"
-                            min="0"
-                            max="200"
-                            value={form.heroBannerMarginBottom}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroBannerMarginBottom: Number(e.target.value) }))}
-                            className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Text Width: {form.heroBannerTextWidth}%
-                          </label>
-                          <input
-                            type="range"
-                            min="10"
-                            max="100"
-                            step="1"
-                            value={form.heroBannerTextWidth}
-                            onChange={(e) => {
-                              setForm((prev) => ({ ...prev, heroBannerTextWidth: Number(e.target.value) }));
-                              setTextWidthChanged(true);
-                              setTimeout(() => setTextWidthChanged(false), 1000);
-                            }}
-                            className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
-                          />
-                        </div>
-                      </div>
 
-                      {/* Hero Text Settings Section */}
-                      <div className="space-y-3 border-r border-zinc-200/50 dark:border-zinc-700 pr-4">
-                        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Hero Text Settings</h3>
-                        <div>
-                          <label htmlFor="heroMainHeadingFontFamily" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Font Family
-                          </label>
-                          <select
-                            id="heroMainHeadingFontFamily"
-                            value={form.heroMainHeadingFontFamily}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontFamily: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          >
-                            <option value="inherit">Default (System)</option>
-                            <option value="serif">Serif</option>
-                            <option value="sans-serif">Sans Serif</option>
-                            <option value="monospace">Monospace</option>
-                            <option value="cursive">Cursive</option>
-                            <option value="fantasy">Fantasy</option>
-                            <option value="'Playfair Display', serif">Playfair Display</option>
-                            <option value="'Roboto', sans-serif">Roboto</option>
-                            <option value="'Open Sans', sans-serif">Open Sans</option>
-                            <option value="'Montserrat', sans-serif">Montserrat</option>
-                            <option value="'Lora', serif">Lora</option>
-                            <option value="'Merriweather', serif">Merriweather</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label htmlFor="heroMainHeadingFontStyle" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Font Style
-                          </label>
-                          <select
-                            id="heroMainHeadingFontStyle"
-                            value={form.heroMainHeadingFontStyle}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontStyle: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          >
-                            <option value="normal">Normal</option>
-                            <option value="italic">Italic</option>
-                            <option value="oblique">Oblique</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label htmlFor="heroMainHeadingFontWeight" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Font Weight: {form.heroMainHeadingFontWeight}
-                          </label>
-                          <input
-                            type="range"
-                            min="100"
-                            max="900"
-                            step="100"
-                            value={form.heroMainHeadingFontWeight}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontWeight: e.target.value }))}
-                            className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
-                          />
-                          <div className="mt-1 flex justify-between text-[10px] text-zinc-500">
-                            <span>Thin</span>
-                            <span>Normal</span>
-                            <span>Bold</span>
+                        {/* Banner Section */}
+                        <div className="space-y-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-700">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Banner</h3>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Banner Image
+                            </label>
+                            <label className={`flex cursor-pointer items-center justify-center rounded border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 ${bannerUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                              {bannerUploading ? (
+                                <span className="flex items-center gap-2">
+                                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                  </svg>
+                                  Uploading...
+                                </span>
+                              ) : (
+                                form.heroBannerImage ? 'Replace' : 'Upload'
+                              )}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                disabled={bannerUploading}
+                                onChange={async (e) => {
+                                  const file = e.target.files?.[0];
+                                  if (!file || !selectedStorefront || bannerUploading) return;
+                                  
+                                  // Validate file type
+                                  if (!file.type.startsWith('image/')) {
+                                    setError('Please select an image file.');
+                                    return;
+                                  }
+                                  
+                                  // Validate file size (e.g., max 10MB)
+                                  const maxSize = 10 * 1024 * 1024; // 10MB
+                                  if (file.size > maxSize) {
+                                    setError('Image size must be less than 10MB.');
+                                    return;
+                                  }
+                                  
+                                  setBannerUploading(true);
+                                  setBannerUploadProgress(0);
+                                  setError(null);
+                                  
+                                  try {
+                                    const { getFirebaseApp } = await import('@/lib/firebase');
+                                    const { getStorage, ref, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
+                                    const app = getFirebaseApp();
+                                    if (!app) {
+                                      setBannerUploading(false);
+                                      return;
+                                    }
+                                    const storage = getStorage(app);
+                                    const timestamp = Date.now();
+                                    const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                                    const storagePath = `banners/${selectedStorefront}/${timestamp}-${sanitizedFilename}`;
+                                    const storageRef = ref(storage, storagePath);
+                                    const uploadTask = uploadBytesResumable(storageRef, file, {
+                                      contentType: file.type,
+                                      // Cache for 7 days - reasonable balance between performance and update visibility
+                                      // Cache busting is automatic: each upload gets a unique timestamped filename,
+                                      // so when banner changes, the URL changes and browsers fetch the new image
+                                      cacheControl: 'public, max-age=604800', // Cache for 7 days (604800 seconds)
+                                    });
+                                    
+                                    // Track upload progress
+                                    uploadTask.on('state_changed', 
+                                      (snapshot) => {
+                                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                                        setBannerUploadProgress(progress);
+                                      },
+                                      (error) => {
+                                        console.error('Upload error:', error);
+                                        setError('Failed to upload banner image. Please try again.');
+                                        setBannerUploading(false);
+                                        setBannerUploadProgress(0);
+                                      },
+                                      async () => {
+                                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                                        setForm((prev) => ({ ...prev, heroBannerImage: downloadURL }));
+                                        setBannerUploading(false);
+                                        setBannerUploadProgress(0);
+                                        // Reset file input
+                                        e.target.value = '';
+                                      }
+                                    );
+                                  } catch (err) {
+                                    console.error('Upload error:', err);
+                                    setError('Failed to upload banner image. Please try again.');
+                                    setBannerUploading(false);
+                                    setBannerUploadProgress(0);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </label>
+                            {bannerUploading && (
+                              <div className="mt-2">
+                                <div className="w-full bg-zinc-200 rounded-full h-1.5 dark:bg-zinc-700">
+                                  <div 
+                                    className="bg-emerald-600 h-1.5 rounded-full transition-all duration-300" 
+                                    style={{ width: `${bannerUploadProgress}%` }}
+                                  ></div>
+                                </div>
+                                <p className="mt-1 text-[10px] text-zinc-500 text-center">
+                                  {Math.round(bannerUploadProgress)}% uploaded
+                                </p>
+                              </div>
+                            )}
+                            {form.heroBannerImage && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to remove the banner image? This will remove the banner from your homepage and the hero text will be displayed without a background image.')) {
+                                    setForm((prev) => ({ ...prev, heroBannerImage: '' }));
+                                  }
+                                }}
+                                className="mt-1.5 w-full rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+                              >
+                                Remove
+                              </button>
+                            )}
                           </div>
-                        </div>
-                        <div>
-                          <label htmlFor="heroMainHeadingFontSize" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Font Size: {form.heroMainHeadingFontSize}vw
-                          </label>
-                          <input
-                            type="range"
-                            min="2"
-                            max="10"
-                            step="0.1"
-                            value={form.heroMainHeadingFontSize}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontSize: Number(e.target.value) }))}
-                            className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
-                          />
-                          <div className="mt-1 flex justify-between text-[10px] text-zinc-500">
-                            <span>Small</span>
-                            <span>Medium</span>
-                            <span>Large</span>
-                          </div>
-                          <p className="mt-1 text-[10px] text-zinc-400">Scales with viewport width</p>
-                        </div>
-                      </div>
-
-                      {/* Category & Footer Section */}
-                      <div className="space-y-3 border-r border-zinc-200/50 dark:border-zinc-700 pr-4">
-                        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Category & Footer</h3>
-                        <div>
-                          <label htmlFor="categorySectionHeading" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Category Heading
-                          </label>
-                          <input
-                            id="categorySectionHeading"
-                            type="text"
-                            value={form.categorySectionHeading}
-                            onChange={(e) => setForm((prev) => ({ ...prev, categorySectionHeading: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            placeholder="Shop by category"
-                            maxLength={50}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="categorySectionDescription" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Category Description
-                          </label>
-                          <textarea
-                            id="categorySectionDescription"
-                            value={form.categorySectionDescription}
-                            onChange={(e) => setForm((prev) => ({ ...prev, categorySectionDescription: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 resize-none"
-                            placeholder="Choose a category..."
-                            rows={2}
-                            maxLength={150}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="allCategoriesTagline" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            All Categories Tagline
-                          </label>
-                          <input
-                            id="allCategoriesTagline"
-                            type="text"
-                            value={form.allCategoriesTagline}
-                            onChange={(e) => setForm((prev) => ({ ...prev, allCategoriesTagline: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            placeholder="Choose a category..."
-                            maxLength={100}
-                          />
-                        </div>
-                        <div>
-                          <label htmlFor="footerText" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Footer Text
-                          </label>
-                          <input
-                            id="footerText"
-                            type="text"
-                            value={form.footerText}
-                            onChange={(e) => setForm((prev) => ({ ...prev, footerText: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            placeholder="© 2024..."
-                            maxLength={100}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Color Palette Section */}
-                      <div className="space-y-3 border-r border-zinc-200/50 dark:border-zinc-700 pr-4">
-                        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Color Palette</h3>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Primary Color
-                          </label>
-                          <div className="flex gap-1.5">
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Text Width: {form.heroBannerTextWidth}%
+                            </label>
                             <input
-                              type="color"
-                              value={form.colorPrimary || '#ec4899'}
-                              onChange={(e) => setForm((prev) => ({ ...prev, colorPrimary: e.target.value }))}
-                              className="h-7 w-10 rounded border border-zinc-200 cursor-pointer dark:border-zinc-700 flex-shrink-0"
-                            />
-                            <input
-                              type="text"
-                              value={form.colorPrimary || ''}
+                              type="range"
+                              min="10"
+                              max="100"
+                              step="1"
+                              value={form.heroBannerTextWidth}
                               onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '' || /^#[0-9A-Fa-f]{0,6}$/.test(val)) {
-                                  setForm((prev) => ({ ...prev, colorPrimary: val }));
-                                }
+                                setForm((prev) => ({ ...prev, heroBannerTextWidth: Number(e.target.value) }));
+                                setTextWidthChanged(true);
+                                setTimeout(() => setTextWidthChanged(false), 1000);
                               }}
-                              placeholder="#ec4899"
-                              className="flex-1 rounded border border-zinc-200 px-2 py-1 text-xs font-mono focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
                             />
                           </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Secondary Color
-                          </label>
-                          <div className="flex gap-1.5">
-                            <input
-                              type="color"
-                              value={form.colorSecondary || '#64748b'}
-                              onChange={(e) => setForm((prev) => ({ ...prev, colorSecondary: e.target.value }))}
-                              className="h-7 w-10 rounded border border-zinc-200 cursor-pointer dark:border-zinc-700 flex-shrink-0"
-                            />
-                            <input
-                              type="text"
-                              value={form.colorSecondary || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '' || /^#[0-9A-Fa-f]{0,6}$/.test(val)) {
-                                  setForm((prev) => ({ ...prev, colorSecondary: val }));
-                                }
-                              }}
-                              placeholder="#64748b"
-                              className="flex-1 rounded border border-zinc-200 px-2 py-1 text-xs font-mono focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            />
+
+                        {/* Primary Color + Primary Font */}
+                        <div className="space-y-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-700">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Primary</h3>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Primary Color
+                            </label>
+                            <div className="flex gap-1.5">
+                              <input
+                                type="color"
+                                value={form.colorPrimary || '#ec4899'}
+                                onChange={(e) => setForm((prev) => ({ ...prev, colorPrimary: e.target.value }))}
+                                className="h-7 w-10 rounded border border-zinc-200 cursor-pointer dark:border-zinc-700 flex-shrink-0"
+                              />
+                              <input
+                                type="text"
+                                value={form.colorPrimary || '#ec4899'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  // Allow partial input while typing (e.g., #3bb, #3bba, #3bba9)
+                                  // Only allow # followed by 0-6 hex characters
+                                  if (val === '' || /^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                                    setForm((prev) => ({ ...prev, colorPrimary: val || '#ec4899' }));
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  // Validate complete hex color on blur
+                                  if (!val || !/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                    // If invalid, restore previous valid value or default
+                                    setForm((prev) => ({ ...prev, colorPrimary: prev.colorPrimary || '#ec4899' }));
+                                  } else {
+                                    // Ensure value is saved (in case it was valid but not yet saved)
+                                    setForm((prev) => ({ ...prev, colorPrimary: val }));
+                                  }
+                                }}
+                                placeholder="#ec4899"
+                                className="flex-1 rounded border border-zinc-200 px-2 py-1 text-xs font-mono focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Primary Font
+                            </label>
+                            <select
+                              value={form.fontPrimary || 'inherit'}
+                              onChange={(e) => setForm((prev) => ({ ...prev, fontPrimary: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                            >
+                              <option value="inherit">Default (System)</option>
+                              <option value="serif">Serif</option>
+                              <option value="sans-serif">Sans Serif</option>
+                              <option value="monospace">Monospace</option>
+                              <option value="cursive">Cursive</option>
+                              <option value="fantasy">Fantasy</option>
+                              <option value="'Playfair Display', serif">Playfair Display</option>
+                              <option value="'Roboto', sans-serif">Roboto</option>
+                              <option value="'Open Sans', sans-serif">Open Sans</option>
+                              <option value="'Montserrat', sans-serif">Montserrat</option>
+                              <option value="'Lora', serif">Lora</option>
+                              <option value="'Merriweather', serif">Merriweather</option>
+                            </select>
                           </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Tertiary Color
-                          </label>
-                          <div className="flex gap-1.5">
-                            <input
-                              type="color"
-                              value={form.colorTertiary || '#94a3b8'}
-                              onChange={(e) => setForm((prev) => ({ ...prev, colorTertiary: e.target.value }))}
-                              className="h-7 w-10 rounded border border-zinc-200 cursor-pointer dark:border-zinc-700 flex-shrink-0"
-                            />
-                            <input
-                              type="text"
-                              value={form.colorTertiary || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === '' || /^#[0-9A-Fa-f]{0,6}$/.test(val)) {
-                                  setForm((prev) => ({ ...prev, colorTertiary: val }));
-                                }
-                              }}
-                              placeholder="#94a3b8"
-                              className="flex-1 rounded border border-zinc-200 px-2 py-1 text-xs font-mono focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            />
+
+                        {/* Secondary Color + Secondary Font */}
+                        <div className="space-y-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-700">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Secondary</h3>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Secondary Color
+                            </label>
+                            <div className="flex gap-1.5">
+                              <input
+                                type="color"
+                                value={form.colorSecondary || '#64748b'}
+                                onChange={(e) => setForm((prev) => ({ ...prev, colorSecondary: e.target.value }))}
+                                className="h-7 w-10 rounded border border-zinc-200 cursor-pointer dark:border-zinc-700 flex-shrink-0"
+                              />
+                              <input
+                                type="text"
+                                value={form.colorSecondary || '#64748b'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  // Allow partial input while typing (e.g., #3bb, #3bba, #3bba9)
+                                  // Only allow # followed by 0-6 hex characters
+                                  if (val === '' || /^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                                    setForm((prev) => ({ ...prev, colorSecondary: val || '#64748b' }));
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  // Validate complete hex color on blur
+                                  if (!val || !/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                    // If invalid, restore previous valid value or default
+                                    setForm((prev) => ({ ...prev, colorSecondary: prev.colorSecondary || '#64748b' }));
+                                  } else {
+                                    // Ensure value is saved (in case it was valid but not yet saved)
+                                    setForm((prev) => ({ ...prev, colorSecondary: val }));
+                                  }
+                                }}
+                                placeholder="#64748b"
+                                className="flex-1 rounded border border-zinc-200 px-2 py-1 text-xs font-mono focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Secondary Font
+                            </label>
+                            <select
+                              value={form.fontSecondary || 'inherit'}
+                              onChange={(e) => setForm((prev) => ({ ...prev, fontSecondary: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                            >
+                              <option value="inherit">Default (System)</option>
+                              <option value="serif">Serif</option>
+                              <option value="sans-serif">Sans Serif</option>
+                              <option value="monospace">Monospace</option>
+                              <option value="cursive">Cursive</option>
+                              <option value="fantasy">Fantasy</option>
+                              <option value="'Playfair Display', serif">Playfair Display</option>
+                              <option value="'Roboto', sans-serif">Roboto</option>
+                              <option value="'Open Sans', sans-serif">Open Sans</option>
+                              <option value="'Montserrat', sans-serif">Montserrat</option>
+                              <option value="'Lora', serif">Lora</option>
+                              <option value="'Merriweather', serif">Merriweather</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Tertiary Color + Tertiary Font */}
+                        <div className="space-y-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-700">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Tertiary</h3>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Tertiary Color
+                            </label>
+                            <div className="flex gap-1.5">
+                              <input
+                                type="color"
+                                value={form.colorTertiary || '#94a3b8'}
+                                onChange={(e) => setForm((prev) => ({ ...prev, colorTertiary: e.target.value }))}
+                                className="h-7 w-10 rounded border border-zinc-200 cursor-pointer dark:border-zinc-700 flex-shrink-0"
+                              />
+                              <input
+                                type="text"
+                                value={form.colorTertiary || '#94a3b8'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  // Allow partial input while typing (e.g., #3bb, #3bba, #3bba9)
+                                  // Only allow # followed by 0-6 hex characters
+                                  if (val === '' || /^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                                    setForm((prev) => ({ ...prev, colorTertiary: val || '#94a3b8' }));
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const val = e.target.value.trim();
+                                  // Validate complete hex color on blur
+                                  if (!val || !/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                                    // If invalid, restore previous valid value or default
+                                    setForm((prev) => ({ ...prev, colorTertiary: prev.colorTertiary || '#94a3b8' }));
+                                  } else {
+                                    // Ensure value is saved (in case it was valid but not yet saved)
+                                    setForm((prev) => ({ ...prev, colorTertiary: val }));
+                                  }
+                                }}
+                                placeholder="#94a3b8"
+                                className="flex-1 rounded border border-zinc-200 px-2 py-1 text-xs font-mono focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Tertiary Font
+                            </label>
+                            <select
+                              value={form.fontTertiary || 'inherit'}
+                              onChange={(e) => setForm((prev) => ({ ...prev, fontTertiary: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                            >
+                              <option value="inherit">Default (System)</option>
+                              <option value="serif">Serif</option>
+                              <option value="sans-serif">Sans Serif</option>
+                              <option value="monospace">Monospace</option>
+                              <option value="cursive">Cursive</option>
+                              <option value="fantasy">Fantasy</option>
+                              <option value="'Playfair Display', serif">Playfair Display</option>
+                              <option value="'Roboto', sans-serif">Roboto</option>
+                              <option value="'Open Sans', sans-serif">Open Sans</option>
+                              <option value="'Montserrat', sans-serif">Montserrat</option>
+                              <option value="'Lora', serif">Lora</option>
+                              <option value="'Merriweather', serif">Merriweather</option>
+                            </select>
                           </div>
                         </div>
                       </div>
 
-                      {/* Text Color Assignments Section */}
-                      <div className="space-y-3">
-                        <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Text Color Assignments</h3>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Hero Desc Color
-                          </label>
-                          <select
-                            value={form.heroDescriptionColor || 'secondary'}
-                            onChange={(e) => setForm((prev) => ({ ...prev, heroDescriptionColor: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          >
-                            <option value="primary">Primary</option>
-                            <option value="secondary">Secondary</option>
-                            <option value="tertiary">Tertiary</option>
-                          </select>
+                      {/* Column 2 */}
+                      <div className="space-y-4 overflow-y-auto pr-4 border-r border-zinc-200/50 dark:border-zinc-700">
+
+                        {/* Hero Section */}
+                        <div className="space-y-3">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Hero Section</h3>
+                          
+                          {/* Company Tagline */}
+                          <div>
+                            <label htmlFor="companyTagline" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Company Tagline
+                            </label>
+                            <input
+                              id="companyTagline"
+                              type="text"
+                              value={form.companyTagline}
+                              onChange={(e) => setForm((prev) => ({ ...prev, companyTagline: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              placeholder="Effortless softness..."
+                              maxLength={100}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.companyTaglineColor || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, companyTaglineColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.companyTaglineFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, companyTaglineFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.companyTaglineFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="1.5"
+                                step="0.05"
+                                value={form.companyTaglineFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, companyTaglineFontSize: parseFloat(e.target.value) || 0.75 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Hero Main Heading */}
+                          <div>
+                            <label htmlFor="heroMainHeading" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Hero Main Heading
+                            </label>
+                            <input
+                              id="heroMainHeading"
+                              type="text"
+                              value={form.heroMainHeading}
+                              onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeading: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              placeholder="Curated collections..."
+                              maxLength={80}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.heroMainHeadingColor || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.heroMainHeadingFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.heroMainHeadingFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="1"
+                                max="6"
+                                step="0.1"
+                                value={form.heroMainHeadingFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, heroMainHeadingFontSize: parseFloat(e.target.value) || 4 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Hero Description */}
+                          <div>
+                            <label htmlFor="heroDescription" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Hero Description
+                            </label>
+                            <textarea
+                              id="heroDescription"
+                              value={form.heroDescription}
+                              onChange={(e) => setForm((prev) => ({ ...prev, heroDescription: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 resize-none"
+                              placeholder="From delicate lace..."
+                              rows={3}
+                              maxLength={200}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.heroDescriptionColor || 'secondary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, heroDescriptionColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.heroDescriptionFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, heroDescriptionFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.heroDescriptionFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="2"
+                                step="0.1"
+                                value={form.heroDescriptionFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, heroDescriptionFontSize: parseFloat(e.target.value) || 1 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Category Desc Color
-                          </label>
-                          <select
-                            value={form.categoryDescriptionColor || 'secondary'}
-                            onChange={(e) => setForm((prev) => ({ ...prev, categoryDescriptionColor: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          >
-                            <option value="primary">Primary</option>
-                            <option value="secondary">Secondary</option>
-                            <option value="tertiary">Tertiary</option>
-                          </select>
+                      </div>
+
+                      {/* Column 3 */}
+                      <div className="space-y-4 overflow-y-auto">
+                        {/* Category Carousel + All Categories Tagline Section */}
+                        <div className="space-y-3">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Category Carousel & Tagline</h3>
+                          
+                          {/* Category Carousel */}
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Category Carousel
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.categoryCarouselColor || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, categoryCarouselColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.categoryCarouselFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, categoryCarouselFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.categoryCarouselFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="1.5"
+                                step="0.05"
+                                value={form.categoryCarouselFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, categoryCarouselFontSize: parseFloat(e.target.value) || 0.875 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
+
+                          {/* All Categories Tagline */}
+                          <div>
+                            <label htmlFor="allCategoriesTagline" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              All Categories Tagline
+                            </label>
+                            <input
+                              id="allCategoriesTagline"
+                              type="text"
+                              value={form.allCategoriesTagline}
+                              onChange={(e) => setForm((prev) => ({ ...prev, allCategoriesTagline: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              placeholder="Choose a category..."
+                              maxLength={100}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.allCategoriesTaglineColor || 'secondary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, allCategoriesTaglineColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.allCategoriesTaglineFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, allCategoriesTaglineFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.allCategoriesTaglineFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="2"
+                                step="0.1"
+                                value={form.allCategoriesTaglineFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, allCategoriesTaglineFontSize: parseFloat(e.target.value) || 1 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                            Footer Text Color
-                          </label>
-                          <select
-                            value={form.footerTextColor || 'tertiary'}
-                            onChange={(e) => setForm((prev) => ({ ...prev, footerTextColor: e.target.value }))}
-                            className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                          >
-                            <option value="primary">Primary</option>
-                            <option value="secondary">Secondary</option>
-                            <option value="tertiary">Tertiary</option>
-                          </select>
+
+                        {/* Product Card Section */}
+                        <div className="space-y-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-700">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Product Card</h3>
+                          
+                          {/* Card Type */}
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Card Type
+                            </label>
+                            <select
+                              value={form.productCardType || 'minimal'}
+                              onChange={(e) => setForm((prev) => ({ ...prev, productCardType: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                            >
+                              <option value="minimal">Minimal</option>
+                              <option value="bordered">Bordered</option>
+                              <option value="overlay">Overlay</option>
+                              <option value="compact">Compact</option>
+                            </select>
+                          </div>
+
+                          {/* Card Size Controls */}
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Image Aspect Ratio
+                              </label>
+                              <select
+                                value={form.productCardAspectRatio || '3:4'}
+                                onChange={(e) => setForm((prev) => ({ ...prev, productCardAspectRatio: e.target.value }))}
+                                className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              >
+                                <option value="3:4">3:4 (Portrait)</option>
+                                <option value="1:1">1:1 (Square)</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Card Gap: {form.productCardGap || 0}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="3"
+                                step="0.1"
+                                value={form.productCardGap || 0}
+                                onChange={(e) => setForm((prev) => ({ ...prev, productCardGap: parseFloat(e.target.value) || 0 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Border Radius
+                              </label>
+                              <select
+                                value={form.productCardBorderRadius || 'medium'}
+                                onChange={(e) => setForm((prev) => ({ ...prev, productCardBorderRadius: e.target.value }))}
+                                className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              >
+                                <option value="none">None</option>
+                                <option value="small">Small</option>
+                                <option value="medium">Medium</option>
+                                <option value="large">Large</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Cards Per Row by Screen Size
+                              </label>
+                              <div>
+                                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Phone: {form.productCardColumnsPhone || 2} cards</label>
+                                <select
+                                  value={form.productCardColumnsPhone || 2}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, productCardColumnsPhone: parseInt(e.target.value) || 2 }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="2">2 cards</option>
+                                  <option value="3">3 cards</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Tablet (640px+): {form.productCardColumnsTablet || 3} cards</label>
+                                <select
+                                  value={form.productCardColumnsTablet || 3}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, productCardColumnsTablet: parseInt(e.target.value) || 3 }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="3">3 cards</option>
+                                  <option value="4">4 cards</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Laptop (1024px+): {form.productCardColumnsLaptop != null ? form.productCardColumnsLaptop : 4} cards</label>
+                                <select
+                                  value={form.productCardColumnsLaptop != null ? form.productCardColumnsLaptop : 4}
+                                  onChange={(e) => {
+                                    const value = parseInt(e.target.value, 10);
+                                    setForm((prev) => ({ ...prev, productCardColumnsLaptop: isNaN(value) ? 4 : value }));
+                                  }}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="3">3 cards</option>
+                                  <option value="4">4 cards</option>
+                                  <option value="5">5 cards</option>
+                                  <option value="6">6 cards</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs text-zinc-600 dark:text-zinc-400 mb-1">Desktop (1536px+): {form.productCardColumnsDesktop != null ? form.productCardColumnsDesktop : 5} cards</label>
+                                <select
+                                  value={form.productCardColumnsDesktop != null ? form.productCardColumnsDesktop : 5}
+                                  onChange={(e) => {
+                                    const value = parseInt(e.target.value, 10);
+                                    setForm((prev) => ({ ...prev, productCardColumnsDesktop: isNaN(value) ? 5 : value }));
+                                  }}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="3">3 cards</option>
+                                  <option value="4">4 cards</option>
+                                  <option value="5">5 cards</option>
+                                  <option value="6">6 cards</option>
+                                </select>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-zinc-200/50 dark:border-zinc-700">
+                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-2">Text Styling</p>
+                          </div>
+                          
+                          {/* Product Name */}
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Product Name
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.productCardNameColor || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, productCardNameColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.productCardNameFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, productCardNameFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.productCardNameFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="1.5"
+                                step="0.05"
+                                value={form.productCardNameFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, productCardNameFontSize: parseFloat(e.target.value) || 0.65 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Price */}
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Price
+                            </label>
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.productCardPriceColor || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, productCardPriceColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.productCardPriceFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, productCardPriceFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.productCardPriceFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="2"
+                                step="0.1"
+                                value={form.productCardPriceFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, productCardPriceFontSize: parseFloat(e.target.value) || 1 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
+
+                          {/* VAT Text */}
+                          <div>
+                            <label htmlFor="productCardVatText" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              VAT Text
+                            </label>
+                            <input
+                              id="productCardVatText"
+                              type="text"
+                              value={form.productCardVatText}
+                              onChange={(e) => setForm((prev) => ({ ...prev, productCardVatText: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              placeholder="Includes VAT"
+                              maxLength={50}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.productCardVatColor || 'secondary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, productCardVatColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.productCardVatFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, productCardVatFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.productCardVatFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="1.5"
+                                step="0.05"
+                                value={form.productCardVatFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, productCardVatFontSize: parseFloat(e.target.value) || 0.75 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
                         </div>
-                        {/* Action Buttons */}
-                        <div className="flex items-center gap-2 pt-2">
-                          <button
-                            type="button"
-                            onClick={handleClose}
-                            disabled={submitting}
-                            className="rounded border border-zinc-200/70 px-4 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-800/80 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                          >
-                            Close
-                          </button>
-                          <button
-                            type="submit"
-                            disabled={submitting}
-                            className="rounded bg-emerald-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                          >
-                            {submitting ? 'Saving...' : 'Save'}
-                          </button>
+
+                        {/* Footer Section */}
+                        <div className="space-y-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-700">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Footer</h3>
+                          <div>
+                            <label htmlFor="footerText" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                              Footer Text
+                            </label>
+                            <input
+                              id="footerText"
+                              type="text"
+                              value={form.footerText}
+                              onChange={(e) => setForm((prev) => ({ ...prev, footerText: e.target.value }))}
+                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              placeholder="© 2024..."
+                              maxLength={100}
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>
+                                <select
+                                  value={form.footerTextColor || 'tertiary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, footerTextColor: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                              <div className="flex-1">
+                                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Font</label>
+                                <select
+                                  value={form.footerTextFont || 'primary'}
+                                  onChange={(e) => setForm((prev) => ({ ...prev, footerTextFont: e.target.value }))}
+                                  className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                >
+                                  <option value="primary">Primary</option>
+                                  <option value="secondary">Secondary</option>
+                                  <option value="tertiary">Tertiary</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="mt-2">
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Size: {form.footerTextFontSize}rem
+                              </label>
+                              <input
+                                type="range"
+                                min="0.5"
+                                max="1.5"
+                                step="0.05"
+                                value={form.footerTextFontSize}
+                                onChange={(e) => setForm((prev) => ({ ...prev, footerTextFontSize: parseFloat(e.target.value) || 0.875 }))}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

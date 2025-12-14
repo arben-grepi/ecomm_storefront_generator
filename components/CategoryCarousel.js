@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 
 export default function CategoryCarousel({ 
   align = 'center', 
@@ -9,9 +9,36 @@ export default function CategoryCarousel({
   selectedCategory = null, // null = "All Categories"
   onCategorySelect = null,
   onAllCategories = null,
+  primaryColor = '#ec4899', // Default primary color (for backward compatibility)
+  color = 'primary', // Color selection: 'primary', 'secondary', or 'tertiary'
+  colorPalette = { colorPrimary: '#ec4899', colorSecondary: '#64748b', colorTertiary: '#94a3b8' },
+  font = 'primary', // Font selection: 'primary', 'secondary', or 'tertiary'
+  fontPalette = { fontPrimary: 'inherit', fontSecondary: 'inherit', fontTertiary: 'inherit' },
+  fontSize = 0.875, // Font size in rem
 }) {
+  // Get actual color from color selection
+  const getColorFromSelection = () => {
+    if (color === 'primary') return colorPalette.colorPrimary || primaryColor;
+    if (color === 'secondary') return colorPalette.colorSecondary || '#64748b';
+    if (color === 'tertiary') return colorPalette.colorTertiary || '#94a3b8';
+    return primaryColor; // Fallback
+  };
+
+  // Get actual font from font selection
+  const getFontFromSelection = () => {
+    if (font === 'primary') return fontPalette.fontPrimary || 'inherit';
+    if (font === 'secondary') return fontPalette.fontSecondary || 'inherit';
+    if (font === 'tertiary') return fontPalette.fontTertiary || 'inherit';
+    return 'inherit'; // Fallback
+  };
+  
+  const carouselColor = getColorFromSelection();
+  const carouselFont = getFontFromSelection();
   // Local state for immediate UI updates (optimistic update)
   const [localSelectedCategory, setLocalSelectedCategory] = useState(selectedCategory);
+  const scrollContainerRef = useRef(null);
+  const [showLeftFade, setShowLeftFade] = useState(false);
+  const [showRightFade, setShowRightFade] = useState(false);
   
   // Sync local state with prop changes (from URL or external updates)
   useEffect(() => {
@@ -36,6 +63,36 @@ export default function CategoryCarousel({
     ];
   }, [categories]); // Removed products dependency - show all categories
 
+  // Check scroll position and show/hide fade indicators
+  const checkScrollPosition = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+    setShowLeftFade(scrollLeft > 0);
+    setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1);
+  };
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    // Check on mount and when navItems change
+    checkScrollPosition();
+    
+    // Check on scroll
+    container.addEventListener('scroll', checkScrollPosition);
+    
+    // Check on resize (categories might change)
+    const resizeObserver = new ResizeObserver(() => {
+      checkScrollPosition();
+    });
+    resizeObserver.observe(container);
+
+    return () => {
+      container.removeEventListener('scroll', checkScrollPosition);
+      resizeObserver.disconnect();
+    };
+  }, [navItems]);
+
   const isActive = (item) => {
     if (item.value === 'all') {
       return localSelectedCategory === null;
@@ -57,33 +114,65 @@ export default function CategoryCarousel({
     }
   };
 
-  const containerAlignment = align === 'start' ? 'justify-start' : 'justify-center sm:justify-start';
+  const containerAlignment = align === 'start' ? 'justify-start' : 'justify-start';
 
   return (
-    <div className="overflow-x-auto scrollbar-hide scroll-smooth">
-      <ul className={`flex flex-nowrap items-center gap-0 ${containerAlignment} min-w-full`}>
-        {navItems.map((item, index) => {
-          const active = isActive(item);
-          return (
-            <li key={item.value} className="flex-none flex items-center">
-              {index > 0 && (
-                <span className="mx-2 text-primary/40 text-sm">•</span>
-              )}
-              <button
-                onClick={() => handleClick(item)}
-                className={`rounded-full px-4 py-1 text-sm font-medium uppercase tracking-[0.3em] text-primary transition-all border-b ${
-                  active
-                    ? 'border-primary/20'
-                    : 'border-transparent'
-                }`}
-                aria-current={active ? 'page' : undefined}
-              >
-                {item.label}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+    <div className="relative">
+      {/* Left fade gradient - shows when scrolled right */}
+      {showLeftFade && (
+        <div 
+          className="absolute left-0 top-0 bottom-0 w-8 pointer-events-none z-10"
+          style={{
+            background: 'linear-gradient(to right, rgba(255, 255, 255, 0.95), transparent)',
+          }}
+        />
+      )}
+      
+      {/* Scrollable container - hide scrollbar completely */}
+      <div 
+        ref={scrollContainerRef}
+        className="hide-scrollbar overflow-x-auto scroll-smooth"
+        style={{
+          WebkitOverflowScrolling: 'touch', /* Smooth scrolling on iOS */
+        }}
+        onScroll={checkScrollPosition}
+      >
+        <ul className={`flex flex-nowrap items-center gap-0 ${containerAlignment} min-w-max`}>
+          {navItems.map((item, index) => {
+            const active = isActive(item);
+            return (
+              <li key={item.value} className="flex-none flex items-center whitespace-nowrap">
+                {index > 0 && (
+                  <span className="mx-2" style={{ color: `${carouselColor}66`, fontSize: `clamp(0.75rem, ${fontSize}rem, 1rem)` }}>•</span>
+                )}
+                <button
+                  onClick={() => handleClick(item)}
+                  className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em] transition-all border-b whitespace-nowrap"
+                  style={{
+                    color: carouselColor,
+                    fontFamily: carouselFont,
+                    borderBottomColor: active ? `${carouselColor}33` : 'transparent',
+                    fontSize: `clamp(0.75rem, ${fontSize}rem, 1.5rem)`,
+                  }}
+                  aria-current={active ? 'page' : undefined}
+                >
+                  {item.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      
+      {/* Right fade gradient - shows when there's more content to scroll */}
+      {showRightFade && (
+        <div 
+          className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none z-10"
+          style={{
+            background: 'linear-gradient(to left, rgba(255, 255, 255, 0.95), transparent)',
+          }}
+        />
+      )}
     </div>
   );
 }

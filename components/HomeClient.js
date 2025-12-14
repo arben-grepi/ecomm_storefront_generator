@@ -6,8 +6,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import SettingsMenu from '@/components/SettingsMenu';
 import CategoryCarousel from '@/components/CategoryCarousel';
-import ProductCard from '@/components/ProductCard';
-import SkeletonProductCard from '@/components/SkeletonProductCard';
+import ProductCardWrapper from '@/components/ProductCardWrapper';
+import SkeletonProductCardWrapper from '@/components/SkeletonProductCardWrapper';
+import { saveInfoToCache } from '@/lib/info-cache';
 import Banner from '@/components/Banner';
 import { useCategories, useAllProducts, useProductsByCategory } from '@/lib/firestore-data';
 import { useCart } from '@/lib/cart';
@@ -83,6 +84,14 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       saveStorefrontToCache(storefront);
     }
   }, [storefront]);
+
+  // Cache Info document when received from server
+  useEffect(() => {
+    if (info && storefront && typeof window !== 'undefined' && Object.keys(info).length > 0) {
+      const { saveInfoToCache } = require('@/lib/info-cache');
+      saveInfoToCache(storefront, info);
+    }
+  }, [info, storefront]);
   
   useEffect(() => {
     if (componentStartTimeRef.current === null) {
@@ -199,17 +208,62 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   
   // Filter out error messages from heroMainHeading (in case it's stored in DB)
   // Include all font properties from rawInfo
-  const siteInfo = {
+  // Helper functions to get color and font from selections
+  const getColorFromSelection = (colorSelection) => {
+    switch (colorSelection) {
+      case 'primary': return rawInfo.colorPrimary || '#ec4899';
+      case 'secondary': return rawInfo.colorSecondary || '#64748b';
+      case 'tertiary': return rawInfo.colorTertiary || '#94a3b8';
+      default: return rawInfo.colorPrimary || '#ec4899';
+    }
+  };
+
+  const getFontFromSelection = (fontSelection) => {
+    switch (fontSelection) {
+      case 'primary': return rawInfo.fontPrimary || 'inherit';
+      case 'secondary': return rawInfo.fontSecondary || 'inherit';
+      case 'tertiary': return rawInfo.fontTertiary || 'inherit';
+      default: return 'inherit';
+    }
+  };
+
+  // Memoize siteInfo to prevent unnecessary re-renders, especially for banner image
+  const siteInfo = useMemo(() => ({
     ...rawInfo,
     heroMainHeading: rawInfo.heroMainHeading && rawInfo.heroMainHeading.includes('Something went wrong')
       ? ''
       : rawInfo.heroMainHeading || '',
-    // Ensure font properties are included (they should come from rawInfo, but explicitly include them)
-    heroMainHeadingFontFamily: rawInfo.heroMainHeadingFontFamily,
-    heroMainHeadingFontStyle: rawInfo.heroMainHeadingFontStyle,
-    heroMainHeadingFontWeight: rawInfo.heroMainHeadingFontWeight,
-    heroMainHeadingFontSize: rawInfo.heroMainHeadingFontSize,
-  };
+    // Parse all font sizes
+    companyTaglineFontSize: rawInfo.companyTaglineFontSize != null ? parseFloat(rawInfo.companyTaglineFontSize) || 0.75 : 0.75,
+    heroMainHeadingFontSize: rawInfo.heroMainHeadingFontSize != null ? parseFloat(rawInfo.heroMainHeadingFontSize) || 4 : 4,
+    heroDescriptionFontSize: rawInfo.heroDescriptionFontSize != null ? parseFloat(rawInfo.heroDescriptionFontSize) || 1 : 1,
+    // Category Carousel styling
+    categoryCarouselFontSize: rawInfo.categoryCarouselFontSize != null ? parseFloat(rawInfo.categoryCarouselFontSize) || 0.875 : 0.875,
+    // All Categories Tagline styling - explicitly include color and font
+    allCategoriesTaglineColor: rawInfo.allCategoriesTaglineColor || 'secondary',
+    allCategoriesTaglineFont: rawInfo.allCategoriesTaglineFont || 'primary',
+    allCategoriesTaglineFontSize: rawInfo.allCategoriesTaglineFontSize != null ? parseFloat(rawInfo.allCategoriesTaglineFontSize) || 1 : 1,
+    // Product Card styling
+    productCardType: rawInfo.productCardType || 'minimal',
+    productCardAspectRatio: rawInfo.productCardAspectRatio || '3:4',
+    productCardColumnsPhone: rawInfo.productCardColumnsPhone != null ? parseInt(rawInfo.productCardColumnsPhone) || 2 : 2,
+    productCardColumnsTablet: rawInfo.productCardColumnsTablet != null ? parseInt(rawInfo.productCardColumnsTablet) || 3 : 3,
+    productCardColumnsLaptop: rawInfo.productCardColumnsLaptop != null ? parseInt(rawInfo.productCardColumnsLaptop) || 4 : 4,
+    productCardColumnsDesktop: rawInfo.productCardColumnsDesktop != null ? parseInt(rawInfo.productCardColumnsDesktop) || 5 : 5,
+    productCardGap: rawInfo.productCardGap != null ? (isNaN(parseFloat(rawInfo.productCardGap)) ? 1 : parseFloat(rawInfo.productCardGap)) : 1,
+    productCardBorderRadius: rawInfo.productCardBorderRadius || 'medium',
+    productCardNameColor: rawInfo.productCardNameColor || 'primary',
+    productCardNameFont: rawInfo.productCardNameFont || 'primary',
+    productCardNameFontSize: rawInfo.productCardNameFontSize != null ? parseFloat(rawInfo.productCardNameFontSize) || 0.65 : 0.65,
+    productCardPriceColor: rawInfo.productCardPriceColor || 'primary',
+    productCardPriceFont: rawInfo.productCardPriceFont || 'primary',
+    productCardPriceFontSize: rawInfo.productCardPriceFontSize != null ? parseFloat(rawInfo.productCardPriceFontSize) || 1 : 1,
+    productCardVatText: rawInfo.productCardVatText || 'Includes VAT',
+    productCardVatColor: rawInfo.productCardVatColor || 'secondary',
+    productCardVatFont: rawInfo.productCardVatFont || 'primary',
+    productCardVatFontSize: rawInfo.productCardVatFontSize != null ? parseFloat(rawInfo.productCardVatFontSize) || 0.75 : 0.75,
+    footerTextFontSize: rawInfo.footerTextFontSize != null ? parseFloat(rawInfo.footerTextFontSize) || 0.875 : 0.875,
+  }), [rawInfo]);
   
   // Log if we filtered out an error message
   if (rawInfo.heroMainHeading && rawInfo.heroMainHeading.includes('Something went wrong')) {
@@ -374,17 +428,15 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   />
                 </Link>
                 {siteInfo.companyTagline && (() => {
-                  const colorPalette = {
-                    colorPrimary: siteInfo.colorPrimary,
-                    colorSecondary: siteInfo.colorSecondary,
-                    colorTertiary: siteInfo.colorTertiary,
-                  };
-                  const primaryColor = colorPalette.colorPrimary || '#ec4899';
                   const wrappedText = preventOrphanedWords(siteInfo.companyTagline);
                   return (
                     <span 
-                      className="rounded-full px-4 py-1 text-xs font-medium uppercase tracking-[0.3em]"
-                      style={{ color: primaryColor }}
+                      className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em]"
+                      style={{ 
+                        color: getColorFromSelection(siteInfo.companyTaglineColor || 'primary'),
+                        fontFamily: getFontFromSelection(siteInfo.companyTaglineFont || 'primary'),
+                        fontSize: `clamp(0.5rem, ${siteInfo.companyTaglineFontSize || 0.75}rem, 1.5rem)`,
+                      }}
                       dangerouslySetInnerHTML={{ __html: wrappedText }}
                     />
                   );
@@ -400,10 +452,10 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                     colorSecondary: siteInfo.colorSecondary,
                     colorTertiary: siteInfo.colorTertiary,
                   };
-                  const primaryColor = colorPalette.colorPrimary || '#ec4899';
+                  const secondaryColor = colorPalette.colorSecondary || '#64748b';
                   return (
                     <Link
-                      href={`/cart?storefront=${encodeURIComponent(storefront)}`}
+                      href={`/cart?storefront=${encodeURIComponent(storefront)}&colorPrimary=${encodeURIComponent(siteInfo.colorPrimary || '')}&colorSecondary=${encodeURIComponent(siteInfo.colorSecondary || '')}&colorTertiary=${encodeURIComponent(siteInfo.colorTertiary || '')}`}
                       onClick={() => {
                         // Ensure storefront is saved to cache before navigating to cart
                         if (storefront && typeof window !== 'undefined') {
@@ -412,11 +464,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                       }}
                       className="relative ml-2 flex items-center justify-center rounded-full border bg-white/80 p-2.5 shadow-sm transition-colors hover:bg-secondary"
                       style={{ 
-                        borderColor: `${primaryColor}4D`,
-                        color: primaryColor,
+                        borderColor: `${secondaryColor}4D`,
+                        color: secondaryColor,
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.color = primaryColor;
+                        e.currentTarget.style.color = secondaryColor;
                       }}
                       aria-label="Shopping cart"
                     >
@@ -435,7 +487,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                     </svg>
                       <span 
                         className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold text-white" 
-                        style={{ backgroundColor: primaryColor }}
+                        style={{ backgroundColor: siteInfo.colorPrimary || '#ec4899' }}
                         suppressHydrationWarning
                       >
                         {getCartItemCount() > 9 ? '9+' : getCartItemCount()}
@@ -443,16 +495,17 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                     </Link>
                   );
                 })()}
-                <SettingsMenu />
+                <div className="ml-2">
+                  <SettingsMenu secondaryColor={siteInfo.colorSecondary || '#64748b'} />
+                </div>
               </div>
             </div>
           </header>
 
       {/* Hero Section with Banner */}
       <Banner 
-        imageSrc={siteInfo.heroBannerImage} 
-        maxHeight={siteInfo.heroBannerMaxHeight || 550}
-        marginBottom={siteInfo.heroBannerMarginBottom || 40}
+        imageSrc={siteInfo.heroBannerImage}
+        className="mb-8 sm:mb-12"
       >
         {/* Hero text content centered on banner */}
         <section 
@@ -465,36 +518,29 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
         >
           <div className="mx-auto flex flex-col items-center gap-6 text-center">
             {siteInfo.heroMainHeading && !siteInfo.heroMainHeading.includes('Something went wrong') && (() => {
-              const colorPalette = {
-                colorPrimary: siteInfo.colorPrimary,
-                colorSecondary: siteInfo.colorSecondary,
-                colorTertiary: siteInfo.colorTertiary,
-              };
-              const primaryColor = colorPalette.colorPrimary || '#ec4899';
               const wrappedText = preventOrphanedWords(siteInfo.heroMainHeading);
               return (
                 <h2 
                   style={{ 
-                    color: primaryColor,
-                    fontFamily: siteInfo.heroMainHeadingFontFamily || 'inherit',
-                    fontStyle: siteInfo.heroMainHeadingFontStyle || 'normal',
-                    fontWeight: siteInfo.heroMainHeadingFontWeight || '300',
-                    fontSize: `clamp(1.5rem, ${siteInfo.heroMainHeadingFontSize || 4}vw, 6rem)`,
+                    color: getColorFromSelection(siteInfo.heroMainHeadingColor || 'primary'),
+                    fontFamily: getFontFromSelection(siteInfo.heroMainHeadingFont || 'primary'),
+                    fontSize: `clamp(1.5rem, ${siteInfo.heroMainHeadingFontSize || 4}rem, 6rem)`,
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />
               );
             })()}
             {siteInfo.heroDescription && (() => {
-              const colorPalette = {
-                colorPrimary: siteInfo.colorPrimary,
-                colorSecondary: siteInfo.colorSecondary,
-                colorTertiary: siteInfo.colorTertiary,
-              };
-              const colorProps = getTextColorProps(siteInfo.heroDescriptionColor || 'secondary', colorPalette);
               const wrappedText = preventOrphanedWords(siteInfo.heroDescription);
               return (
-                <p className={`text-base sm:text-lg ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+                <p 
+                  style={{
+                    color: getColorFromSelection(siteInfo.heroDescriptionColor || 'secondary'),
+                    fontFamily: getFontFromSelection(siteInfo.heroDescriptionFont || 'primary'),
+                    fontSize: `clamp(0.875rem, ${siteInfo.heroDescriptionFontSize || 1}rem, 2rem)`,
+                  }}
+                  dangerouslySetInnerHTML={{ __html: wrappedText }} 
+                />
               );
             })()}
           </div>
@@ -511,6 +557,19 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             selectedCategory={selectedCategory}
             onCategorySelect={handleCategorySelect}
             onAllCategories={handleAllCategories}
+            color={siteInfo.categoryCarouselColor || 'primary'}
+            colorPalette={{
+              colorPrimary: siteInfo.colorPrimary,
+              colorSecondary: siteInfo.colorSecondary,
+              colorTertiary: siteInfo.colorTertiary,
+            }}
+            font={siteInfo.categoryCarouselFont || 'primary'}
+            fontPalette={{
+              fontPrimary: siteInfo.fontPrimary,
+              fontSecondary: siteInfo.fontSecondary,
+              fontTertiary: siteInfo.fontTertiary,
+            }}
+            fontSize={siteInfo.categoryCarouselFontSize != null ? parseFloat(siteInfo.categoryCarouselFontSize) || 0.875 : 0.875}
           />
           {/* Show selected category description if available, or "All Categories" tagline */}
           {(() => {
@@ -533,15 +592,17 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             }
             // Show "All Categories" tagline when no category is selected
             if (siteInfo.allCategoriesTagline) {
-              const colorPalette = {
-                colorPrimary: siteInfo.colorPrimary,
-                colorSecondary: siteInfo.colorSecondary,
-                colorTertiary: siteInfo.colorTertiary,
-              };
-              const colorProps = getTextColorProps(siteInfo.categoryDescriptionColor || 'secondary', colorPalette);
               const wrappedText = preventOrphanedWords(siteInfo.allCategoriesTagline);
               return (
-                <p className={`text-sm sm:text-base mt-2 ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+                <p 
+                  className="mt-2"
+                  style={{
+                    color: getColorFromSelection(siteInfo.allCategoriesTaglineColor || 'secondary'),
+                    fontFamily: getFontFromSelection(siteInfo.allCategoriesTaglineFont || 'primary'),
+                    fontSize: `clamp(0.875rem, ${siteInfo.allCategoriesTaglineFontSize || 1}rem, 2rem)`,
+                  }}
+                  dangerouslySetInnerHTML={{ __html: wrappedText }} 
+                />
               );
             }
             return null;
@@ -549,29 +610,149 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
         </div>
         {loading || isFiltering || productsLoading ? (
           // Show ghost cards while loading or filtering
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <SkeletonProductCard key={i} className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)] md:w-[calc(25%-0.938rem)] max-w-xs" />
-            ))}
-          </div>
-        ) : displayedProducts.length > 0 ? (
-          // Show filtered products (sorted by viewCount, limited to current page)
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 md:gap-5">
-            {displayedProducts.map((product) => {
-              // Get category slug from category ID
-              const categoryId = product.categoryIds?.[0] || product.categoryId;
-              const categorySlug = categoryId ? (categorySlugMap.get(categoryId) || categoryId) : 'all';
-              return (
-                <div key={product.id} className="w-[calc(50%-0.375rem)] sm:w-[calc(33.333%-0.667rem)] md:w-[calc(25%-0.938rem)] max-w-xs">
-                  <ProductCard
-                    product={product}
-                    categorySlug={categorySlug}
-                  />
+          (() => {
+            const cardGap = siteInfo.productCardGap != null ? parseFloat(siteInfo.productCardGap) : 1;
+            const columnsPhone = siteInfo.productCardColumnsPhone != null ? parseInt(siteInfo.productCardColumnsPhone) : 2;
+            const columnsTablet = siteInfo.productCardColumnsTablet != null ? parseInt(siteInfo.productCardColumnsTablet) : 3;
+            const columnsLaptop = siteInfo.productCardColumnsLaptop != null ? parseInt(siteInfo.productCardColumnsLaptop) : 4;
+            const columnsDesktop = siteInfo.productCardColumnsDesktop != null ? parseInt(siteInfo.productCardColumnsDesktop) : 5;
+            
+            // Calculate card width: (100% - gap * (columns - 1)) / columns
+            const calcWidth = (cols, gap) => {
+              if (cols === 0) return '100%';
+              const gapTotal = gap * (cols - 1);
+              return `calc((100% - ${gapTotal}rem) / ${cols})`;
+            };
+            
+            return (
+              <>
+                <style dangerouslySetInnerHTML={{__html: `
+                  .skeleton-card-responsive {
+                    width: ${calcWidth(columnsPhone, cardGap)};
+                  }
+                  @media (min-width: 640px) {
+                    .skeleton-card-responsive {
+                      width: ${calcWidth(columnsTablet, cardGap)};
+                    }
+                  }
+                  @media (min-width: 1024px) {
+                    .skeleton-card-responsive {
+                      width: ${calcWidth(columnsLaptop, cardGap)};
+                    }
+                  }
+                  @media (min-width: 1536px) {
+                    .skeleton-card-responsive {
+                      width: ${calcWidth(columnsDesktop, cardGap)};
+                    }
+                  }
+                `}} />
+                <div 
+                  className="flex flex-wrap"
+                  style={{ 
+                    gap: `${cardGap}rem`,
+                  }}
+                >
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div key={i} className="skeleton-card-responsive">
+                      <SkeletonProductCardWrapper
+                        cardType={siteInfo.productCardType || 'minimal'}
+                        cardAspectRatio={siteInfo.productCardAspectRatio || '3:4'}
+                        cardBorderRadius={siteInfo.productCardBorderRadius || 'medium'}
+                        colorPrimary={siteInfo.colorPrimary || '#ec4899'}
+                        colorSecondary={siteInfo.colorSecondary || '#64748b'}
+                      />
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        ) : (
+              </>
+            );
+          })()
+        ) : displayedProducts.length > 0 ? (() => {
+          // Show filtered products (sorted by viewCount, limited to current page)
+          const cardGap = siteInfo.productCardGap != null ? parseFloat(siteInfo.productCardGap) : 1;
+          const columnsPhone = siteInfo.productCardColumnsPhone != null ? parseInt(siteInfo.productCardColumnsPhone) : 2;
+          const columnsTablet = siteInfo.productCardColumnsTablet != null ? parseInt(siteInfo.productCardColumnsTablet) : 3;
+          const columnsLaptop = siteInfo.productCardColumnsLaptop != null ? parseInt(siteInfo.productCardColumnsLaptop) : 4;
+          const columnsDesktop = siteInfo.productCardColumnsDesktop != null ? parseInt(siteInfo.productCardColumnsDesktop) : 5;
+          
+          // Calculate card width: (100% - gap * (columns - 1)) / columns
+          const calcWidth = (cols, gap) => {
+            if (cols === 0) return '100%';
+            const gapTotal = gap * (cols - 1);
+            return `calc((100% - ${gapTotal}rem) / ${cols})`;
+          };
+          
+          return (
+            <>
+              <style dangerouslySetInnerHTML={{__html: `
+                .product-card-responsive {
+                  width: ${calcWidth(columnsPhone, cardGap)};
+                }
+                @media (min-width: 640px) {
+                  .product-card-responsive {
+                    width: ${calcWidth(columnsTablet, cardGap)};
+                  }
+                }
+                @media (min-width: 1024px) {
+                  .product-card-responsive {
+                    width: ${calcWidth(columnsLaptop, cardGap)};
+                  }
+                }
+                @media (min-width: 1536px) {
+                  .product-card-responsive {
+                    width: ${calcWidth(columnsDesktop, cardGap)};
+                  }
+                }
+              `}} />
+              <div 
+                className="flex flex-wrap"
+                style={{ 
+                  gap: `${cardGap}rem`,
+                }}
+              >
+                {displayedProducts.map((product) => {
+                  // Get category slug from category ID
+                  const categoryId = product.categoryIds?.[0] || product.categoryId;
+                  const categorySlug = categoryId ? (categorySlugMap.get(categoryId) || categoryId) : 'all';
+                  return (
+                    <div 
+                      key={product.id}
+                      className="product-card-responsive"
+                    >
+                      <ProductCardWrapper
+                        product={product}
+                        categorySlug={categorySlug}
+                        colorPalette={{
+                          colorPrimary: siteInfo.colorPrimary,
+                          colorSecondary: siteInfo.colorSecondary,
+                          colorTertiary: siteInfo.colorTertiary,
+                        }}
+                        fontPalette={{
+                          fontPrimary: siteInfo.fontPrimary,
+                          fontSecondary: siteInfo.fontSecondary,
+                          fontTertiary: siteInfo.fontTertiary,
+                        }}
+                        cardType={siteInfo.productCardType || 'minimal'}
+                        cardAspectRatio={siteInfo.productCardAspectRatio || '3:4'}
+                        cardBorderRadius={siteInfo.productCardBorderRadius || 'medium'}
+                        nameColor={siteInfo.productCardNameColor || 'primary'}
+                        nameFont={siteInfo.productCardNameFont || 'primary'}
+                        nameFontSize={siteInfo.productCardNameFontSize != null ? parseFloat(siteInfo.productCardNameFontSize) || 0.65 : 0.65}
+                        priceColor={siteInfo.productCardPriceColor || 'primary'}
+                        priceFont={siteInfo.productCardPriceFont || 'primary'}
+                        priceFontSize={siteInfo.productCardPriceFontSize != null ? parseFloat(siteInfo.productCardPriceFontSize) || 1 : 1}
+                        vatText={siteInfo.productCardVatText || 'Includes VAT'}
+                        vatColor={siteInfo.productCardVatColor || 'secondary'}
+                        vatFont={siteInfo.productCardVatFont || 'primary'}
+                        vatFontSize={siteInfo.productCardVatFontSize != null ? parseFloat(siteInfo.productCardVatFontSize) || 0.75 : 0.75}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          );
+        })() : (
           // No products
           (() => {
             const colorPalette = {
@@ -650,15 +831,17 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       {/* Footer */}
       <footer className="border-t border-secondary/70 bg-white">
         {(() => {
-          const colorPalette = {
-            colorPrimary: siteInfo.colorPrimary,
-            colorSecondary: siteInfo.colorSecondary,
-            colorTertiary: siteInfo.colorTertiary,
-          };
-          const colorProps = getTextColorProps(siteInfo.footerTextColor || 'tertiary', colorPalette);
           const wrappedText = preventOrphanedWords(siteInfo.footerText);
           return (
-            <div className={`mx-auto max-w-7xl px-4 py-10 text-center text-sm sm:px-6 lg:px-8 ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+            <div 
+              className="mx-auto max-w-7xl px-4 py-10 text-center sm:px-6 lg:px-8"
+              style={{
+                color: getColorFromSelection(siteInfo.footerTextColor || 'tertiary'),
+                fontFamily: getFontFromSelection(siteInfo.footerTextFont || 'primary'),
+                fontSize: `clamp(0.5rem, ${siteInfo.footerTextFontSize || 0.875}rem, 1.5rem)`,
+              }}
+              dangerouslySetInnerHTML={{ __html: wrappedText }} 
+            />
           );
         })()}
       </footer>

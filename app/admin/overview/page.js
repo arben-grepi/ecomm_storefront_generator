@@ -7,6 +7,7 @@ import { collection, getDocs, query, where, orderBy, limit } from 'firebase/fire
 import { getFirebaseDb } from '@/lib/firebase';
 import { getCollectionPath, getDocumentPath } from '@/lib/store-collections';
 import { useWebsite } from '@/lib/website-context';
+import { getStorefront, saveStorefrontToCache } from '@/lib/get-storefront';
 import EditSiteInfoButton from '@/components/admin/EditSiteInfoButton';
 import ProductModal from '@/components/admin/ProductModal';
 import ImportProductsModal from '@/components/admin/ImportProductsModal';
@@ -40,10 +41,26 @@ function EcommerceOverviewContent() {
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState(null);
   const [importCompleted, setImportCompleted] = useState(false);
+  const [showEditSiteContent, setShowEditSiteContent] = useState(false);
   const [datasets, setDatasets] = useState({
     products: [],
     shopifyItems: [],
   });
+
+  // Store the storefront in memory when navigating to admin overview
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Use selectedWebsite from context, or fallback to getStorefront()
+    const storefront = selectedWebsite || getStorefront();
+    
+    if (storefront) {
+      // Store in sessionStorage for use during sign out
+      sessionStorage.setItem('admin_storefront', storefront);
+      // Also save to in-memory cache (same as cart page) so logo navigation works correctly
+      saveStorefrontToCache(storefront);
+    }
+  }, [selectedWebsite]);
 
   // Load all data - memoized to prevent unnecessary re-renders
   useEffect(() => {
@@ -384,7 +401,6 @@ function EcommerceOverviewContent() {
               Monitor the health of the storefront and jump straight into the day-to-day workflows.
             </p>
           </div>
-          <EditSiteInfoButton />
         </header>
 
 
@@ -434,6 +450,27 @@ function EcommerceOverviewContent() {
                   </span>
                 </Link>
               ))}
+              
+              {/* Edit Site Content Button */}
+              <button
+                onClick={() => setShowEditSiteContent(true)}
+                className="group flex h-full flex-col justify-between rounded-2xl border border-zinc-200/70 px-4 py-5 text-left transition hover:border-emerald-200 hover:bg-emerald-50/60 dark:border-zinc-800/70 dark:hover:border-emerald-500/40 dark:hover:bg-emerald-500/10"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    Edit Site Content
+                  </p>
+                  <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    Customize banner, colors, fonts, and product card styling.
+                  </p>
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 transition group-hover:translate-x-1 dark:text-emerald-400">
+                  Open
+                  <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </span>
+              </button>
               
               {/* Import Products Button */}
               <button
@@ -557,6 +594,12 @@ function EcommerceOverviewContent() {
           importId={importId}
         />
       )}
+      
+      {/* Edit Site Content Modal */}
+      <EditSiteInfoButton 
+        open={showEditSiteContent}
+        onOpenChange={setShowEditSiteContent}
+      />
     </div>
   );
 }

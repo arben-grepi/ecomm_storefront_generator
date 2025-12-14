@@ -7,10 +7,9 @@ import { getMarket } from '@/lib/get-market';
 import { useStorefront } from '@/lib/storefront-context';
 import { isEUMarket } from '@/lib/market-utils';
 
-function ProductCard({ 
+function CompactProductCard({ 
   product, 
   categorySlug,
-  // Styling props
   colorPalette,
   nameColor = 'primary',
   nameFont = 'primary',
@@ -23,6 +22,7 @@ function ProductCard({
   vatFont = 'primary',
   vatFontSize = 0.75,
   fontPalette,
+  cardAspectRatio = '3:4',
   cardBorderRadius = 'medium',
 }) {
   // Border radius mapping
@@ -37,13 +37,11 @@ function ProductCard({
   };
   
   const borderRadiusClass = getBorderRadiusClass(cardBorderRadius);
-  // Cache market value to avoid parsing cookies on every render
   const market = useMemo(() => getMarket(), []);
   const isEU = isEUMarket(market);
   const storefront = useStorefront();
   const [isNavigating, setIsNavigating] = useState(false);
 
-  // Helper functions to get color and font from selections
   const getColorFromSelection = (colorSelection) => {
     if (!colorPalette) return '#ec4899';
     switch (colorSelection) {
@@ -66,14 +64,9 @@ function ProductCard({
 
   const handleClick = () => {
     setIsNavigating(true);
-    // Reset after a delay in case navigation is very fast
     setTimeout(() => setIsNavigating(false), 2000);
   };
 
-  // Product URLs no longer include category
-  // Root (LUNERA): /product-slug
-  // Other storefronts: /storefront/product-slug
-  // Include color parameters for product page
   const basePath = storefront === 'LUNERA' 
     ? `/${product.slug}`
     : `/${storefront}/${product.slug}`;
@@ -82,93 +75,97 @@ function ProductCard({
     ? `${basePath}?colorPrimary=${encodeURIComponent(colorPalette.colorPrimary || '')}&colorSecondary=${encodeURIComponent(colorPalette.colorSecondary || '')}&colorTertiary=${encodeURIComponent(colorPalette.colorTertiary || '')}`
     : basePath;
 
+  const aspectRatioClass = {
+    '3:4': 'aspect-[3/4]',
+    '1:1': 'aspect-square',
+  }[cardAspectRatio] || 'aspect-[3/4]';
+
+  const secondaryColor = getColorFromSelection('secondary');
+
   return (
     <div className="relative">
       <Link
         href={productPath}
         onClick={handleClick}
-        className={`group flex w-full flex-col overflow-hidden ${borderRadiusClass} bg-white/90 shadow-sm border-0 transition hover:-translate-y-1 hover:shadow-xl`}
+        className={`group flex w-full flex-col overflow-hidden ${borderRadiusClass} bg-white/90 ring-1 shadow-sm transition hover:shadow-md`}
+        style={{ borderColor: `${secondaryColor}40` }}
         prefetch
       >
-      <div className="aspect-[3/4] w-full overflow-hidden bg-secondary/70 sm:aspect-[3/4] relative">
-        {product.image ? (
-          <Image
-            src={product.image}
-            alt={product.name}
-            fill
-            sizes="(max-width: 768px) 50vw, 33vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            loading="eager"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-secondary">
-            <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M3 8a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2h-5l-2 3-2-3H5a2 2 0 01-2-2V8z"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 005 0"
-              />
-            </svg>
-          </div>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col gap-3 p-3 sm:p-5">
-        <div>
-          <h3 
-            className="font-medium uppercase tracking-[0.25em]"
-            style={{
-              color: getColorFromSelection(nameColor),
-              fontFamily: getFontFromSelection(nameFont),
-              fontSize: `clamp(0.5rem, ${nameFontSize}rem, 1.5rem)`,
-            }}
-          >
-            {product.name}
-          </h3>
-        </div>
-        <div className="mt-auto">
-          <p 
-            className="font-semibold"
-            style={{
-              color: getColorFromSelection(priceColor),
-              fontFamily: getFontFromSelection(priceFont),
-              fontSize: `clamp(0.875rem, ${priceFontSize}rem, 2rem)`,
-            }}
-          >
-            €{product.price.toFixed(2)}
-          </p>
-          {isEU && (
-            <p 
-              className="mt-0.5"
-              style={{
-                color: getColorFromSelection(vatColor),
-                fontFamily: getFontFromSelection(vatFont),
-                fontSize: `clamp(0.5rem, ${vatFontSize}rem, 1.5rem)`,
-              }}
-            >
-              {vatText}
-            </p>
+        <div className={`${aspectRatioClass} w-full overflow-hidden bg-secondary/70 relative`}>
+          {product.image ? (
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              sizes="(max-width: 768px) 50vw, 33vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              loading="eager"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-secondary">
+              <svg className="h-10 w-10" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M3 8a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2h-5l-2 3-2-3H5a2 2 0 01-2-2V8z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 005 0"
+                />
+              </svg>
+            </div>
           )}
         </div>
-      </div>
+        <div className="flex flex-1 flex-col gap-1.5 p-2 sm:p-3">
+          <div>
+            <h3 
+              className="font-medium uppercase tracking-[0.25em]"
+              style={{
+                color: getColorFromSelection(nameColor),
+                fontFamily: getFontFromSelection(nameFont),
+                fontSize: `clamp(0.5rem, ${nameFontSize}rem, 1.5rem)`,
+              }}
+            >
+              {product.name}
+            </h3>
+          </div>
+          <div className="mt-auto">
+            <p 
+              className="font-semibold"
+              style={{
+                color: getColorFromSelection(priceColor),
+                fontFamily: getFontFromSelection(priceFont),
+                fontSize: `clamp(0.875rem, ${priceFontSize}rem, 2rem)`,
+              }}
+            >
+              €{product.price.toFixed(2)}
+            </p>
+            {isEU && (
+              <p 
+                className="mt-0"
+                style={{
+                  color: getColorFromSelection(vatColor),
+                  fontFamily: getFontFromSelection(vatFont),
+                  fontSize: `clamp(0.5rem, ${vatFontSize}rem, 1.5rem)`,
+                }}
+              >
+                {vatText}
+              </p>
+            )}
+          </div>
+        </div>
       </Link>
-      {/* Ghost skeleton overlay when navigating */}
       {isNavigating && (
         <div className={`absolute inset-0 z-10 overflow-hidden ${borderRadiusClass} bg-white/50 backdrop-blur-sm`}>
-          {/* Skeleton structure matching the card */}
           <div className="h-full w-full animate-pulse">
-            {/* Image skeleton */}
-            <div className="aspect-[3/4] w-full bg-secondary/40 relative overflow-hidden">
+            <div className={`${aspectRatioClass} w-full bg-secondary/40 relative overflow-hidden`}>
               <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
             </div>
-            {/* Content skeleton */}
-            <div className="flex flex-1 flex-col gap-3 p-3 sm:p-5">
+            <div className="flex flex-1 flex-col gap-1.5 p-2 sm:p-3">
               <div className="space-y-2">
                 <div className="h-3 w-1/4 rounded bg-secondary/40"></div>
                 <div className="h-4 w-3/4 rounded bg-secondary/40"></div>
@@ -184,4 +181,5 @@ function ProductCard({
   );
 }
 
-export default memo(ProductCard);
+export default memo(CompactProductCard);
+

@@ -6,7 +6,7 @@ import { signInWithGoogle, signOutUser, isAdmin, subscribeToAuth } from '@/lib/a
 import { useRouter } from 'next/navigation';
 import { getStorefront } from '@/lib/get-storefront';
 
-export default function SettingsMenu() {
+export default function SettingsMenu({ secondaryColor = '#64748b' }) {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,8 +62,20 @@ export default function SettingsMenu() {
     try {
       await signOutUser();
       setIsOpen(false);
-      // Get storefront from cache to navigate back to the correct storefront
-      const storefront = getStorefront();
+      
+      // Get the stored storefront from admin overview (highest priority)
+      const storedStorefront = typeof window !== 'undefined' 
+        ? sessionStorage.getItem('admin_storefront') 
+        : null;
+      
+      // Fallback to current storefront detection
+      const storefront = storedStorefront || getStorefront();
+      
+      // Clear the stored storefront after using it
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('admin_storefront');
+      }
+      
       // LUNERA is the default storefront at root path
       const redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
       router.push(redirectPath);
@@ -89,12 +101,14 @@ export default function SettingsMenu() {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-secondary/20 transition-colors"
         aria-label="Settings"
+        style={{ color: secondaryColor }}
       >
         <svg
-          className="w-6 h-6 text-primary"
+          className="w-6 h-6"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          style={{ color: secondaryColor }}
         >
           <path
             strokeLinecap="round"
@@ -112,13 +126,15 @@ export default function SettingsMenu() {
             {/* Links Section */}
             <div className="px-4 py-3 border-b border-secondary/30">
               <button
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-secondary/20 transition-colors text-sm text-primary"
+                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-secondary/20 transition-colors text-sm"
+                style={{ color: secondaryColor }}
                 onClick={() => setIsOpen(false)}
               >
                 About Us
               </button>
               <button
-                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-secondary/20 transition-colors text-sm text-primary"
+                className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-secondary/20 transition-colors text-sm"
+                style={{ color: secondaryColor }}
                 onClick={() => setIsOpen(false)}
               >
                 Privacy Policy
@@ -134,12 +150,13 @@ export default function SettingsMenu() {
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">
                     Account
                   </div>
-                  <div className="text-sm text-primary mb-3 px-3 py-2 rounded-lg bg-slate-50">
+                  <div className="text-sm mb-3 px-3 py-2 rounded-lg bg-slate-50" style={{ color: secondaryColor }}>
                     {user.displayName || user.email}
                   </div>
                   <button
                     onClick={handleSignOut}
-                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-secondary/20 transition-colors text-sm text-primary"
+                    className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-secondary/20 transition-colors text-sm"
+                    style={{ color: secondaryColor }}
                   >
                     Sign Out
                   </button>

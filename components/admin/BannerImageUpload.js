@@ -80,7 +80,10 @@ export default function BannerImageUpload({
       const uploadTask = uploadBytesResumable(storageRef, file, {
         contentType: file.type,
         // Don't compress - maintain original quality
-        cacheControl: 'public, max-age=31536000', // Cache for 1 year
+        // Cache for 7 days - reasonable balance between performance and update visibility
+        // Cache busting is automatic: each upload gets a unique timestamped filename,
+        // so when banner changes, the URL changes and browsers fetch the new image
+        cacheControl: 'public, max-age=604800', // Cache for 7 days (604800 seconds)
       });
 
       uploadTask.on(

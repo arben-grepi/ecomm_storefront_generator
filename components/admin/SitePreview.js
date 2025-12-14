@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Banner from '@/components/Banner';
 import CategoryCarousel from '@/components/CategoryCarousel';
-import SkeletonProductCard from '@/components/SkeletonProductCard';
+import PreviewProductCardWrapper from '@/components/admin/PreviewProductCardWrapper';
 import { getTextColorProps } from '@/lib/text-color-utils';
 import { preventOrphanedWords } from '@/lib/text-wrap-utils';
 
@@ -16,26 +16,54 @@ import { preventOrphanedWords } from '@/lib/text-wrap-utils';
 export default function SitePreview({ 
   // Content
   companyTagline,
+  companyTaglineColor,
+  companyTaglineFont,
+  companyTaglineFontSize,
   heroMainHeading,
+  heroMainHeadingColor,
+  heroMainHeadingFont,
+  heroMainHeadingFontSize,
   heroDescription,
+  heroDescriptionColor,
+  heroDescriptionFont,
+  heroDescriptionFontSize,
   heroBannerImage,
+  categoryCarouselColor,
+  categoryCarouselFont,
+  categoryCarouselFontSize,
   allCategoriesTagline,
+  allCategoriesTaglineColor,
+  allCategoriesTaglineFont,
+  allCategoriesTaglineFontSize,
   footerText,
+  footerTextColor,
+  footerTextFont,
+  footerTextFontSize,
+  // Product Card styling
+  productCardType,
+  productCardAspectRatio,
+  productCardColumnsPhone,
+  productCardColumnsTablet,
+  productCardColumnsLaptop,
+  productCardColumnsDesktop,
+  productCardGap,
+  productCardBorderRadius,
+  productCardNameColor,
+  productCardNameFont,
+  productCardNameFontSize,
+  productCardPriceColor,
+  productCardPriceFont,
+  productCardPriceFontSize,
+  productCardVatText,
+  productCardVatColor,
+  productCardVatFont,
+  productCardVatFontSize,
   // Banner settings
-  maxHeight,
-  marginBottom,
   textWidth,
   highlightTextWidth,
-  // Hero text styling
-  heroMainHeadingFontFamily,
-  heroMainHeadingFontStyle,
-  heroMainHeadingFontWeight,
-  heroMainHeadingFontSize,
-  // Colors
+  // Color and Font palettes
   colorPalette,
-  heroDescriptionColor,
-  categoryDescriptionColor,
-  footerTextColor,
+  fontPalette,
 }) {
   // Mock categories for preview
   const mockCategories = [
@@ -43,9 +71,24 @@ export default function SitePreview({
     { id: '3', label: 'Category 2', slug: 'category-2', active: true },
   ];
 
-  const heroDescColorProps = getTextColorProps(heroDescriptionColor || 'secondary', colorPalette);
-  const categoryDescColorProps = getTextColorProps(categoryDescriptionColor || 'secondary', colorPalette);
-  const footerColorProps = getTextColorProps(footerTextColor || 'tertiary', colorPalette);
+  // Helper functions to get color and font from selections
+  const getColorFromSelection = (colorSelection) => {
+    switch (colorSelection) {
+      case 'primary': return colorPalette?.colorPrimary || '#ec4899';
+      case 'secondary': return colorPalette?.colorSecondary || '#64748b';
+      case 'tertiary': return colorPalette?.colorTertiary || '#94a3b8';
+      default: return '#ec4899';
+    }
+  };
+
+  const getFontFromSelection = (fontSelection) => {
+    switch (fontSelection) {
+      case 'primary': return fontPalette?.fontPrimary || 'inherit';
+      case 'secondary': return fontPalette?.fontSecondary || 'inherit';
+      case 'tertiary': return fontPalette?.fontTertiary || 'inherit';
+      default: return 'inherit';
+    }
+  };
 
   const primaryColor = colorPalette?.colorPrimary || '#ec4899';
   const [showTextWidthBorder, setShowTextWidthBorder] = useState(false);
@@ -82,8 +125,12 @@ export default function SitePreview({
               const wrappedText = preventOrphanedWords(companyTagline);
               return (
                 <span 
-                  className="rounded-full px-4 py-1 text-xs font-medium uppercase tracking-[0.3em]"
-                  style={{ color: primaryColor }}
+                  className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em]"
+                  style={{ 
+                    color: getColorFromSelection(companyTaglineColor || 'primary'),
+                    fontFamily: getFontFromSelection(companyTaglineFont || 'primary'),
+                    fontSize: `clamp(0.5rem, ${companyTaglineFontSize || 0.75}rem, 1.5rem)`,
+                  }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />
               );
@@ -96,9 +143,7 @@ export default function SitePreview({
       {heroBannerImage ? (
         <Banner 
           imageSrc={heroBannerImage}
-          maxHeight={maxHeight || 550}
-          marginBottom={marginBottom || 40}
-          className="w-full"
+          className="w-full mb-8 sm:mb-12"
         >
           <section 
             className="px-4 py-10 sm:px-6 sm:py-16 transition-all duration-300"
@@ -117,11 +162,9 @@ export default function SitePreview({
                 return (
                   <h2 
                     style={{ 
-                      color: colorPalette?.colorPrimary || '#ec4899',
-                      fontFamily: heroMainHeadingFontFamily || 'inherit',
-                      fontStyle: heroMainHeadingFontStyle || 'normal',
-                      fontWeight: heroMainHeadingFontWeight || '300',
-                      fontSize: `clamp(1.5rem, ${heroMainHeadingFontSize || 4}vw, 6rem)`,
+                      color: getColorFromSelection(heroMainHeadingColor || 'primary'),
+                      fontFamily: getFontFromSelection(heroMainHeadingFont || 'primary'),
+                      fontSize: `clamp(1.5rem, ${heroMainHeadingFontSize || 4}rem, 6rem)`,
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />
@@ -130,7 +173,14 @@ export default function SitePreview({
               {heroDescription && (() => {
                 const wrappedText = preventOrphanedWords(heroDescription);
                 return (
-                  <p className={`text-base sm:text-lg ${heroDescColorProps.className}`} style={heroDescColorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+                  <p 
+                    style={{
+                      color: getColorFromSelection(heroDescriptionColor || 'secondary'),
+                      fontFamily: getFontFromSelection(heroDescriptionFont || 'primary'),
+                      fontSize: `clamp(0.875rem, ${heroDescriptionFontSize || 1}rem, 2rem)`,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: wrappedText }} 
+                  />
                 );
               })()}
             </div>
@@ -140,7 +190,7 @@ export default function SitePreview({
         // Hero section without banner
         (heroMainHeading || heroDescription) && (
           <section 
-            className="px-4 py-10 sm:px-6 sm:py-16 transition-all duration-300"
+            className="px-4 py-10 sm:px-6 sm:py-16 mb-8 sm:mb-12 transition-all duration-300"
             style={{ 
               maxWidth: `${textWidth ?? 75}%`,
               margin: '0 auto',
@@ -156,11 +206,9 @@ export default function SitePreview({
                 return (
                   <h2 
                     style={{ 
-                      color: colorPalette?.colorPrimary || '#ec4899',
-                      fontFamily: heroMainHeadingFontFamily || 'inherit',
-                      fontStyle: heroMainHeadingFontStyle || 'normal',
-                      fontWeight: heroMainHeadingFontWeight || '300',
-                      fontSize: `clamp(1.5rem, ${heroMainHeadingFontSize || 4}vw, 6rem)`,
+                      color: getColorFromSelection(heroMainHeadingColor || 'primary'),
+                      fontFamily: getFontFromSelection(heroMainHeadingFont || 'primary'),
+                      fontSize: `clamp(1.5rem, ${heroMainHeadingFontSize || 4}rem, 6rem)`,
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />
@@ -169,7 +217,14 @@ export default function SitePreview({
               {heroDescription && (() => {
                 const wrappedText = preventOrphanedWords(heroDescription);
                 return (
-                  <p className={`text-base sm:text-lg ${heroDescColorProps.className}`} style={heroDescColorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+                  <p 
+                    style={{
+                      color: getColorFromSelection(heroDescriptionColor || 'secondary'),
+                      fontFamily: getFontFromSelection(heroDescriptionFont || 'primary'),
+                      fontSize: `clamp(0.875rem, ${heroDescriptionFontSize || 1}rem, 2rem)`,
+                    }}
+                    dangerouslySetInnerHTML={{ __html: wrappedText }} 
+                  />
                 );
               })()}
             </div>
@@ -184,23 +239,99 @@ export default function SitePreview({
             categories={mockCategories}
             products={[]}
             selectedCategory={null}
+            color={categoryCarouselColor || 'primary'}
+            colorPalette={colorPalette}
+            font={categoryCarouselFont || 'primary'}
+            fontPalette={fontPalette}
+            fontSize={categoryCarouselFontSize || 0.875}
           />
           {allCategoriesTagline && (() => {
             const wrappedText = preventOrphanedWords(allCategoriesTagline);
+            const fontSize = allCategoriesTaglineFontSize != null ? parseFloat(allCategoriesTaglineFontSize) || 1 : 1;
             return (
-              <p className={`text-sm sm:text-base mt-2 ${categoryDescColorProps.className}`} style={categoryDescColorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+              <p 
+                className="mt-2"
+                style={{
+                  color: getColorFromSelection(allCategoriesTaglineColor || 'secondary'),
+                  fontFamily: getFontFromSelection(allCategoriesTaglineFont || 'primary'),
+                  fontSize: `clamp(0.875rem, ${fontSize}rem, 2rem)`,
+                }}
+                dangerouslySetInnerHTML={{ __html: wrappedText }} 
+              />
             );
           })()}
         </div>
       </div>
 
-      {/* Ghost Product Cards Grid */}
+      {/* Preview Product Cards Grid */}
       <div className="mx-auto max-w-7xl px-3 pb-16 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, index) => (
-            <SkeletonProductCard key={index} />
-          ))}
-        </div>
+        {(() => {
+          const cardGap = productCardGap != null ? parseFloat(productCardGap) : 1;
+          const columnsPhone = productCardColumnsPhone != null ? parseInt(productCardColumnsPhone) : 2;
+          const columnsTablet = productCardColumnsTablet != null ? parseInt(productCardColumnsTablet) : 3;
+          const columnsLaptop = productCardColumnsLaptop != null ? parseInt(productCardColumnsLaptop) : 4;
+          const columnsDesktop = productCardColumnsDesktop != null ? parseInt(productCardColumnsDesktop) : 5;
+          
+          // Calculate card width: (100% - gap * (columns - 1)) / columns
+          const calcWidth = (cols, gap) => {
+            if (cols === 0) return '100%';
+            const gapTotal = gap * (cols - 1);
+            return `calc((100% - ${gapTotal}rem) / ${cols})`;
+          };
+          
+          return (
+            <>
+              <style dangerouslySetInnerHTML={{__html: `
+                .preview-card-responsive {
+                  width: ${calcWidth(columnsPhone, cardGap)};
+                }
+                @media (min-width: 640px) {
+                  .preview-card-responsive {
+                    width: ${calcWidth(columnsTablet, cardGap)};
+                  }
+                }
+                @media (min-width: 1024px) {
+                  .preview-card-responsive {
+                    width: ${calcWidth(columnsLaptop, cardGap)};
+                  }
+                }
+                @media (min-width: 1536px) {
+                  .preview-card-responsive {
+                    width: ${calcWidth(columnsDesktop, cardGap)};
+                  }
+                }
+              `}} />
+              <div 
+                className="flex flex-wrap"
+                style={{ 
+                  gap: `${cardGap}rem`,
+                }}
+              >
+                {Array.from({ length: 8 }).map((_, index) => (
+                  <div key={index} className="preview-card-responsive">
+                    <PreviewProductCardWrapper
+                      colorPalette={colorPalette}
+                      fontPalette={fontPalette}
+                      cardType={productCardType || 'minimal'}
+                      cardAspectRatio={productCardAspectRatio || '3:4'}
+                      cardBorderRadius={productCardBorderRadius || 'medium'}
+                      nameColor={productCardNameColor || 'primary'}
+                      nameFont={productCardNameFont || 'primary'}
+                      nameFontSize={productCardNameFontSize != null ? parseFloat(productCardNameFontSize) || 0.65 : 0.65}
+                      priceColor={productCardPriceColor || 'primary'}
+                      priceFont={productCardPriceFont || 'primary'}
+                      priceFontSize={productCardPriceFontSize != null ? parseFloat(productCardPriceFontSize) || 1 : 1}
+                      vatText={productCardVatText || 'Includes VAT'}
+                      vatColor={productCardVatColor || 'secondary'}
+                      vatFont={productCardVatFont || 'primary'}
+                      vatFontSize={productCardVatFontSize != null ? parseFloat(productCardVatFontSize) || 0.75 : 0.75}
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          );
+        })()}
       </div>
 
       {/* Footer */}
@@ -208,7 +339,15 @@ export default function SitePreview({
         const wrappedText = preventOrphanedWords(footerText);
         return (
           <footer className="border-t border-secondary/70 bg-white">
-            <div className={`mx-auto max-w-7xl px-4 py-10 text-center text-sm sm:px-6 lg:px-8 ${footerColorProps.className}`} style={footerColorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
+            <div 
+              className="mx-auto max-w-7xl px-4 py-10 text-center sm:px-6 lg:px-8"
+              style={{
+                color: getColorFromSelection(footerTextColor || 'tertiary'),
+                fontFamily: getFontFromSelection(footerTextFont || 'primary'),
+                fontSize: `clamp(0.5rem, ${footerTextFontSize || 0.875}rem, 1.5rem)`,
+              }}
+              dangerouslySetInnerHTML={{ __html: wrappedText }} 
+            />
           </footer>
         );
       })()}

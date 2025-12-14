@@ -41,8 +41,20 @@ export default function AuthButton() {
   const handleSignOut = async () => {
     try {
       await signOutUser();
-      // Get storefront from cache to navigate back to the correct storefront
-      const storefront = getStorefront();
+      
+      // Get the stored storefront from admin overview (highest priority)
+      const storedStorefront = typeof window !== 'undefined' 
+        ? sessionStorage.getItem('admin_storefront') 
+        : null;
+      
+      // Fallback to current storefront detection
+      const storefront = storedStorefront || getStorefront();
+      
+      // Clear the stored storefront after using it
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('admin_storefront');
+      }
+      
       // LUNERA is the default storefront at root path
       const redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
       router.push(redirectPath);

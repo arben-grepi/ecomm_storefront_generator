@@ -8,8 +8,11 @@ import { useCart } from '@/lib/cart';
 import { getMarket } from '@/lib/get-market';
 import { getMarketConfig } from '@/lib/market-utils';
 import { useStorefront } from '@/lib/storefront-context';
-import { getStorefrontLogo, getStorefrontTheme } from '@/lib/storefront-logos';
+import { getStorefrontLogo } from '@/lib/storefront-logos';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
+import SettingsMenu from '@/components/SettingsMenu';
+import { getFirebaseDb } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 // Format price based on market currency
 import { getMarketCurrency, getMarketLocale } from '@/lib/market-utils';
@@ -196,9 +199,92 @@ function CartPageContent() {
     }
   }, [storefront]);
   
+  // Get colors from URL parameters (passed from homepage) or fetch from Firestore
+  const [siteInfo, setSiteInfo] = useState({
+    colorPrimary: '#ec4899',
+    colorSecondary: '#64748b',
+    colorTertiary: '#94a3b8',
+  });
+  
+  // Get colors from URL params if available, otherwise fetch from Firestore
+  useEffect(() => {
+    const fetchColors = async () => {
+      // First, try to get colors from URL params
+      if (searchParams) {
+        const colorPrimary = searchParams.get('colorPrimary');
+        const colorSecondary = searchParams.get('colorSecondary');
+        const colorTertiary = searchParams.get('colorTertiary');
+        
+        if (colorPrimary || colorSecondary || colorTertiary) {
+          setSiteInfo({
+            colorPrimary: colorPrimary ? decodeURIComponent(colorPrimary) : '#ec4899',
+            colorSecondary: colorSecondary ? decodeURIComponent(colorSecondary) : '#64748b',
+            colorTertiary: colorTertiary ? decodeURIComponent(colorTertiary) : '#94a3b8',
+          });
+          return; // URL params take precedence
+        }
+      }
+      
+      // If no URL params, try cache first, then fetch from Firestore
+      if (storefront) {
+        try {
+          // Try to get from cache first
+          if (typeof window !== 'undefined') {
+            const { getCachedInfo } = require('@/lib/info-cache');
+            const cachedInfo = getCachedInfo(storefront);
+            if (cachedInfo) {
+              setSiteInfo({
+                colorPrimary: cachedInfo.colorPrimary || '#ec4899',
+                colorSecondary: cachedInfo.colorSecondary || '#64748b',
+                colorTertiary: cachedInfo.colorTertiary || '#94a3b8',
+              });
+              return; // Use cached data
+            }
+          }
+          
+          // If no cache, fetch from Firestore
+          const db = getFirebaseDb();
+          if (db) {
+            const infoDoc = await getDoc(doc(db, storefront, 'Info'));
+            if (infoDoc.exists()) {
+              const data = infoDoc.data();
+              const infoData = {
+                colorPrimary: data.colorPrimary || '#ec4899',
+                colorSecondary: data.colorSecondary || '#64748b',
+                colorTertiary: data.colorTertiary || '#94a3b8',
+              };
+              setSiteInfo(infoData);
+              
+              // Cache the fetched data
+              if (typeof window !== 'undefined') {
+                const { saveInfoToCache } = require('@/lib/info-cache');
+                saveInfoToCache(storefront, data);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[CART] Failed to fetch colors from Firestore:', error);
+          // Keep default colors on error
+        }
+      }
+    };
+    
+    fetchColors();
+  }, [searchParams, storefront]);
+  
   // Get logo path for the current storefront (recalculate when storefront changes)
   const logoPath = useMemo(() => getStorefrontLogo(storefront), [storefront]);
-  const theme = useMemo(() => getStorefrontTheme(storefront), [storefront]); // Get theme colors for current storefront
+  
+  // Use colors from URL params instead of static theme
+  const theme = useMemo(() => {
+    const primaryColor = siteInfo.colorPrimary || '#ec4899';
+    return {
+      primaryColor: primaryColor,
+      primaryColorHover: primaryColor, // Could calculate darker version if needed
+      textColor: primaryColor,
+      borderColor: primaryColor,
+    };
+  }, [siteInfo.colorPrimary]);
   
   // Get user's market from cookie (set by middleware) - cached to avoid repeated parsing
   const market = useMemo(() => getMarket(), []);
@@ -387,7 +473,7 @@ function CartPageContent() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-slate-500">Loading cart...</div>
+        <div style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>Loading cart...</div>
       </div>
     );
   }
@@ -397,7 +483,7 @@ function CartPageContent() {
       <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
         {/* Header with Storefront Logo - Clickable to navigate back to storefront */}
         <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
-          <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-4 sm:px-6 lg:px-8">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <Link 
               href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
               className="flex items-center transition-opacity hover:opacity-80"
@@ -412,11 +498,12 @@ function CartPageContent() {
                 priority
               />
             </Link>
+            <SettingsMenu secondaryColor={siteInfo.colorSecondary || '#64748b'} />
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-16 text-center">
-          <h1 className="mb-4 text-2xl font-medium" style={{ color: theme.textColor }}>Your cart is empty</h1>
-          <p className="mb-8 text-slate-600">Add some items to get started.</p>
+          <h1 className="mb-4 text-2xl font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Your cart is empty</h1>
+          <p className="mb-8" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Add some items to get started.</p>
           <Link
             href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
             className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
@@ -438,7 +525,7 @@ function CartPageContent() {
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
       {/* Header with Storefront Logo - Clickable to navigate back to storefront */}
       <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-center px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link 
             href={storefront === 'LUNERA' ? '/' : `/${storefront}`} 
             className="flex items-center transition-opacity hover:opacity-80"
@@ -453,11 +540,12 @@ function CartPageContent() {
               priority
             />
           </Link>
+          <SettingsMenu secondaryColor={siteInfo.colorSecondary || '#64748b'} />
         </div>
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-8 text-3xl font-light" style={{ color: theme.textColor }}>Shopping Cart</h1>
+        <h1 className="mb-8 text-3xl font-light" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Shopping Cart</h1>
 
         {validationError && (
           <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
@@ -470,14 +558,15 @@ function CartPageContent() {
           <div className="lg:col-span-2 space-y-6">
             {/* Shipping Address Form - At the top */}
             <section className="rounded-xl border border-secondary/70 bg-white/90 p-6">
-              <h2 className="mb-2 text-lg font-medium" style={{ color: theme.textColor }}>Shipping Location</h2>
-              <p className="mb-4 text-sm text-slate-600">
+              <h2 className="mb-2 text-lg font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Shipping Location</h2>
+              <p className="mb-4 text-sm" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
                 Select your country to check shipping availability. Full address will be collected on the checkout page.
               </p>
               <div className="space-y-4">
+
                 {/* Country - At the top */}
                 <div>
-                  <label htmlFor="country" className="mb-1 block text-sm font-medium text-slate-700">
+                  <label htmlFor="country" className="mb-1 block text-sm font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                     Country
                   </label>
                   <select
@@ -494,18 +583,22 @@ function CartPageContent() {
                         country: selectedCountry?.name || '',
                       });
                     }}
-                    className="w-full rounded-lg border border-secondary/70 px-4 py-2.5 focus:outline-none focus:ring-2"
+                    className="w-full rounded-lg border px-4 py-2.5 focus:outline-none focus:ring-2"
+                    style={{
+                      borderColor: 'rgba(100, 116, 139, 0.7)',
+                      color: siteInfo.colorSecondary || '#64748b',
+                    }}
                     onFocus={(e) => {
-                      e.currentTarget.style.borderColor = theme.borderColor;
-                      e.currentTarget.style.boxShadow = `0 0 0 2px ${theme.borderColor}33`;
+                      e.currentTarget.style.borderColor = siteInfo.colorPrimary || theme.borderColor;
+                      e.currentTarget.style.boxShadow = `0 0 0 2px ${(siteInfo.colorPrimary || theme.borderColor)}33`;
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.borderColor = '';
+                      e.currentTarget.style.borderColor = 'rgba(100, 116, 139, 0.7)';
                       e.currentTarget.style.boxShadow = '';
                     }}
                   >
                     {countries.map((country) => (
-                      <option key={country.code} value={country.code}>
+                      <option key={country.code} value={country.code} style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                         {country.name}
                       </option>
                     ))}
@@ -516,7 +609,7 @@ function CartPageContent() {
 
             {/* Cart Items */}
             <section className="space-y-4">
-              <h2 className="text-lg font-medium" style={{ color: theme.textColor }}>Cart Items</h2>
+              <h2 className="text-lg font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Cart Items</h2>
               {cart.map((item) => (
                 <div
                   key={`${item.productId}-${item.variantId}`}
@@ -530,26 +623,54 @@ function CartPageContent() {
                     />
                   )}
                   <div className="flex-1">
-                    <h3 className="font-medium" style={{ color: theme.textColor }}>{item.productName}</h3>
+                    <h3 className="font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>{item.productName}</h3>
                     {item.variantName && (
-                      <p className="text-sm text-slate-600">{item.variantName}</p>
+                      <p className="text-sm" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{item.variantName}</p>
                     )}
-                    <p className="mt-2 font-medium">{formatPrice(item.priceAtAdd * item.quantity, shippingAddress.countryCode || market)}</p>
+                    <p className="mt-2 font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{formatPrice(item.priceAtAdd * item.quantity, shippingAddress.countryCode || market)}</p>
                   </div>
                   <div className="flex flex-col items-end gap-2">
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
                         onClick={() => updateQuantity(item.productId, item.variantId, item.quantity - 1)}
-                        className="rounded border border-secondary/70 px-2 py-1 text-sm hover:bg-secondary/50"
+                        className="rounded px-2 py-1 text-sm transition-colors"
+                        style={{ 
+                          borderColor: 'transparent',
+                          borderWidth: '1px',
+                          borderStyle: 'solid',
+                          color: siteInfo.colorSecondary || theme.textColor,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = siteInfo.colorSecondary || '#64748b';
+                          e.currentTarget.style.backgroundColor = `${siteInfo.colorSecondary || '#64748b'}1A`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'transparent';
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
                       >
                         −
                       </button>
-                      <span className="w-8 text-center text-sm">{item.quantity}</span>
+                      <span className="w-8 text-center text-sm" style={{ color: siteInfo.colorSecondary || theme.textColor }}>{item.quantity}</span>
                       <button
                         type="button"
                         onClick={() => updateQuantity(item.productId, item.variantId, item.quantity + 1)}
-                        className="rounded border border-secondary/70 px-2 py-1 text-sm hover:bg-secondary/50"
+                        className="rounded px-2 py-1 text-sm transition-colors"
+                        style={{ 
+                          borderColor: 'transparent',
+                          borderWidth: '1px',
+                          borderStyle: 'solid',
+                          color: siteInfo.colorSecondary || theme.textColor,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = siteInfo.colorSecondary || '#64748b';
+                          e.currentTarget.style.backgroundColor = `${siteInfo.colorSecondary || '#64748b'}1A`;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = 'transparent';
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
                       >
                         +
                       </button>
@@ -557,7 +678,14 @@ function CartPageContent() {
                     <button
                       type="button"
                       onClick={() => removeFromCart(item.productId, item.variantId)}
-                      className="text-xs text-red-600 hover:text-red-800"
+                      className="text-xs transition-colors"
+                      style={{ color: siteInfo.colorSecondary || '#64748b' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = siteInfo.colorPrimary || '#ec4899';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = siteInfo.colorSecondary || '#64748b';
+                      }}
                     >
                       Remove
                     </button>
@@ -570,38 +698,34 @@ function CartPageContent() {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 rounded-xl border border-secondary/70 bg-white/90 p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-medium" style={{ color: theme.textColor }}>Order Summary</h2>
+              <h2 className="mb-6 text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Order Summary</h2>
               
               {/* Subtotal */}
               <div className="mb-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Subtotal</span>
-                  <span className="font-medium">{formatPrice(subtotal, shippingAddress.countryCode || market)}</span>
+                  <span className="text-slate-600" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>Subtotal</span>
+                  <span className="font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{formatPrice(subtotal, shippingAddress.countryCode || market)}</span>
                 </div>
               </div>
 
               {/* Shipping Estimate */}
               <div className="mb-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600">Shipping</span>
-                  <span className="font-medium">
+                  <span className="text-slate-600" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>Shipping</span>
+                  <span className="font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                     {formatPrice(shippingEstimatePrice, currentMarket)}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">
-                  Estimated shipping based on your selected country. Final shipping cost will be confirmed on checkout.
-                </p>
+               
               </div>
 
               {/* Estimated Total */}
               <div className="border-t border-secondary/70 pt-4">
                 <div className="mb-2 flex justify-between">
-                  <span className="text-sm font-medium text-slate-700">Estimated Total</span>
-                  <span className="text-lg font-semibold" style={{ color: theme.textColor }}>{formatPrice(estimatedTotal, shippingAddress.countryCode || market)}</span>
+                  <span className="text-sm font-medium text-slate-700" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Estimated Total</span>
+                  <span className="text-lg font-semibold" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{formatPrice(estimatedTotal, shippingAddress.countryCode || market)}</span>
                 </div>
-                <p className="text-xs text-slate-500">
-                  Final total will be shown on checkout page
-                </p>
+               
               </div>
 
               {/* Proceed to Checkout Button */}
@@ -643,7 +767,7 @@ function CartPageContent() {
               </Link>
 
               {/* Info */}
-              <p className="mt-4 text-xs text-slate-500 text-center">
+              <p className="mt-4 text-xs text-center" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
                 Secure checkout powered by Shopify
               </p>
             </div>
@@ -659,7 +783,7 @@ export default function CartPage() {
   return (
     <Suspense fallback={
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-slate-500">Loading cart...</div>
+        <div style={{ color: '#94a3b8' }}>Loading cart...</div>
       </div>
     }>
       <CartPageContent />

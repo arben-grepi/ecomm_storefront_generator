@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { headers } from 'next/headers';
+import { Suspense } from 'react';
 import { getServerSideProductDetail, getServerSideInfo } from '@/lib/firestore-server';
 import { getStorefrontFromHeaders } from '@/lib/get-storefront-server';
 import ProductDetailPage from '@/components/ProductDetailPage';
@@ -73,12 +74,18 @@ export default async function ProductPage({ params }) {
   const info = await getServerSideInfo(language, storefront);
 
   return (
-    <ProductDetailPage
-      category={category}
-      product={detail.product}
-      variants={detail.variants}
-      info={info}
-    />
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div style={{ color: '#94a3b8' }}>Loading product...</div>
+      </div>
+    }>
+      <ProductDetailPage
+        category={category}
+        product={detail.product}
+        variants={detail.variants}
+        info={info}
+      />
+    </Suspense>
   );
 }
 
