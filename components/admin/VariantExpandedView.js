@@ -104,8 +104,13 @@ export default function VariantExpandedView({
                   handleVariantImageToggle(variantId, imageUrl);
                 }
               }}
-              onDoubleClick={() => {
+              onDoubleClick={(e) => {
+                e.stopPropagation();
                 // Double-click to set as default photo
+                // First, make sure the image is selected
+                if (!isSelectedImage) {
+                  handleVariantImageToggle(variantId, imageUrl);
+                }
                 // Apply to all grouped variants (same color/style)
                 setDefaultVariantPhotos((prev) => {
                   const updated = { ...prev };

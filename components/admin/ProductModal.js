@@ -247,6 +247,11 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     const groupKey = getVariantGroupKey(variant);
     const sameGroupVariantIds = getSameColorVariantIds(variantId);
 
+    // Get current selections to check if variant has no photos
+    const currentSelections = variantImages[groupKey] || variantImages[variantId] || [];
+    const hasNoPhotos = currentSelections.length === 0;
+    const isCurrentlyDefault = defaultVariantPhotos[variantId] === imageUrl;
+
     setVariantImages((prev) => {
       const updated = { ...prev };
       const baseSelectionsRaw = prev[groupKey] || prev[variantId] || [];
@@ -256,7 +261,8 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
       if (exists) {
         // Unselecting: remove from group
-        updated[groupKey] = current.filter((url) => url !== imageUrl);
+        const filtered = current.filter((url) => url !== imageUrl);
+        updated[groupKey] = filtered;
         // Also remove from all variants in this group (for backward compatibility)
         sameGroupVariantIds.forEach((id) => {
           const previousVariantSelectionsRaw = updated[id] || prev[id] || baseSelections;
@@ -265,6 +271,27 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
             : [];
           updated[id] = previousVariantSelections.filter((url) => url !== imageUrl);
         });
+        
+        // If we're unselecting the default photo, handle default photo logic
+        if (isCurrentlyDefault) {
+          // Set another photo as default if available, otherwise clear default
+          setDefaultVariantPhotos((prevDefaults) => {
+            const updatedDefaults = { ...prevDefaults };
+            if (filtered.length > 0) {
+              // Set first remaining photo as default for all variants in group
+              sameGroupVariantIds.forEach((id) => {
+                updatedDefaults[id] = filtered[0];
+              });
+            } else {
+              // No photos left, clear default for all variants in group
+              sameGroupVariantIds.forEach((id) => {
+                delete updatedDefaults[id];
+              });
+            }
+            return updatedDefaults;
+          });
+        }
+        
         return updated;
       }
 
@@ -288,6 +315,19 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
         }
         updated[id] = previousVariantSelections;
       });
+      
+      // If variant has no photos and this is the first one, automatically set it as default
+      if (hasNoPhotos) {
+        setDefaultVariantPhotos((prevDefaults) => {
+          const updatedDefaults = { ...prevDefaults };
+          // Set this photo as default for all variants in the same group
+          sameGroupVariantIds.forEach((id) => {
+            updatedDefaults[id] = imageUrl;
+          });
+          return updatedDefaults;
+        });
+      }
+      
       return updated;
     });
 
