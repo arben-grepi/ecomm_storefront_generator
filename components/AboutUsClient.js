@@ -10,17 +10,19 @@ import { getFirebaseDb } from '@/lib/firebase';
 import { getCollectionPath } from '@/lib/store-collections';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import SettingsMenu from '@/components/SettingsMenu';
+import InstagramLogo from '@/components/InstagramLogo';
 
 export default function AboutUsClient({ initialProducts = [], info = null, storefront: storefrontProp = null }) {
   const storefrontFromContext = useStorefront();
   const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
   const db = getFirebaseDb();
 
-  // Get site info for colors
+  // Get site info for colors and email
   const [siteInfo, setSiteInfo] = useState({
     colorPrimary: info?.colorPrimary || '#ec4899',
     colorSecondary: info?.colorSecondary || '#64748b',
     colorTertiary: info?.colorTertiary || '#94a3b8',
+    email: info?.email || null,
   });
 
   // Fetch colors if not provided
@@ -30,6 +32,7 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
         colorPrimary: info.colorPrimary || '#ec4899',
         colorSecondary: info.colorSecondary || '#64748b',
         colorTertiary: info.colorTertiary || '#94a3b8',
+        email: info.email || null,
       });
       return;
     }
@@ -43,6 +46,7 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
             colorPrimary: cachedInfo.colorPrimary || '#ec4899',
             colorSecondary: cachedInfo.colorSecondary || '#64748b',
             colorTertiary: cachedInfo.colorTertiary || '#94a3b8',
+            email: cachedInfo.email || null,
           });
           return;
         }
@@ -59,6 +63,7 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
               colorPrimary: data.colorPrimary || '#ec4899',
               colorSecondary: data.colorSecondary || '#64748b',
               colorTertiary: data.colorTertiary || '#94a3b8',
+              email: data.email || null,
             };
             setSiteInfo(infoData);
             saveInfoToCache(storefront, data);
@@ -72,21 +77,17 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
     fetchColors();
   }, [db, storefront, info]);
 
-  // Get top products by views - need 9 for 3x3, or 12 for 3 rows of 4
-  const topProducts = useMemo(() => {
-    // Sort by totalViews and take top 12 (to have options for 3x4 layout)
+  // Get top product by views - show only the single top product
+  const topProduct = useMemo(() => {
+    if (!initialProducts || initialProducts.length === 0) return null;
+    // Sort by totalViews and take top 1
     const sorted = [...initialProducts].sort((a, b) => {
       const aViews = a.metrics?.totalViews || a.viewCount || 0;
       const bViews = b.metrics?.totalViews || b.viewCount || 0;
       return bViews - aViews;
     });
-    return sorted.slice(0, 12);
+    return sorted[0];
   }, [initialProducts]);
-
-  // Determine layout: if we have exactly 9, use 3x3, otherwise use 3 rows of 4 (12 products)
-  const hasNineProducts = topProducts.length === 9;
-  const gridLayout = hasNineProducts ? 'grid-cols-3' : 'grid-cols-4';
-  const productsToShow = hasNineProducts ? topProducts : topProducts.slice(0, 12);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
@@ -105,7 +106,8 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
           </Link>
           <SettingsMenu 
             secondaryColor={siteInfo.colorSecondary || '#64748b'} 
-            primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+            primaryColor={siteInfo.colorPrimary || '#ec4899'}
+            email={siteInfo.email || null}
           />
         </div>
       </header>
@@ -113,34 +115,32 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left: Product Grid */}
+          {/* Left: Top Product */}
           <div className="order-2 lg:order-1">
-            <div className={`grid ${gridLayout} gap-2 w-full`} style={{ aspectRatio: '1 / 1' }}>
-              {productsToShow.map((product, index) => {
-                const imageUrl = product.images?.[0] || product.image || '';
-                return (
-                  <div
-                    key={product.id || index}
-                    className="relative w-full overflow-hidden rounded-lg"
-                    style={{ aspectRatio: '1 / 1' }}
-                  >
-                    {imageUrl ? (
-                      <Image
-                        src={getDisplayImageUrl(imageUrl)}
-                        alt={product.name || 'Product'}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 33vw, 25vw"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-zinc-200 flex items-center justify-center">
-                        <span className="text-zinc-400 text-xs">No image</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            {topProduct ? (
+              <div className="relative w-full overflow-hidden rounded-lg" style={{ aspectRatio: '1 / 1' }}>
+                {(() => {
+                  const imageUrl = topProduct.images?.[0] || topProduct.image || '';
+                  return imageUrl ? (
+                    <Image
+                      src={getDisplayImageUrl(imageUrl)}
+                      alt={topProduct.name || 'Product'}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-zinc-200 flex items-center justify-center">
+                      <span className="text-zinc-400 text-xs">No image</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div className="w-full bg-zinc-200 rounded-lg flex items-center justify-center" style={{ aspectRatio: '1 / 1' }}>
+                <span className="text-zinc-400">No products available</span>
+              </div>
+            )}
           </div>
 
           {/* Right: Text Content */}
@@ -168,32 +168,51 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
                 We hope you love our products as much as we love them, and we love you! Your support means everything to us, and we're grateful to be part of your journey.
               </p>
               <div className="pt-4 border-t" style={{ borderColor: `${siteInfo.colorSecondary || '#64748b'}33` }}>
-                <p className="mb-3">
+                <p className="mb-4">
                   Stay up to date on our newest products and exclusive offers. Follow us on Instagram to be the first to know about new arrivals, styling tips, and special promotions.
                 </p>
-                <a
-                  href="https://www.instagram.com/lunerashop.co?igsh=MTd3d3pxdWZ6MWpsbw%3D%3D"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-lg transition-all text-white font-medium"
-                  style={{ backgroundColor: siteInfo.colorPrimary || '#ec4899' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = '0.9';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = '1';
-                  }}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
+                <div className="flex flex-col gap-3">
+                  <a
+                    href="https://www.instagram.com/lunerashop.co?igsh=MTd3d3pxdWZ6MWpsbw%3D%3D"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-3 px-6 py-3 rounded-lg transition-all font-medium"
+                    style={{ 
+                      backgroundColor: siteInfo.colorPrimary || '#ec4899',
+                      color: 'white',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = '0.9';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                    }}
                   >
-                    <path d="M12.315 2c2.43 0 2.784.013 3.808.06 1.064.049 1.791.218 2.427.465a4.902 4.902 0 011.772 1.153 4.902 4.902 0 011.153 1.772c.247.636.416 1.363.465 2.427.048 1.067.06 1.407.06 4.123v.08c0 2.643-.012 2.987-.06 4.043-.049 1.064-.218 1.791-.465 2.427a4.902 4.902 0 01-1.153 1.772 4.902 4.902 0 01-1.772 1.153c-.636.247-1.363.416-2.427.465-1.067.048-1.407.06-4.123.06h-.08c-2.643 0-2.987-.012-4.043-.06-1.064-.049-1.791-.218-2.427-.465a4.902 4.902 0 01-1.772-1.153 4.902 4.902 0 01-1.153-1.772c-.247-.636-.416-1.363-.465-2.427-.047-1.024-.06-1.379-.06-3.808v-.63c0-2.43.013-2.784.06-3.808.049-1.064.218-1.791.465-2.427a4.902 4.902 0 011.153-1.772A4.902 4.902 0 015.45 2.525c.636-.247 1.363-.416 2.427-.465C8.901 2.013 9.256 2 11.685 2h.63zm-.081 1.802h-.468c-2.456 0-2.784.011-3.807.058-.975.045-1.504.207-1.857.344-.467.182-.8.398-1.15.748-.35.35-.566.683-.748 1.15-.137.353-.3.882-.344 1.857-.047 1.023-.058 1.351-.058 3.807v.468c0 2.456.011 2.784.058 3.807.045.975.207 1.504.344 1.857.182.466.399.8.748 1.15.35.35.683.566 1.15.748.353.137.882.3 1.857.344 1.054.048 1.37.058 4.041.058h.08c2.597 0 2.917-.01 3.96-.058.976-.045 1.505-.207 1.858-.344.466-.182.8-.398 1.15-.748.35-.35.566-.683.748-1.15.137-.353.3-.882.344-1.857.048-1.055.058-1.37.058-4.041v-.08c0-2.597-.01-2.917-.058-3.96-.045-.976-.207-1.505-.344-1.858a3.097 3.097 0 00-.748-1.15 3.098 3.098 0 00-1.15-.748c-.353-.137-.882-.3-1.857-.344-1.023-.047-1.351-.058-3.807-.058zM12 6.865a5.135 5.135 0 110 10.27 5.135 5.135 0 010-10.27zm0 1.802a3.333 3.333 0 100 6.666 3.333 3.333 0 000-6.666zm5.338-3.205a1.2 1.2 0 110 2.4 1.2 1.2 0 010-2.4z" />
-                  </svg>
-                  Follow us on Instagram
-                </a>
+                    <InstagramLogo size="w-5 h-5" />
+                    <span>Follow us on Instagram</span>
+                  </a>
+                  {siteInfo.email && (
+                    <a
+                      href={`mailto:${siteInfo.email}`}
+                      className="inline-flex items-center gap-3 px-6 py-3 rounded-lg transition-all font-medium border-2"
+                      style={{ 
+                        borderColor: siteInfo.colorPrimary || '#ec4899',
+                        color: siteInfo.colorPrimary || '#ec4899',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = `${siteInfo.colorPrimary || '#ec4899'}10`;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>{siteInfo.email}</span>
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </div>

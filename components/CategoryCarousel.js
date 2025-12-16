@@ -9,6 +9,7 @@ export default function CategoryCarousel({
   selectedCategory = null, // null = "All Categories"
   onCategorySelect = null,
   onAllCategories = null,
+  storefront = null, // Storefront identifier (e.g., 'LUNERA')
   primaryColor = '#ec4899', // Default primary color (for backward compatibility)
   color = 'primary', // Color selection: 'primary', 'secondary', or 'tertiary'
   colorPalette = { colorPrimary: '#ec4899', colorSecondary: '#64748b', colorTertiary: '#94a3b8' },
@@ -65,6 +66,42 @@ export default function CategoryCarousel({
     // This ensures all categories remain visible even when one is selected
     const activeCategories = categories.filter((category) => category.active !== false);
 
+    // For LUNERA storefront, prioritize "lingerie" and "underwear" categories
+    if (storefront === 'LUNERA') {
+      // Find specific categories by label (case-insensitive)
+      const lingerieCategory = activeCategories.find(
+        (cat) => cat.label?.toLowerCase() === 'lingerie' || cat.name?.toLowerCase() === 'lingerie'
+      );
+      const underwearCategory = activeCategories.find(
+        (cat) => cat.label?.toLowerCase() === 'underwear' || cat.name?.toLowerCase() === 'underwear'
+      );
+
+      // Get remaining categories (excluding lingerie and underwear)
+      const remainingCategories = activeCategories.filter(
+        (cat) => cat !== lingerieCategory && cat !== underwearCategory
+      );
+
+      // Build ordered list: All Categories, lingerie (if exists), underwear (if exists), then rest
+      const orderedCategories = [];
+      if (lingerieCategory) {
+        orderedCategories.push(lingerieCategory);
+      }
+      if (underwearCategory) {
+        orderedCategories.push(underwearCategory);
+      }
+      orderedCategories.push(...remainingCategories);
+
+      return [
+        { value: 'all', label: 'All Categories', id: null },
+        ...orderedCategories.map((category) => ({
+          value: category.slug,
+          label: category.label,
+          id: category.id,
+        })),
+      ];
+    }
+
+    // For other storefronts, use default order
     return [
       { value: 'all', label: 'All Categories', id: null },
       ...activeCategories.map((category) => ({
@@ -73,7 +110,7 @@ export default function CategoryCarousel({
         id: category.id,
       })),
     ];
-  }, [categories]); // Removed products dependency - show all categories
+  }, [categories, storefront]); // Added storefront dependency
 
   // Check scroll position and show/hide fade indicators
   const checkScrollPosition = () => {

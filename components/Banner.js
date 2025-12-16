@@ -40,12 +40,8 @@ export default function Banner({ imageSrc, children, className = '' }) {
     return children ? <div className={className}>{children}</div> : null;
   }
 
-  // Determine width: if className includes 'w-full', use 100% (for preview), otherwise use 100vw (for homepage)
-  const useFullWidth = className.includes('w-full');
-  const bannerWidth = useFullWidth ? '100%' : '100vw';
-
   return (
-    <div className={`relative overflow-hidden ${className}`} style={{ width: bannerWidth }}>
+    <div className={`relative overflow-hidden ${className}`}>
       {/* Banner Image - Always 100% width, height auto to maintain aspect ratio */}
       {/* Browser caching: Firebase Storage sets Cache-Control: public, max-age=31536000 (1 year) */}
       {/* Server caching: Firestore Info document is cached by Next.js server-side cache */}
