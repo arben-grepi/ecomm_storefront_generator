@@ -413,8 +413,8 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               <div className="flex flex-col sm:flex-col">
                 <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center">
                   <Image
-                    src="/Blerinas/Blerinas-logo-transparent2.png"
-                    alt={siteInfo.companyName || 'Blerinas'}
+                    src="/Blerinas/Lunera_logo.png"
+                    alt={siteInfo.companyName || 'Lunera'}
                     width={300}
                     height={100}
                     className="h-12 w-auto sm:h-16"
@@ -496,7 +496,10 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   );
                 })()}
                 <div className="ml-2">
-                  <SettingsMenu secondaryColor={siteInfo.colorSecondary || '#64748b'} />
+                  <SettingsMenu 
+                    secondaryColor={siteInfo.colorSecondary || '#64748b'} 
+                    primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+                  />
                 </div>
               </div>
             </div>

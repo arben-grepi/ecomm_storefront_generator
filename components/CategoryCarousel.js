@@ -34,6 +34,18 @@ export default function CategoryCarousel({
   
   const carouselColor = getColorFromSelection();
   const carouselFont = getFontFromSelection();
+  
+  // Helper function to convert hex to rgba with opacity
+  const hexToRgba = (hex, opacity) => {
+    // Remove # if present
+    const cleanHex = hex.replace('#', '');
+    // Parse RGB values
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+  };
+  
   // Local state for immediate UI updates (optimistic update)
   const [localSelectedCategory, setLocalSelectedCategory] = useState(selectedCategory);
   const scrollContainerRef = useRef(null);
@@ -143,16 +155,16 @@ export default function CategoryCarousel({
             return (
               <li key={item.value} className="flex-none flex items-center whitespace-nowrap">
                 {index > 0 && (
-                  <span className="mx-2" style={{ color: `${carouselColor}66`, fontSize: `clamp(0.75rem, ${fontSize}rem, 1rem)` }}>•</span>
+                  <span className="mx-4" style={{ color: `${carouselColor}66`, fontSize: `clamp(0.75rem, ${fontSize}rem, 1rem)` }}>•</span>
                 )}
                 <button
                   onClick={() => handleClick(item)}
-                  className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em] transition-all border-b whitespace-nowrap"
+                  className="font-medium uppercase tracking-[0.3em] transition-all whitespace-nowrap"
                   style={{
                     color: carouselColor,
                     fontFamily: carouselFont,
-                    borderBottomColor: active ? `${carouselColor}33` : 'transparent',
-                    fontSize: `clamp(0.75rem, ${fontSize}rem, 1.5rem)`,
+                    borderBottom: active ? `0.1rem solid ${carouselColor}` : '0.1rem solid transparent',
+                    fontSize: `clamp(0.75rem, ${fontSize}rem, 1.2rem)`,
                   }}
                   aria-current={active ? 'page' : undefined}
                 >

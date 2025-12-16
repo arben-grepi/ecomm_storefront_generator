@@ -498,7 +498,10 @@ function CartPageContent() {
                 priority
               />
             </Link>
-            <SettingsMenu secondaryColor={siteInfo.colorSecondary || '#64748b'} />
+            <SettingsMenu 
+            secondaryColor={siteInfo.colorSecondary || '#64748b'} 
+            primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+          />
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-16 text-center">
@@ -540,7 +543,10 @@ function CartPageContent() {
               priority
             />
           </Link>
-          <SettingsMenu secondaryColor={siteInfo.colorSecondary || '#64748b'} />
+          <SettingsMenu 
+            secondaryColor={siteInfo.colorSecondary || '#64748b'} 
+            primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+          />
         </div>
       </header>
 

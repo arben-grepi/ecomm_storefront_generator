@@ -604,8 +604,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
               <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center sm:hidden">
                 <Image
-                  src="/Blerinas/Blerinas-logo-transparent2.png"
-                  alt={siteInfo.companyName || 'Blerinas'}
+                  src="/Blerinas/Lunera_logo.png"
+                  alt={siteInfo.companyName || 'Lunera'}
                   width={240}
                   height={80}
                   className="h-10 w-auto"
@@ -674,7 +674,10 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 </span>
               </Link>
             )}
-            <SettingsMenu secondaryColor={siteInfo.colorSecondary || '#64748b'} />
+            <SettingsMenu 
+              secondaryColor={siteInfo.colorSecondary || '#64748b'} 
+              primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+            />
           </div>
         </div>
       </header>

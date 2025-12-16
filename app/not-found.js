@@ -30,8 +30,8 @@ export default function NotFound() {
         <div className="mb-8 flex justify-center">
           <Link href={homePath}>
             <Image
-              src="/Blerinas/Blerinas-logo-transparent2.png"
-              alt="Blerinas"
+              src="/Blerinas/Lunera_logo.png"
+              alt={storefront === 'LUNERA' ? 'Lunera' : 'Logo'}
               width={300}
               height={100}
               className="h-16 w-auto sm:h-20"
