@@ -115,19 +115,23 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
       {/* Main Content */}
       <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left: Top Product */}
-          <div className="order-2 lg:order-1">
+          {/* Left: Top Product - Hidden on mobile */}
+          <div className="order-2 lg:order-1 hidden lg:block">
             {topProduct ? (
               <div className="relative w-full overflow-hidden rounded-lg" style={{ aspectRatio: '1 / 1' }}>
                 {(() => {
                   const imageUrl = topProduct.images?.[0] || topProduct.image || '';
-                  return imageUrl ? (
+                  // Use full quality image URL (remove any size parameters) for better quality
+                  const fullQualityUrl = imageUrl ? imageUrl.split('?')[0] : '';
+                  return fullQualityUrl ? (
                     <Image
-                      src={getDisplayImageUrl(imageUrl)}
+                      src={fullQualityUrl}
                       alt={topProduct.name || 'Product'}
                       fill
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, 50vw"
+                      quality={95}
+                      priority
                     />
                   ) : (
                     <div className="w-full h-full bg-zinc-200 flex items-center justify-center">
@@ -171,48 +175,47 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
                 <p className="mb-4">
                   Stay up to date on our newest products and exclusive offers. Follow us on Instagram to be the first to know about new arrivals, styling tips, and special promotions.
                 </p>
-                <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-4">
                   <a
                     href="https://www.instagram.com/lunerashop.co?igsh=MTd3d3pxdWZ6MWpsbw%3D%3D"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-3 px-6 py-3 rounded-lg transition-all font-medium"
+                    className="flex items-center justify-center w-8 h-8 rounded-full transition-transform duration-200 hover:scale-110 flex-shrink-0"
                     style={{ 
                       backgroundColor: siteInfo.colorPrimary || '#ec4899',
-                      color: 'white',
+                    }}
+                    aria-label="Follow us on Instagram"
+                  >
+                    <InstagramLogo size="w-9 h-9" bgColor="transparent" bgOpacity={1} />
+                  </a>
+                  <p 
+                    className="text-sm"
+                    style={{ color: siteInfo.colorSecondary || '#64748b' }}
+                  >
+                    Follow us on Instagram to see the latest catalog
+                  </p>
+                </div>
+                {siteInfo.email && (
+                  <a
+                    href={`mailto:${siteInfo.email}`}
+                    className="inline-flex items-center gap-3 px-6 py-3 rounded-lg transition-all font-medium border-2 mt-3"
+                    style={{ 
+                      borderColor: siteInfo.colorPrimary || '#ec4899',
+                      color: siteInfo.colorPrimary || '#ec4899',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = '0.9';
+                      e.currentTarget.style.backgroundColor = `${siteInfo.colorPrimary || '#ec4899'}10`;
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
-                    <InstagramLogo size="w-5 h-5" />
-                    <span>Follow us on Instagram</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span>{siteInfo.email}</span>
                   </a>
-                  {siteInfo.email && (
-                    <a
-                      href={`mailto:${siteInfo.email}`}
-                      className="inline-flex items-center gap-3 px-6 py-3 rounded-lg transition-all font-medium border-2"
-                      style={{ 
-                        borderColor: siteInfo.colorPrimary || '#ec4899',
-                        color: siteInfo.colorPrimary || '#ec4899',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = `${siteInfo.colorPrimary || '#ec4899'}10`;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      <span>{siteInfo.email}</span>
-                    </a>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
