@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useStorefront } from '@/lib/storefront-context';
+import { getStorefrontLogo } from '@/lib/storefront-logos';
 
 const COOKIE_CONSENT_KEY = 'cookie_consent';
 const COOKIE_PREFERENCES_KEY = 'cookie_preferences';
@@ -28,6 +30,8 @@ const COOKIE_CATEGORIES = {
 };
 
 export default function CookieConsent() {
+  const storefront = useStorefront();
+  const logoPath = getStorefrontLogo(storefront);
   const [isVisible, setIsVisible] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] = useState({
@@ -120,11 +124,11 @@ export default function CookieConsent() {
       <div className="max-w-7xl mx-auto px-6 py-6 sm:px-8 lg:px-10">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="flex items-start gap-4 flex-1 w-full lg:w-auto">
-            {/* Blerinas Logo */}
+            {/* Storefront Logo */}
             <div className="flex-shrink-0">
               <img
-                src="/Blerinas/Blerinas-logo-transparent2.png"
-                alt="Blerinas Logo"
+                src={logoPath}
+                alt="Logo"
                 className="h-12 w-auto object-contain"
               />
             </div>
