@@ -186,50 +186,6 @@ export default function SitePreview({
             </div>
           </section>
         </Banner>
-      ) : (
-        // Hero section without banner
-        (heroMainHeading || heroDescription) && (
-          <section 
-            className="px-4 py-10 sm:px-6 sm:py-16 mb-8 sm:mb-12 transition-all duration-300"
-            style={{ 
-              maxWidth: `${textWidth ?? 75}%`,
-              margin: '0 auto',
-              width: '100%',
-              border: showTextWidthBorder ? `3px solid ${primaryColor}` : '3px solid transparent',
-              borderRadius: showTextWidthBorder ? '8px' : '0px',
-              padding: showTextWidthBorder ? 'calc(1rem + 8px) calc(1rem + 8px)' : undefined,
-            }}
-          >
-            <div className="mx-auto flex flex-col items-center gap-6 text-center">
-              {heroMainHeading && (() => {
-                const wrappedText = preventOrphanedWords(heroMainHeading);
-                return (
-                  <h2 
-                    style={{ 
-                      color: getColorFromSelection(heroMainHeadingColor || 'primary'),
-                      fontFamily: getFontFromSelection(heroMainHeadingFont || 'primary'),
-                      fontSize: `clamp(1.5rem, ${heroMainHeadingFontSize || 4}rem, 6rem)`,
-                    }}
-                    dangerouslySetInnerHTML={{ __html: wrappedText }}
-                  />
-                );
-              })()}
-              {heroDescription && (() => {
-                const wrappedText = preventOrphanedWords(heroDescription);
-                return (
-                  <p 
-                    style={{
-                      color: getColorFromSelection(heroDescriptionColor || 'secondary'),
-                      fontFamily: getFontFromSelection(heroDescriptionFont || 'primary'),
-                      fontSize: `clamp(0.875rem, ${heroDescriptionFontSize || 1}rem, 2rem)`,
-                    }}
-                    dangerouslySetInnerHTML={{ __html: wrappedText }} 
-                  />
-                );
-              })()}
-            </div>
-          </section>
-        </Banner>
 
       {/* Category Carousel */}
       <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
