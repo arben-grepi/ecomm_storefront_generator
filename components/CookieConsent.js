@@ -31,7 +31,30 @@ const COOKIE_CATEGORIES = {
 
 export default function CookieConsent() {
   const storefront = useStorefront();
-  const logoPath = getStorefrontLogo(storefront);
+  const [info, setInfo] = useState(null);
+  
+  // Fetch Info document to get logo if set
+  useEffect(() => {
+    const fetchInfo = async () => {
+      try {
+        const { getFirebaseDb } = await import('@/lib/firebase');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const db = getFirebaseDb();
+        if (db) {
+          const infoRef = doc(db, storefront, 'Info');
+          const infoSnap = await getDoc(infoRef);
+          if (infoSnap.exists()) {
+            setInfo(infoSnap.data());
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch Info for logo:', error);
+      }
+    };
+    fetchInfo();
+  }, [storefront]);
+  
+  const logoPath = getStorefrontLogo(storefront, info);
   const [isVisible, setIsVisible] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] = useState({

@@ -272,8 +272,8 @@ function CartPageContent() {
     fetchColors();
   }, [searchParams, storefront]);
   
-  // Get logo path for the current storefront (recalculate when storefront changes)
-  const logoPath = useMemo(() => getStorefrontLogo(storefront), [storefront]);
+  // Get logo path for the current storefront (recalculate when storefront or siteInfo changes)
+  const logoPath = useMemo(() => getStorefrontLogo(storefront, siteInfo), [storefront, siteInfo]);
   
   // Use colors from URL params instead of static theme
   const theme = useMemo(() => {

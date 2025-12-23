@@ -15,7 +15,7 @@ import { useCategories, useAllProducts, useProductsByCategory } from '@/lib/fire
 import { useCart } from '@/lib/cart';
 import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
-import { getStorefrontTheme } from '@/lib/storefront-logos';
+import { getStorefrontTheme, getStorefrontLogo } from '@/lib/storefront-logos';
 import { getTextColorProps } from '@/lib/text-color-utils';
 import { preventOrphanedWords } from '@/lib/text-wrap-utils';
 import dynamic from 'next/dynamic';
@@ -29,7 +29,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   
   // Use storefront from prop (server-provided) or fallback to context
   const storefrontFromContext = useStorefront();
-  const storefront = storefrontProp || storefrontFromContext;
+  const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
   const theme = getStorefrontTheme(storefront); // Get theme for cart badge
   
   // Get category from URL parameter if present (needed before hooks)
@@ -414,8 +414,8 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               <div className="flex flex-col sm:flex-col">
                 <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center">
                   <Image
-                    src="/Blerinas/Lunera_logo.png"
-                    alt={siteInfo.companyName || 'Lunera'}
+                    src={getStorefrontLogo(storefront, siteInfo)}
+                    alt={siteInfo.companyName || storefront}
                     width={300}
                     height={100}
                     className="h-12 w-auto sm:h-16"

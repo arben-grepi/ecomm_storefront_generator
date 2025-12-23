@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useStorefront } from '@/lib/storefront-context';
 import { getStorefront } from '@/lib/get-storefront';
 import Image from 'next/image';
+import { getStorefrontLogo } from '@/lib/storefront-logos';
 
 export default function NotFound() {
   const storefrontFromContext = useStorefront();
@@ -30,8 +31,8 @@ export default function NotFound() {
         <div className="mb-8 flex justify-center">
           <Link href={homePath}>
             <Image
-              src="/Blerinas/Lunera_logo.png"
-              alt={storefront === 'LUNERA' ? 'Lunera' : 'Logo'}
+              src={getStorefrontLogo(storefront)}
+              alt={storefront === 'LUNERA' ? 'Lunera' : storefront}
               width={300}
               height={100}
               className="h-16 w-auto sm:h-20"

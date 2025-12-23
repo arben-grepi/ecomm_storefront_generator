@@ -11,6 +11,7 @@ import { getCollectionPath } from '@/lib/store-collections';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import SettingsMenu from '@/components/SettingsMenu';
 import InstagramLogo from '@/components/InstagramLogo';
+import { getStorefrontLogo } from '@/lib/storefront-logos';
 
 export default function AboutUsClient({ initialProducts = [], info = null, storefront: storefrontProp = null }) {
   const storefrontFromContext = useStorefront();
@@ -96,8 +97,8 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center">
             <Image
-              src="/Blerinas/Lunera_logo.png"
-              alt="Lunera"
+              src={getStorefrontLogo(storefront, siteInfo)}
+              alt={siteInfo.companyName || storefront}
               width={300}
               height={100}
               className="h-12 w-auto sm:h-16"
