@@ -242,30 +242,16 @@ export async function POST(request) {
       }
     }
 
-    // Convert checkout URL from custom domain to .myshopify.com domain
-    // Shopify may return checkout URLs on custom domain, but we need to use .myshopify.com for checkout
+    // Convert checkout URL to use the correct .myshopify.com domain
+    // Replace any domain with pdvt0w-an.myshopify.com
     if (finalCheckoutUrl) {
       try {
         const url = new URL(finalCheckoutUrl);
-        // If checkout URL uses custom domain (not .myshopify.com), replace with .myshopify.com
-        if (!url.hostname.includes('.myshopify.com')) {
-          // Extract the store name from the custom domain or env var
-          const storeDomain = process.env.SHOPIFY_STORE_DOMAIN || process.env.SHOPIFY_STORE_URL || '';
-          let myshopifyDomain = storeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '');
-          
-          // If env var uses custom domain, extract store name and add .myshopify.com
-          if (!myshopifyDomain.includes('.myshopify.com')) {
-            // Extract store name (e.g., "blerinas" from "blerinas.com")
-            const storeName = myshopifyDomain.split('.')[0];
-            myshopifyDomain = `${storeName}.myshopify.com`;
-          }
-          
-          // Extract the path and query from the checkout URL
-          const checkoutPath = url.pathname + url.search;
-          // Build new URL with .myshopify.com domain
-          finalCheckoutUrl = `https://${myshopifyDomain}${checkoutPath}`;
-          console.log(`[API] 🔄 Converted checkout URL from ${url.hostname} to ${myshopifyDomain}`);
-        }
+        // Extract the path and query from the checkout URL
+        const checkoutPath = url.pathname + url.search;
+        // Build new URL with pdvt0w-an.myshopify.com domain
+        finalCheckoutUrl = `https://pdvt0w-an.myshopify.com${checkoutPath}`;
+        console.log(`[API] 🔄 Converted checkout URL from ${url.hostname} to pdvt0w-an.myshopify.com`);
       } catch (error) {
         console.warn(`[API] ⚠️  Failed to parse/convert checkout URL:`, error.message);
       }
