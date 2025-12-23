@@ -6,7 +6,6 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import { useWebsite } from '@/lib/website-context';
 import Toast from '@/components/admin/Toast';
-import BannerImageUpload from '@/components/admin/BannerImageUpload';
 import HexColorInput from '@/components/admin/HexColorInput';
 import PaletteColorSelector from '@/components/admin/PaletteColorSelector';
 import SitePreview from '@/components/admin/SitePreview';
@@ -82,8 +81,6 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [textWidthChanged, setTextWidthChanged] = useState(false);
-  const [bannerUploading, setBannerUploading] = useState(false);
-  const [bannerUploadProgress, setBannerUploadProgress] = useState(0);
 
   // Initialize selectedStorefront when modal opens
   useEffect(() => {
@@ -148,7 +145,6 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           heroDescriptionColor: data.heroDescriptionColor || 'secondary',
           heroDescriptionFont: data.heroDescriptionFont || 'primary',
           heroDescriptionFontSize: data.heroDescriptionFontSize != null ? parseFloat(data.heroDescriptionFontSize) || 1 : 1,
-          heroBannerImage: data.heroBannerImage || '',
           heroBannerTextWidth: data.heroBannerTextWidth || 75,
           categorySectionHeading: data.categorySectionHeading || '',
           categorySectionDescription: data.categorySectionDescription || '',
@@ -207,7 +203,6 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           heroDescriptionColor: 'secondary',
           heroDescriptionFont: 'primary',
           heroDescriptionFontSize: 1,
-          heroBannerImage: '',
           heroBannerTextWidth: 75,
           categorySectionHeading: '',
           categorySectionDescription: '',
@@ -333,7 +328,6 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
         heroDescriptionColor: form.heroDescriptionColor || 'secondary',
         heroDescriptionFont: form.heroDescriptionFont || 'primary',
         heroDescriptionFontSize: parseFloat(form.heroDescriptionFontSize) || 1,
-        heroBannerImage: form.heroBannerImage.trim() || '',
         heroBannerTextWidth: Number(form.heroBannerTextWidth) || 75,
         categorySectionHeading: form.categorySectionHeading.trim() || '',
         categorySectionDescription: form.categorySectionDescription.trim() || '',
@@ -463,7 +457,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
               heroDescriptionColor={form.heroDescriptionColor}
               heroDescriptionFont={form.heroDescriptionFont}
               heroDescriptionFontSize={form.heroDescriptionFontSize}
-              heroBannerImage={form.heroBannerImage}
+              storefront={selectedStorefront || 'LUNERA'}
               categoryCarouselColor={form.categoryCarouselColor}
               categoryCarouselFont={form.categoryCarouselFont}
               categoryCarouselFontSize={form.categoryCarouselFontSize}
@@ -580,125 +574,9 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                         {/* Banner Section */}
                         <div className="space-y-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-700">
                           <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Banner</h3>
-                          <div>
-                            <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                              Banner Image
-                            </label>
-                            <label className={`flex cursor-pointer items-center justify-center rounded border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800 ${bannerUploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                              {bannerUploading ? (
-                                <span className="flex items-center gap-2">
-                                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                  </svg>
-                                  Uploading...
-                                </span>
-                              ) : (
-                                form.heroBannerImage ? 'Replace' : 'Upload'
-                              )}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                disabled={bannerUploading}
-                                onChange={async (e) => {
-                                  const file = e.target.files?.[0];
-                                  if (!file || !selectedStorefront || bannerUploading) return;
-                                  
-                                  // Validate file type
-                                  if (!file.type.startsWith('image/')) {
-                                    setError('Please select an image file.');
-                                    return;
-                                  }
-                                  
-                                  // Validate file size (e.g., max 10MB)
-                                  const maxSize = 10 * 1024 * 1024; // 10MB
-                                  if (file.size > maxSize) {
-                                    setError('Image size must be less than 10MB.');
-                                    return;
-                                  }
-                                  
-                                  setBannerUploading(true);
-                                  setBannerUploadProgress(0);
-                                  setError(null);
-                                  
-                                  try {
-                                    const { getFirebaseApp } = await import('@/lib/firebase');
-                                    const { getStorage, ref, uploadBytesResumable, getDownloadURL } = await import('firebase/storage');
-                                    const app = getFirebaseApp();
-                                    if (!app) {
-                                      setBannerUploading(false);
-                                      return;
-                                    }
-                                    const storage = getStorage(app);
-                                    const timestamp = Date.now();
-                                    const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                                    const storagePath = `banners/${selectedStorefront}/${timestamp}-${sanitizedFilename}`;
-                                    const storageRef = ref(storage, storagePath);
-                                    const uploadTask = uploadBytesResumable(storageRef, file, {
-                                      contentType: file.type,
-                                      // Cache for 7 days - reasonable balance between performance and update visibility
-                                      // Cache busting is automatic: each upload gets a unique timestamped filename,
-                                      // so when banner changes, the URL changes and browsers fetch the new image
-                                      cacheControl: 'public, max-age=604800', // Cache for 7 days (604800 seconds)
-                                    });
-                                    
-                                    // Track upload progress
-                                    uploadTask.on('state_changed', 
-                                      (snapshot) => {
-                                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                                        setBannerUploadProgress(progress);
-                                      },
-                                      (error) => {
-                                        console.error('Upload error:', error);
-                                        setError('Failed to upload banner image. Please try again.');
-                                        setBannerUploading(false);
-                                        setBannerUploadProgress(0);
-                                      },
-                                      async () => {
-                                        const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                                        setForm((prev) => ({ ...prev, heroBannerImage: downloadURL }));
-                                        setBannerUploading(false);
-                                        setBannerUploadProgress(0);
-                                        // Reset file input
-                                        e.target.value = '';
-                                      }
-                                    );
-                                  } catch (err) {
-                                    console.error('Upload error:', err);
-                                    setError('Failed to upload banner image. Please try again.');
-                                    setBannerUploading(false);
-                                    setBannerUploadProgress(0);
-                                  }
-                                }}
-                                className="hidden"
-                              />
-                            </label>
-                            {bannerUploading && (
-                              <div className="mt-2">
-                                <div className="w-full bg-zinc-200 rounded-full h-1.5 dark:bg-zinc-700">
-                                  <div 
-                                    className="bg-emerald-600 h-1.5 rounded-full transition-all duration-300" 
-                                    style={{ width: `${bannerUploadProgress}%` }}
-                                  ></div>
-                                </div>
-                                <p className="mt-1 text-[10px] text-zinc-500 text-center">
-                                  {Math.round(bannerUploadProgress)}% uploaded
-                                </p>
-                              </div>
-                            )}
-                            {form.heroBannerImage && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (window.confirm('Are you sure you want to remove the banner image? This will remove the banner from your homepage and the hero text will be displayed without a background image.')) {
-                                    setForm((prev) => ({ ...prev, heroBannerImage: '' }));
-                                  }
-                                }}
-                                className="mt-1.5 w-full rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
-                              >
-                                Remove
-                              </button>
-                            )}
+                          <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-3 p-2 bg-zinc-50 dark:bg-zinc-800 rounded">
+                            Banner images are now managed as static files in <code className="text-[10px]">public/banners/</code>. 
+                            To change the banner, replace the image file directly in the project folder.
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">

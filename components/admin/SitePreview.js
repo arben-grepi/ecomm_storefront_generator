@@ -7,6 +7,7 @@ import CategoryCarousel from '@/components/CategoryCarousel';
 import PreviewProductCardWrapper from '@/components/admin/PreviewProductCardWrapper';
 import { getTextColorProps } from '@/lib/text-color-utils';
 import { preventOrphanedWords } from '@/lib/text-wrap-utils';
+import { getStorefrontBanner } from '@/lib/storefront-logos';
 
 /**
  * SitePreview - Full-screen preview of the homepage
@@ -27,7 +28,7 @@ export default function SitePreview({
   heroDescriptionColor,
   heroDescriptionFont,
   heroDescriptionFontSize,
-  heroBannerImage,
+  storefront = 'LUNERA',
   categoryCarouselColor,
   categoryCarouselFont,
   categoryCarouselFontSize,
@@ -140,11 +141,10 @@ export default function SitePreview({
       </header>
 
       {/* Banner with Hero Text */}
-      {heroBannerImage ? (
-        <Banner 
-          imageSrc={heroBannerImage}
-          className="w-full mb-8 sm:mb-12"
-        >
+      <Banner 
+        imageSrc={getStorefrontBanner(storefront)}
+        className="w-full mb-8 sm:mb-12"
+      >
           <section 
             className="px-4 py-10 sm:px-6 sm:py-16 transition-all duration-300"
             style={{ 
@@ -229,8 +229,7 @@ export default function SitePreview({
               })()}
             </div>
           </section>
-        )
-      )}
+        </Banner>
 
       {/* Category Carousel */}
       <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">

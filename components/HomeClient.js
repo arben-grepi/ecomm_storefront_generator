@@ -15,7 +15,7 @@ import { useCategories, useAllProducts, useProductsByCategory } from '@/lib/fire
 import { useCart } from '@/lib/cart';
 import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
-import { getStorefrontTheme, getStorefrontLogo } from '@/lib/storefront-logos';
+import { getStorefrontTheme, getStorefrontLogo, getStorefrontBanner } from '@/lib/storefront-logos';
 import { getTextColorProps } from '@/lib/text-color-utils';
 import { preventOrphanedWords } from '@/lib/text-wrap-utils';
 import dynamic from 'next/dynamic';
@@ -29,7 +29,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   
   // Use storefront from prop (server-provided) or fallback to context
   const storefrontFromContext = useStorefront();
-  const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
+  const storefront = storefrontProp || storefrontFromContext;
   const theme = getStorefrontTheme(storefront); // Get theme for cart badge
   
   // Get category from URL parameter if present (needed before hooks)
@@ -509,7 +509,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
 
       {/* Hero Section with Banner */}
       <Banner 
-        imageSrc={siteInfo.heroBannerImage}
+        imageSrc={getStorefrontBanner(storefront)}
         className="mb-8 sm:mb-12"
       >
         {/* Hero text content centered on banner */}
