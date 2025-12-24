@@ -69,8 +69,8 @@ export default function CookieConsent() {
   }, [storefront]);
   
   const logoPath = getStorefrontLogo(storefront, info);
-  // Get primary color from Info document or fallback to theme
-  const theme = getStorefrontTheme(storefront);
+  // Get primary color from Info document (always prioritize Info over hardcoded theme)
+  const theme = getStorefrontTheme(storefront, info);
   const primaryColor = info?.colorPrimary || theme.primaryColor || '#ec4899';
   const primaryColorHover = info?.colorPrimary ? `${info.colorPrimary}E6` : (theme.primaryColorHover || '#db2777');
   

@@ -1,0 +1,27 @@
+/**
+ * HEALTH STOREFRONT THEME CSS (app/HEALTH/globals.css)
+ * 
+ * This file defines HEALTH's theme colors (green/wellness).
+ * It's imported in app/HEALTH/layout.js and overrides the default colors
+ * defined in app/globals.css.
+ * 
+ * Common styles (body, html, animations) are defined in app/globals.css.
+ * This file only contains theme-specific overrides.
+ */
+
+/* HEALTH Theme Colors - Green/Wellness */
+:root {
+  /* Primary color (Green - for text, buttons, accents) */
+  --primary: #10b981; /* Emerald green */
+  /* Secondary color (Light green - for backgrounds) */
+  --secondary: #f0fdf4; /* Light green */
+}
+
+/* Map theme colors to Tailwind classes */
+@theme inline {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  /* Use Inter font for HEALTH */
+  --font-sans: var(--font-inter);
+}
+

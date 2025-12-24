@@ -19,7 +19,6 @@ const formatPrice = (value) => currencyFormatter.format(value ?? 0);
 export default function CheckoutPage() {
   const router = useRouter();
   const storefront = getStorefront(); // Get storefront from URL
-  const theme = getStorefrontTheme(storefront);
   const [siteInfo, setSiteInfo] = useState(null);
   const { cart, getCartTotal, clearCart, loading: cartLoading } = useCart();
   const [user, setUser] = useState(null);
@@ -61,8 +60,10 @@ export default function CheckoutPage() {
     fetchInfo();
   }, [storefront]);
   
+  // Always prioritize Info document colors over hardcoded theme colors
+  const theme = getStorefrontTheme(storefront, siteInfo);
   const primaryColor = siteInfo?.colorPrimary || theme.primaryColor || '#ec4899';
-  const primaryColorHover = theme.primaryColorHover || `${primaryColor}E6`;
+  const primaryColorHover = siteInfo?.colorPrimary ? `${siteInfo.colorPrimary}E6` : (theme.primaryColorHover || `${primaryColor}E6`);
   
   // Form state - Simplified: Only collect Country, City, Street Address for shipping validation
   // Email, name, phone will be collected on Shopify's checkout page. (Triggering build)
