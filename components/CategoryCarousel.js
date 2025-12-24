@@ -18,23 +18,29 @@ export default function CategoryCarousel({
   fontSize = 0.875, // Font size in rem
 }) {
   // Get actual color from color selection
-  const getColorFromSelection = () => {
-    if (color === 'primary') return colorPalette.colorPrimary || primaryColor;
-    if (color === 'secondary') return colorPalette.colorSecondary || '#64748b';
-    if (color === 'tertiary') return colorPalette.colorTertiary || '#94a3b8';
-    return primaryColor; // Fallback
-  };
+  // Use colorPalette if available, otherwise fall back to primaryColor prop or defaults
+  // Memoize to recalculate when colorPalette or color changes
+  const carouselColor = useMemo(() => {
+    if (color === 'primary') {
+      return colorPalette?.colorPrimary || primaryColor || '#ec4899';
+    }
+    if (color === 'secondary') {
+      return colorPalette?.colorSecondary || '#64748b';
+    }
+    if (color === 'tertiary') {
+      return colorPalette?.colorTertiary || '#94a3b8';
+    }
+    return colorPalette?.colorPrimary || primaryColor || '#ec4899'; // Fallback
+  }, [color, colorPalette, primaryColor]);
 
   // Get actual font from font selection
-  const getFontFromSelection = () => {
-    if (font === 'primary') return fontPalette.fontPrimary || 'inherit';
-    if (font === 'secondary') return fontPalette.fontSecondary || 'inherit';
-    if (font === 'tertiary') return fontPalette.fontTertiary || 'inherit';
+  // Memoize to recalculate when fontPalette or font changes
+  const carouselFont = useMemo(() => {
+    if (font === 'primary') return fontPalette?.fontPrimary || 'inherit';
+    if (font === 'secondary') return fontPalette?.fontSecondary || 'inherit';
+    if (font === 'tertiary') return fontPalette?.fontTertiary || 'inherit';
     return 'inherit'; // Fallback
-  };
-  
-  const carouselColor = getColorFromSelection();
-  const carouselFont = getFontFromSelection();
+  }, [font, fontPalette]);
   
   // Helper function to convert hex to rgba with opacity
   const hexToRgba = (hex, opacity) => {

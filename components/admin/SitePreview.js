@@ -200,6 +200,7 @@ export default function SitePreview({
             selectedCategory={null}
             color={categoryCarouselColor || 'primary'}
             colorPalette={colorPalette}
+            primaryColor={colorPalette?.colorPrimary || '#ec4899'}
             font={categoryCarouselFont || 'primary'}
             fontPalette={fontPalette}
             fontSize={categoryCarouselFontSize || 0.875}
