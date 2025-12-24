@@ -135,12 +135,12 @@ function BorderedProductCard({
           </div>
           <div className="mt-auto">
             <p 
-              className="font-semibold"
-              style={{
-                color: getColorFromSelection(priceColor),
-                fontFamily: getFontFromSelection(priceFont),
-                fontSize: `clamp(0.875rem, ${priceFontSize}rem, 2rem)`,
-              }}
+                className="font-semibold"
+                style={{
+                  color: getColorFromSelection(priceColor),
+                  fontFamily: getFontFromSelection(priceFont),
+                  fontSize: `clamp(0.875rem, ${priceFontSize}rem, 2rem)`,
+                }}
             >
               €{product.price.toFixed(2)}
             </p>

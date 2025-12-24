@@ -9,6 +9,50 @@ import Toast from '@/components/admin/Toast';
 import HexColorInput from '@/components/admin/HexColorInput';
 import PaletteColorSelector from '@/components/admin/PaletteColorSelector';
 import SitePreview from '@/components/admin/SitePreview';
+import FontPreview from '@/components/admin/FontPreview';
+import FontSelector from '@/components/admin/FontSelector';
+
+// Shared font options list
+const FONT_OPTIONS = [
+  { value: 'inherit', label: 'Default (System)' },
+  { value: 'serif', label: 'Serif' },
+  { value: 'sans-serif', label: 'Sans Serif' },
+  { value: 'monospace', label: 'Monospace' },
+  { value: 'cursive', label: 'Cursive' },
+  { value: 'fantasy', label: 'Fantasy' },
+  // Google Fonts - Sans Serif
+  { value: "'Inter', sans-serif", label: 'Inter' },
+  { value: "'Roboto', sans-serif", label: 'Roboto' },
+  { value: "'Open Sans', sans-serif", label: 'Open Sans' },
+  { value: "'Montserrat', sans-serif", label: 'Montserrat' },
+  { value: "'Poppins', sans-serif", label: 'Poppins' },
+  { value: "'Raleway', sans-serif", label: 'Raleway' },
+  { value: "'Nunito', sans-serif", label: 'Nunito' },
+  { value: "'Lato', sans-serif", label: 'Lato' },
+  { value: "'Source Sans Pro', sans-serif", label: 'Source Sans Pro' },
+  { value: "'Work Sans', sans-serif", label: 'Work Sans' },
+  { value: "'DM Sans', sans-serif", label: 'DM Sans' },
+  { value: "'Plus Jakarta Sans', sans-serif", label: 'Plus Jakarta Sans' },
+  { value: "'Space Grotesk', sans-serif", label: 'Space Grotesk' },
+  { value: "'Outfit', sans-serif", label: 'Outfit' },
+  { value: "'Manrope', sans-serif", label: 'Manrope' },
+  { value: "'Rubik', sans-serif", label: 'Rubik' },
+  { value: "'Quicksand', sans-serif", label: 'Quicksand' },
+  // Google Fonts - Serif
+  { value: "'Playfair Display', serif", label: 'Playfair Display' },
+  { value: "'Lora', serif", label: 'Lora' },
+  { value: "'Merriweather', serif", label: 'Merriweather' },
+  { value: "'Cormorant Garamond', serif", label: 'Cormorant Garamond' },
+  { value: "'Crimson Pro', serif", label: 'Crimson Pro' },
+  { value: "'Libre Baskerville', serif", label: 'Libre Baskerville' },
+  { value: "'Cinzel', serif", label: 'Cinzel' },
+  // Google Fonts - Display/Decorative
+  { value: "'Bebas Neue', sans-serif", label: 'Bebas Neue' },
+  { value: "'Oswald', sans-serif", label: 'Oswald' },
+  { value: "'Dancing Script', cursive", label: 'Dancing Script' },
+  { value: "'Pacifico', cursive", label: 'Pacifico' },
+  { value: "'Comfortaa', sans-serif", label: 'Comfortaa' },
+];
 
 export default function EditSiteInfoButton({ className = '', open: controlledOpen, onOpenChange }) {
   const db = getFirebaseDb();
@@ -83,6 +127,8 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [textWidthChanged, setTextWidthChanged] = useState(false);
+  const [fontPreviewFont, setFontPreviewFont] = useState(null);
+  const [showFontPreview, setShowFontPreview] = useState(false);
 
   // Initialize selectedStorefront when modal opens
   useEffect(() => {
@@ -687,24 +733,22 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                               Primary Font
                             </label>
-                            <select
+                            <FontSelector
                               value={form.fontPrimary || 'inherit'}
-                              onChange={(e) => setForm((prev) => ({ ...prev, fontPrimary: e.target.value }))}
-                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            >
-                              <option value="inherit">Default (System)</option>
-                              <option value="serif">Serif</option>
-                              <option value="sans-serif">Sans Serif</option>
-                              <option value="monospace">Monospace</option>
-                              <option value="cursive">Cursive</option>
-                              <option value="fantasy">Fantasy</option>
-                              <option value="'Playfair Display', serif">Playfair Display</option>
-                              <option value="'Roboto', sans-serif">Roboto</option>
-                              <option value="'Open Sans', sans-serif">Open Sans</option>
-                              <option value="'Montserrat', sans-serif">Montserrat</option>
-                              <option value="'Lora', serif">Lora</option>
-                              <option value="'Merriweather', serif">Merriweather</option>
-                            </select>
+                              onChange={(newValue) => {
+                                setForm((prev) => ({ ...prev, fontPrimary: newValue }));
+                              }}
+                              onHover={(fontValue, isHovering) => {
+                                if (isHovering && fontValue && fontValue !== 'inherit') {
+                                  setFontPreviewFont(fontValue);
+                                  setShowFontPreview(true);
+                                } else {
+                                  setShowFontPreview(false);
+                                }
+                              }}
+                              options={FONT_OPTIONS}
+                              className="w-full"
+                            />
                           </div>
                         </div>
 
@@ -753,24 +797,22 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                               Secondary Font
                             </label>
-                            <select
+                            <FontSelector
                               value={form.fontSecondary || 'inherit'}
-                              onChange={(e) => setForm((prev) => ({ ...prev, fontSecondary: e.target.value }))}
-                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            >
-                              <option value="inherit">Default (System)</option>
-                              <option value="serif">Serif</option>
-                              <option value="sans-serif">Sans Serif</option>
-                              <option value="monospace">Monospace</option>
-                              <option value="cursive">Cursive</option>
-                              <option value="fantasy">Fantasy</option>
-                              <option value="'Playfair Display', serif">Playfair Display</option>
-                              <option value="'Roboto', sans-serif">Roboto</option>
-                              <option value="'Open Sans', sans-serif">Open Sans</option>
-                              <option value="'Montserrat', sans-serif">Montserrat</option>
-                              <option value="'Lora', serif">Lora</option>
-                              <option value="'Merriweather', serif">Merriweather</option>
-                            </select>
+                              onChange={(newValue) => {
+                                setForm((prev) => ({ ...prev, fontSecondary: newValue }));
+                              }}
+                              onHover={(fontValue, isHovering) => {
+                                if (isHovering && fontValue && fontValue !== 'inherit') {
+                                  setFontPreviewFont(fontValue);
+                                  setShowFontPreview(true);
+                                } else {
+                                  setShowFontPreview(false);
+                                }
+                              }}
+                              options={FONT_OPTIONS}
+                              className="w-full"
+                            />
                           </div>
                         </div>
 
@@ -819,24 +861,22 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                               Tertiary Font
                             </label>
-                            <select
+                            <FontSelector
                               value={form.fontTertiary || 'inherit'}
-                              onChange={(e) => setForm((prev) => ({ ...prev, fontTertiary: e.target.value }))}
-                              className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            >
-                              <option value="inherit">Default (System)</option>
-                              <option value="serif">Serif</option>
-                              <option value="sans-serif">Sans Serif</option>
-                              <option value="monospace">Monospace</option>
-                              <option value="cursive">Cursive</option>
-                              <option value="fantasy">Fantasy</option>
-                              <option value="'Playfair Display', serif">Playfair Display</option>
-                              <option value="'Roboto', sans-serif">Roboto</option>
-                              <option value="'Open Sans', sans-serif">Open Sans</option>
-                              <option value="'Montserrat', sans-serif">Montserrat</option>
-                              <option value="'Lora', serif">Lora</option>
-                              <option value="'Merriweather', serif">Merriweather</option>
-                            </select>
+                              onChange={(newValue) => {
+                                setForm((prev) => ({ ...prev, fontTertiary: newValue }));
+                              }}
+                              onHover={(fontValue, isHovering) => {
+                                if (isHovering && fontValue && fontValue !== 'inherit') {
+                                  setFontPreviewFont(fontValue);
+                                  setShowFontPreview(true);
+                                } else {
+                                  setShowFontPreview(false);
+                                }
+                              }}
+                              options={FONT_OPTIONS}
+                              className="w-full"
+                            />
                           </div>
                         </div>
                       </div>
@@ -1477,6 +1517,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
         </div>,
         document.body
       )}
+      <FontPreview fontFamily={fontPreviewFont} isVisible={showFontPreview} />
     </>
   );
 }

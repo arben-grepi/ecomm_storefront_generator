@@ -437,10 +437,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   return (
                     <span 
                       className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em]"
+                      className="max-sm:!text-[0.8rem]"
                       style={{ 
                         color: getColorFromSelection(siteInfo.companyTaglineColor || 'primary'),
                         fontFamily: getFontFromSelection(siteInfo.companyTaglineFont || 'primary'),
-                        fontSize: `clamp(0.5rem, ${siteInfo.companyTaglineFontSize || 0.75}rem, 1.5rem)`,
+                        fontSize: `clamp(0.4rem, ${siteInfo.companyTaglineFontSize || 0.75}rem, 1.5rem)`,
                       }}
                       dangerouslySetInnerHTML={{ __html: wrappedText }}
                     />
@@ -532,10 +533,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               const wrappedText = preventOrphanedWords(siteInfo.heroMainHeading);
               return (
                 <h2 
+                  className="max-sm:!text-[2rem]"
                   style={{ 
                     color: getColorFromSelection(siteInfo.heroMainHeadingColor || 'primary'),
                     fontFamily: getFontFromSelection(siteInfo.heroMainHeadingFont || 'primary'),
-                    fontSize: `clamp(1.5rem, ${siteInfo.heroMainHeadingFontSize || 4}rem, 6rem)`,
+                    fontSize: `clamp(1.25rem, ${siteInfo.heroMainHeadingFontSize || 4}rem, 6rem)`,
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />
@@ -545,10 +547,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               const wrappedText = preventOrphanedWords(siteInfo.heroDescription);
               return (
                 <p 
+                  className="max-sm:!text-[1rem]"
                   style={{
                     color: getColorFromSelection(siteInfo.heroDescriptionColor || 'secondary'),
                     fontFamily: getFontFromSelection(siteInfo.heroDescriptionFont || 'primary'),
-                    fontSize: `clamp(0.875rem, ${siteInfo.heroDescriptionFontSize || 1}rem, 2rem)`,
+                    fontSize: `clamp(0.75rem, ${siteInfo.heroDescriptionFontSize || 1}rem, 2rem)`,
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }} 
                 />
@@ -607,10 +610,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               return (
                 <p 
                   className="mt-2"
+                  className="max-sm:!text-[1rem]"
                   style={{
                     color: getColorFromSelection(siteInfo.allCategoriesTaglineColor || 'secondary'),
                     fontFamily: getFontFromSelection(siteInfo.allCategoriesTaglineFont || 'primary'),
-                    fontSize: `clamp(0.875rem, ${siteInfo.allCategoriesTaglineFontSize || 1}rem, 2rem)`,
+                    fontSize: `clamp(0.75rem, ${siteInfo.allCategoriesTaglineFontSize || 1}rem, 2rem)`,
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }} 
                 />
@@ -847,10 +851,11 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             return (
               <div 
                 className="text-center mb-6"
+                className="max-sm:!text-[0.7rem]"
                 style={{
                   color: getColorFromSelection(siteInfo.footerTextColor || 'tertiary'),
                   fontFamily: getFontFromSelection(siteInfo.footerTextFont || 'primary'),
-                  fontSize: `clamp(0.5rem, ${siteInfo.footerTextFontSize || 0.875}rem, 1.5rem)`,
+                  fontSize: `clamp(0.4rem, ${siteInfo.footerTextFontSize || 0.875}rem, 1.5rem)`,
                 }}
                 dangerouslySetInnerHTML={{ __html: wrappedText }} 
               />

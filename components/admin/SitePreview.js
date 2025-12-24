@@ -132,7 +132,7 @@ export default function SitePreview({
                   style={{ 
                     color: getColorFromSelection(companyTaglineColor || 'primary'),
                     fontFamily: getFontFromSelection(companyTaglineFont || 'primary'),
-                    fontSize: `clamp(0.5rem, ${companyTaglineFontSize || 0.75}rem, 1.5rem)`,
+                    fontSize: `clamp(0.4rem, ${companyTaglineFontSize || 0.75}rem, 0.8rem)`,
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />
@@ -168,7 +168,7 @@ export default function SitePreview({
                     style={{ 
                       color: getColorFromSelection(heroMainHeadingColor || 'primary'),
                       fontFamily: getFontFromSelection(heroMainHeadingFont || 'primary'),
-                      fontSize: `clamp(1.5rem, ${heroMainHeadingFontSize || 4}rem, 6rem)`,
+                      fontSize: `clamp(1.25rem, ${heroMainHeadingFontSize || 4}rem, 2rem)`,
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />
@@ -181,7 +181,7 @@ export default function SitePreview({
                     style={{
                       color: getColorFromSelection(heroDescriptionColor || 'secondary'),
                       fontFamily: getFontFromSelection(heroDescriptionFont || 'primary'),
-                      fontSize: `clamp(0.875rem, ${heroDescriptionFontSize || 1}rem, 2rem)`,
+                      fontSize: `clamp(0.75rem, ${heroDescriptionFontSize || 1}rem, 1rem)`,
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }} 
                   />
@@ -214,7 +214,7 @@ export default function SitePreview({
                 style={{
                   color: getColorFromSelection(allCategoriesTaglineColor || 'secondary'),
                   fontFamily: getFontFromSelection(allCategoriesTaglineFont || 'primary'),
-                  fontSize: `clamp(0.875rem, ${fontSize}rem, 2rem)`,
+                  fontSize: `clamp(0.75rem, ${fontSize}rem, 1rem)`,
                 }}
                 dangerouslySetInnerHTML={{ __html: wrappedText }} 
               />
@@ -304,7 +304,7 @@ export default function SitePreview({
               style={{
                 color: getColorFromSelection(footerTextColor || 'tertiary'),
                 fontFamily: getFontFromSelection(footerTextFont || 'primary'),
-                fontSize: `clamp(0.5rem, ${footerTextFontSize || 0.875}rem, 1.5rem)`,
+                fontSize: `clamp(0.4rem, ${footerTextFontSize || 0.875}rem, 0.7rem)`,
               }}
               dangerouslySetInnerHTML={{ __html: wrappedText }} 
             />

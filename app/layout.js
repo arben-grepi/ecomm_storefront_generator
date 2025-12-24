@@ -16,6 +16,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 // PageTransitionBar removed - wasn't working/visible. Can be re-added if needed.
 import CookieConsent from "@/components/CookieConsent";
+import GoogleFontsLoader from "@/components/GoogleFontsLoader";
 import { StorefrontProvider } from '@/lib/storefront-context';
 import { getServerSideInfo } from '@/lib/firestore-server';
 
@@ -124,6 +125,11 @@ export default function RootLayout({ children }) {
             Cookie Consent Banner - appears at bottom until user gives consent
           */}
           <CookieConsent />
+          
+          {/* 
+            Google Fonts Loader - loads fonts for font selector preview
+          */}
+          <GoogleFontsLoader />
         </StorefrontProvider>
       </body>
     </html>

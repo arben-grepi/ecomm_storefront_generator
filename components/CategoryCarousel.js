@@ -202,7 +202,7 @@ export default function CategoryCarousel({
                 )}
                 <button
                   onClick={() => handleClick(item)}
-                  className="font-medium uppercase tracking-[0.3em] transition-all whitespace-nowrap"
+                  className="font-medium uppercase tracking-[0.3em] transition-all whitespace-nowrap max-sm:!text-[0.7rem]"
                   style={{
                     color: carouselColor,
                     fontFamily: carouselFont,

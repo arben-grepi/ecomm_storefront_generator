@@ -123,11 +123,11 @@ function ProductCard({
         <div>
           <h3 
             className="font-medium uppercase tracking-[0.25em]"
-            style={{
-              color: getColorFromSelection(nameColor),
-              fontFamily: getFontFromSelection(nameFont),
-              fontSize: `clamp(0.5rem, ${nameFontSize}rem, 1.5rem)`,
-            }}
+              style={{
+                color: getColorFromSelection(nameColor),
+                fontFamily: getFontFromSelection(nameFont),
+                fontSize: `clamp(0.5rem, ${nameFontSize}rem, 1.5rem)`,
+              }}
           >
             {product.name}
           </h3>
@@ -135,22 +135,22 @@ function ProductCard({
         <div className="mt-auto">
           <p 
             className="font-semibold"
-            style={{
-              color: getColorFromSelection(priceColor),
-              fontFamily: getFontFromSelection(priceFont),
-              fontSize: `clamp(0.875rem, ${priceFontSize}rem, 2rem)`,
-            }}
+              style={{
+                color: getColorFromSelection(priceColor),
+                fontFamily: getFontFromSelection(priceFont),
+                fontSize: `clamp(0.875rem, ${priceFontSize}rem, 2rem)`,
+              }}
           >
             €{product.price.toFixed(2)}
           </p>
           {isEU && (
             <p 
               className="mt-0.5"
-              style={{
-                color: getColorFromSelection(vatColor),
-                fontFamily: getFontFromSelection(vatFont),
-                fontSize: `clamp(0.5rem, ${vatFontSize}rem, 1.5rem)`,
-              }}
+                style={{
+                  color: getColorFromSelection(vatColor),
+                  fontFamily: getFontFromSelection(vatFont),
+                  fontSize: `clamp(0.5rem, ${vatFontSize}rem, 1.5rem)`,
+                }}
             >
               {vatText}
             </p>
