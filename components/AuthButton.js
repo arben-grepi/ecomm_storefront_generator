@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithGoogle, signOutUser, isAdmin, subscribeToAuth } from '@/lib/auth';
 import { getStorefront } from '@/lib/get-storefront';
+import { useStorefront } from '@/lib/storefront-context';
 
 export default function AuthButton() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const storefront = useStorefront();
 
   useEffect(() => {
     const unsubscribe = subscribeToAuth((currentUser) => {
@@ -16,6 +18,10 @@ export default function AuthButton() {
       setLoading(false);
 
       if (currentUser && isAdmin(currentUser.email)) {
+        // Store current storefront before navigating to admin
+        if (storefront && typeof window !== 'undefined') {
+          sessionStorage.setItem('admin_storefront', storefront);
+        }
         router.push('/admin/overview');
       }
     });
@@ -25,12 +31,16 @@ export default function AuthButton() {
         unsubscribe();
       }
     };
-  }, [router]);
+  }, [router, storefront]);
 
   const handleSignIn = async () => {
     try {
       const user = await signInWithGoogle();
       if (isAdmin(user.email)) {
+        // Store current storefront before navigating to admin
+        if (storefront && typeof window !== 'undefined') {
+          sessionStorage.setItem('admin_storefront', storefront);
+        }
         router.push('/admin/overview');
       }
     } catch (error) {

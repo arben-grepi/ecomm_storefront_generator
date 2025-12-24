@@ -51,11 +51,51 @@ function EcommerceOverviewContent() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    // Use selectedWebsite from context, or fallback to getStorefront()
-    const storefront = selectedWebsite || getStorefront();
+    // Priority order:
+    // 1. Check sessionStorage (set when navigating from storefront page)
+    // 2. Check document.referrer to extract storefront from URL
+    // 3. Use selectedWebsite from context
+    // 4. Fallback to getStorefront()
+    
+    let storefront = null;
+    
+    // Check sessionStorage first (set by SettingsMenu/AuthButton when navigating)
+    const storedStorefront = sessionStorage.getItem('admin_storefront');
+    if (storedStorefront) {
+      storefront = storedStorefront;
+    } else {
+      // Try to extract from referrer URL (e.g., /HEALTH -> HEALTH)
+      const referrer = document.referrer;
+      if (referrer) {
+        try {
+          const referrerUrl = new URL(referrer);
+          const referrerPath = referrerUrl.pathname;
+          const segments = referrerPath.split('/').filter(Boolean);
+          
+          // Check if first segment is a storefront (not admin, api, etc.)
+          const excludedSegments = ['admin', 'api', 'cart', 'checkout', 'orders', 'unavailable', 'thank-you', 'order-confirmation'];
+          if (segments.length > 0 && !excludedSegments.includes(segments[0].toLowerCase())) {
+            const potentialStorefront = segments[0].toUpperCase();
+            // Only use if it's a valid storefront (all uppercase, no hyphens typically)
+            if (potentialStorefront === segments[0] && !potentialStorefront.includes('-')) {
+              storefront = potentialStorefront;
+              // Store it for future use
+              sessionStorage.setItem('admin_storefront', storefront);
+            }
+          }
+        } catch (e) {
+          // Invalid referrer URL, ignore
+        }
+      }
+    }
+    
+    // Fallback to context or getStorefront()
+    if (!storefront) {
+      storefront = selectedWebsite || getStorefront();
+    }
     
     if (storefront) {
-      // Store in sessionStorage for use during sign out
+      // Store in sessionStorage for use during sign out and in admin components
       sessionStorage.setItem('admin_storefront', storefront);
       // Also save to in-memory cache (same as cart page) so logo navigation works correctly
       saveStorefrontToCache(storefront);

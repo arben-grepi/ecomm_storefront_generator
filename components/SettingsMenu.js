@@ -27,6 +27,10 @@ export default function SettingsMenu({ secondaryColor = '#64748b', primaryColor 
       setLoading(false);
 
       if (currentUser && isAdmin(currentUser.email)) {
+        // Store current storefront before navigating to admin
+        if (storefront && typeof window !== 'undefined') {
+          sessionStorage.setItem('admin_storefront', storefront);
+        }
         router.push('/admin/overview');
       }
     });
@@ -36,7 +40,7 @@ export default function SettingsMenu({ secondaryColor = '#64748b', primaryColor 
         unsubscribe();
       }
     };
-  }, [router]);
+  }, [router, storefront]);
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -55,6 +59,10 @@ export default function SettingsMenu({ secondaryColor = '#64748b', primaryColor 
       const user = await signInWithGoogle();
       setIsOpen(false);
       if (isAdmin(user.email)) {
+        // Store current storefront before navigating to admin
+        if (storefront && typeof window !== 'undefined') {
+          sessionStorage.setItem('admin_storefront', storefront);
+        }
         router.push('/admin/overview');
       }
     } catch (error) {

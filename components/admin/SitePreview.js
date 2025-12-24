@@ -169,7 +169,7 @@ export default function SitePreview({
                     style={{ 
                       color: getColorFromSelection(heroMainHeadingColor || 'primary'),
                       fontFamily: getFontFromSelection(heroMainHeadingFont || 'primary'),
-                      fontSize: `clamp(1.25rem, ${heroMainHeadingFontSize || 4}rem, 2rem)`,
+                      fontSize: `clamp(1.25rem, ${heroMainHeadingFontSize || 4}rem, 6rem)`,
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />
@@ -182,7 +182,7 @@ export default function SitePreview({
                     style={{
                       color: getColorFromSelection(heroDescriptionColor || 'secondary'),
                       fontFamily: getFontFromSelection(heroDescriptionFont || 'primary'),
-                      fontSize: `clamp(0.75rem, ${heroDescriptionFontSize || 1}rem, 1rem)`,
+                      fontSize: `clamp(0.75rem, ${heroDescriptionFontSize || 1}rem, 2rem)`,
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }} 
                   />

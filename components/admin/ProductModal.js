@@ -417,6 +417,28 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     setSelectedVariants((prev) => prev.filter((id) => id !== variantId));
   };
 
+  // Initialize storefront selections from sessionStorage when creating new products
+  useEffect(() => {
+    // Only initialize for new products (not edit mode)
+    if (mode === 'edit' || storefrontSelections.length > 0) return;
+    
+    // Check sessionStorage for stored storefront from admin overview
+    if (typeof window !== 'undefined' && availableWebsites.length > 0) {
+      const storedStorefront = sessionStorage.getItem('admin_storefront');
+      
+      // If we have a stored storefront and it's available, pre-select it
+      if (storedStorefront && availableWebsites.includes(storedStorefront)) {
+        setStorefrontSelections([storedStorefront]);
+      } else if (selectedWebsite && availableWebsites.includes(selectedWebsite)) {
+        // Fallback to selectedWebsite from context
+        setStorefrontSelections([selectedWebsite]);
+      } else if (availableWebsites.length > 0) {
+        // Final fallback to first available
+        setStorefrontSelections([availableWebsites[0]]);
+      }
+    }
+  }, [mode, availableWebsites, selectedWebsite, storefrontSelections.length]);
+
   // Load existing product data when editing
   useProductLoader({
     mode,
