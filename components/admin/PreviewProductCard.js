@@ -117,15 +117,17 @@ export default function PreviewProductCard({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
             <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-              <h3 
-                className="font-medium uppercase tracking-[0.25em] text-white mb-1"
-                style={{
-                  fontFamily: getFontFromSelection(nameFont),
-                  fontSize: `clamp(0.5rem, ${nameFontSize}rem, 1.5rem)`,
-                }}
-              >
-                {mockProduct.name}
-              </h3>
+              <div className="max-sm:min-h-[2.5rem] sm:min-h-0 mb-1">
+                <h3 
+                  className="font-medium uppercase tracking-[0.25em] text-white max-sm:line-clamp-2"
+                  style={{
+                    fontFamily: getFontFromSelection(nameFont),
+                    fontSize: `clamp(0.5rem, ${nameFontSize}rem, 1.5rem)`,
+                  }}
+                >
+                  {mockProduct.name}
+                </h3>
+              </div>
               <div className="flex items-baseline gap-2">
                 <p 
                   className="font-semibold text-white"
@@ -181,9 +183,9 @@ export default function PreviewProductCard({
           className={`flex flex-1 flex-col ${cardType === 'compact' ? 'gap-1.5' : 'gap-3'}`}
           style={{ padding }}
         >
-          <div>
+          <div className="max-sm:min-h-[2.5rem] sm:min-h-0">
             <h3 
-              className="font-medium uppercase tracking-[0.25em]"
+              className="font-medium uppercase tracking-[0.25em] max-sm:line-clamp-2"
               style={{
                 color: getColorFromSelection(nameColor),
                 fontFamily: getFontFromSelection(nameFont),
