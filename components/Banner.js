@@ -29,8 +29,10 @@ import { useMemo } from 'react';
  * @param {string} imageSrc - URL of the banner image (from Firestore Info document)
  * @param {React.ReactNode} children - Content to display centered on top of the banner
  * @param {string} className - Additional CSS classes for the banner container
+ * @param {number} cropTop - Percentage of image height to crop from top (0-50)
+ * @param {number} cropBottom - Percentage of image height to crop from bottom (0-50)
  */
-export default function Banner({ imageSrc, children, className = '' }) {
+export default function Banner({ imageSrc, children, className = '', cropTop = 0, cropBottom = 0 }) {
   // Memoize the banner URL to prevent unnecessary re-renders when navigating between pages
   // This ensures the image component doesn't re-render unnecessarily when other props change
   const memoizedImageSrc = useMemo(() => imageSrc, [imageSrc]);
@@ -40,16 +42,31 @@ export default function Banner({ imageSrc, children, className = '' }) {
     return children ? <div className={className}>{children}</div> : null;
   }
 
+  // Calculate crop styles - crop values are percentages of image height
+  const hasCrop = cropTop > 0 || cropBottom > 0;
+
   return (
     <div className={`relative overflow-hidden ${className}`}>
       {/* Banner Image - Always 100% width, height auto to maintain aspect ratio */}
       {/* Browser caching: Firebase Storage sets Cache-Control: public, max-age=31536000 (1 year) */}
       {/* Server caching: Firestore Info document is cached by Next.js server-side cache */}
-      <div style={{ width: '100%' }}>
+      <div 
+        className="relative w-full"
+        style={{ 
+          overflow: hasCrop ? 'hidden' : 'visible',
+        }}
+      >
         <img
           src={memoizedImageSrc}
           alt="Banner"
-          style={{ width: '100%', height: 'auto', display: 'block' }}
+          style={{ 
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            marginTop: hasCrop && cropTop > 0 ? `-${cropTop}%` : undefined,
+            marginBottom: hasCrop && cropBottom > 0 ? `-${cropBottom}%` : undefined,
+            clipPath: hasCrop ? `inset(${cropTop}% 0 ${cropBottom}% 0)` : undefined,
+          }}
           loading="eager"
           fetchPriority="high"
         />

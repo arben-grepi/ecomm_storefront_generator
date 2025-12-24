@@ -238,6 +238,10 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     companyTaglineFontSize: rawInfo.companyTaglineFontSize != null ? parseFloat(rawInfo.companyTaglineFontSize) || 0.75 : 0.75,
     heroMainHeadingFontSize: rawInfo.heroMainHeadingFontSize != null ? parseFloat(rawInfo.heroMainHeadingFontSize) || 4 : 4,
     heroDescriptionFontSize: rawInfo.heroDescriptionFontSize != null ? parseFloat(rawInfo.heroDescriptionFontSize) || 1 : 1,
+    // Banner settings
+    heroBannerTextWidth: rawInfo.heroBannerTextWidth != null ? parseFloat(rawInfo.heroBannerTextWidth) || 75 : 75,
+    heroBannerCropTop: rawInfo.heroBannerCropTop != null ? parseFloat(rawInfo.heroBannerCropTop) || 0 : 0,
+    heroBannerCropBottom: rawInfo.heroBannerCropBottom != null ? parseFloat(rawInfo.heroBannerCropBottom) || 0 : 0,
     // Category Carousel styling
     categoryCarouselFontSize: rawInfo.categoryCarouselFontSize != null ? parseFloat(rawInfo.categoryCarouselFontSize) || 0.875 : 0.875,
     // All Categories Tagline styling - explicitly include color and font
@@ -511,6 +515,8 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       <Banner 
         imageSrc={getStorefrontBanner(storefront)}
         className="mb-8 sm:mb-12"
+        cropTop={siteInfo.heroBannerCropTop || 0}
+        cropBottom={siteInfo.heroBannerCropBottom || 0}
       >
         {/* Hero text content centered on banner */}
         <section 

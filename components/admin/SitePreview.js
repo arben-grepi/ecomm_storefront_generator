@@ -62,6 +62,8 @@ export default function SitePreview({
   // Banner settings
   textWidth,
   highlightTextWidth,
+  bannerCropTop = 0,
+  bannerCropBottom = 0,
   // Color and Font palettes
   colorPalette,
   fontPalette,
@@ -144,6 +146,8 @@ export default function SitePreview({
       <Banner 
         imageSrc={getStorefrontBanner(storefront)}
         className="w-full mb-8 sm:mb-12"
+        cropTop={bannerCropTop}
+        cropBottom={bannerCropBottom}
       >
           <section 
             className="px-4 py-10 sm:px-6 sm:py-16 transition-all duration-300"

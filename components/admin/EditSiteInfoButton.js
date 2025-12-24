@@ -40,6 +40,8 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
     heroDescriptionFontSize: 1, // rem
     heroBannerImage: '',
     heroBannerTextWidth: 75,
+    heroBannerCropTop: 0, // Percentage of image height to crop from top (0-50)
+    heroBannerCropBottom: 0, // Percentage of image height to crop from bottom (0-50)
     categorySectionHeading: '',
     categorySectionDescription: '',
     allCategoriesTagline: '',
@@ -145,7 +147,9 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           heroDescriptionColor: data.heroDescriptionColor || 'secondary',
           heroDescriptionFont: data.heroDescriptionFont || 'primary',
           heroDescriptionFontSize: data.heroDescriptionFontSize != null ? parseFloat(data.heroDescriptionFontSize) || 1 : 1,
-          heroBannerTextWidth: data.heroBannerTextWidth || 75,
+          heroBannerTextWidth: data.heroBannerTextWidth != null ? parseFloat(data.heroBannerTextWidth) || 75 : 75,
+          heroBannerCropTop: data.heroBannerCropTop != null ? parseFloat(data.heroBannerCropTop) || 0 : 0,
+          heroBannerCropBottom: data.heroBannerCropBottom != null ? parseFloat(data.heroBannerCropBottom) || 0 : 0,
           categorySectionHeading: data.categorySectionHeading || '',
           categorySectionDescription: data.categorySectionDescription || '',
           allCategoriesTagline: data.allCategoriesTagline || '',
@@ -204,6 +208,8 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           heroDescriptionFont: 'primary',
           heroDescriptionFontSize: 1,
           heroBannerTextWidth: 75,
+          heroBannerCropTop: 0,
+          heroBannerCropBottom: 0,
           categorySectionHeading: '',
           categorySectionDescription: '',
           allCategoriesTagline: '',
@@ -329,6 +335,8 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
         heroDescriptionFont: form.heroDescriptionFont || 'primary',
         heroDescriptionFontSize: parseFloat(form.heroDescriptionFontSize) || 1,
         heroBannerTextWidth: Number(form.heroBannerTextWidth) || 75,
+        heroBannerCropTop: Number(form.heroBannerCropTop) || 0,
+        heroBannerCropBottom: Number(form.heroBannerCropBottom) || 0,
         categorySectionHeading: form.categorySectionHeading.trim() || '',
         categorySectionDescription: form.categorySectionDescription.trim() || '',
         allCategoriesTagline: form.allCategoriesTagline.trim() || '',
@@ -490,6 +498,8 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
               productCardVatFontSize={form.productCardVatFontSize}
               textWidth={form.heroBannerTextWidth || 75}
               highlightTextWidth={textWidthChanged}
+              bannerCropTop={form.heroBannerCropTop || 0}
+              bannerCropBottom={form.heroBannerCropBottom || 0}
               colorPalette={{
                 colorPrimary: form.colorPrimary,
                 colorSecondary: form.colorSecondary,
@@ -577,6 +587,40 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                           <div className="text-xs text-zinc-500 dark:text-zinc-400 mb-3 p-2 bg-zinc-50 dark:bg-zinc-800 rounded">
                             Banner images are now managed as static files in <code className="text-[10px]">public/banners/</code>. 
                             To change the banner, replace the image file directly in the project folder.
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 mb-3">
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Crop Top: {form.heroBannerCropTop}%
+                              </label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="50"
+                                step="1"
+                                value={form.heroBannerCropTop}
+                                onChange={(e) => {
+                                  setForm((prev) => ({ ...prev, heroBannerCropTop: Number(e.target.value) }));
+                                }}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                Crop Bottom: {form.heroBannerCropBottom}%
+                              </label>
+                              <input
+                                type="range"
+                                min="0"
+                                max="50"
+                                step="1"
+                                value={form.heroBannerCropBottom}
+                                onChange={(e) => {
+                                  setForm((prev) => ({ ...prev, heroBannerCropBottom: Number(e.target.value) }));
+                                }}
+                                className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
+                              />
+                            </div>
                           </div>
                           <div>
                             <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
