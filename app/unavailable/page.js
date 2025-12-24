@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { getCountryName } from '@/lib/market-utils';
+import { useStorefront } from '@/lib/storefront-context';
+import { getStorefrontTheme } from '@/lib/storefront-logos';
 
 export default function UnavailablePage() {
+  const storefront = useStorefront();
+  const theme = getStorefrontTheme(storefront);
+  const primaryColor = theme.primaryColor || '#ec4899';
+  const primaryColorHover = theme.primaryColorHover || `${primaryColor}E6`;
+  
   const [country, setCountry] = useState('Unknown');
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -76,7 +83,20 @@ export default function UnavailablePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full px-6 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary/90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-6 py-2 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: primaryColor,
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = primaryColorHover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = primaryColor;
+                  }
+                }}
               >
                 {loading ? 'Submitting...' : 'Notify Me'}
               </button>

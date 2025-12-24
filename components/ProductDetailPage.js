@@ -1002,18 +1002,26 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   disabled={addingToCart}
                   className="flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-semibold uppercase tracking-[0.3em] text-white shadow-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 cursor-wait"
                   style={{
-                    backgroundColor: justAdded ? (siteInfo.colorPrimary || '#ec4899') : (siteInfo.colorPrimary || '#ec4899'),
+                    backgroundColor: justAdded 
+                      ? (siteInfo.colorSecondary || '#64748b') 
+                      : (siteInfo.colorPrimary || '#ec4899'),
                     opacity: addingToCart ? 0.8 : 1,
                     cursor: addingToCart ? 'wait' : 'pointer',
                   }}
                   onMouseEnter={(e) => {
                     if (!addingToCart && !justAdded) {
                       e.currentTarget.style.backgroundColor = `${siteInfo.colorPrimary || '#ec4899'}E6`;
+                    } else if (!addingToCart && justAdded) {
+                      // Slightly darker secondary color on hover when showing success
+                      const secondaryColor = siteInfo.colorSecondary || '#64748b';
+                      e.currentTarget.style.backgroundColor = `${secondaryColor}E6`;
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!addingToCart && !justAdded) {
                       e.currentTarget.style.backgroundColor = siteInfo.colorPrimary || '#ec4899';
+                    } else if (!addingToCart && justAdded) {
+                      e.currentTarget.style.backgroundColor = siteInfo.colorSecondary || '#64748b';
                     }
                   }}
                 >

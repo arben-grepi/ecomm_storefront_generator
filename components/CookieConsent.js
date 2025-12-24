@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useStorefront } from '@/lib/storefront-context';
-import { getStorefrontLogo } from '@/lib/storefront-logos';
+import { getStorefrontLogo, getStorefrontTheme } from '@/lib/storefront-logos';
 
 const COOKIE_CONSENT_KEY = 'cookie_consent';
 const COOKIE_PREFERENCES_KEY = 'cookie_preferences';
@@ -33,18 +33,32 @@ export default function CookieConsent() {
   const storefront = useStorefront();
   const [info, setInfo] = useState(null);
   
-  // Fetch Info document to get logo if set
+  // Fetch Info document to get logo and primary color
   useEffect(() => {
     const fetchInfo = async () => {
       try {
         const { getFirebaseDb } = await import('@/lib/firebase');
+        const { getCachedInfo } = await import('@/lib/info-cache');
         const { doc, getDoc } = await import('firebase/firestore');
+        
+        // Try cache first
+        const cachedInfo = getCachedInfo(storefront);
+        if (cachedInfo) {
+          setInfo(cachedInfo);
+          return;
+        }
+        
+        // Fetch from Firestore
         const db = getFirebaseDb();
         if (db) {
           const infoRef = doc(db, storefront, 'Info');
           const infoSnap = await getDoc(infoRef);
           if (infoSnap.exists()) {
-            setInfo(infoSnap.data());
+            const data = infoSnap.data();
+            setInfo(data);
+            // Cache it
+            const { saveInfoToCache } = await import('@/lib/info-cache');
+            saveInfoToCache(storefront, data);
           }
         }
       } catch (error) {
@@ -55,6 +69,11 @@ export default function CookieConsent() {
   }, [storefront]);
   
   const logoPath = getStorefrontLogo(storefront, info);
+  // Get primary color from Info document or fallback to theme
+  const theme = getStorefrontTheme(storefront);
+  const primaryColor = info?.colorPrimary || theme.primaryColor || '#ec4899';
+  const primaryColorHover = info?.colorPrimary ? `${info.colorPrimary}E6` : (theme.primaryColorHover || '#db2777');
+  
   const [isVisible, setIsVisible] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [preferences, setPreferences] = useState({
@@ -165,7 +184,8 @@ export default function CookieConsent() {
                 {!showDetails && (
                   <button
                     onClick={() => setShowDetails(true)}
-                    className="ml-1 text-primary hover:underline font-medium"
+                    className="ml-1 hover:underline font-medium"
+                    style={{ color: primaryColor }}
                   >
                     Learn more
                   </button>
@@ -199,7 +219,12 @@ export default function CookieConsent() {
                               onChange={() => togglePreference(key)}
                               className="sr-only peer"
                             />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                            <div 
+                              className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"
+                              style={{
+                                backgroundColor: preferences[key] ? primaryColor : undefined,
+                              }}
+                            ></div>
                           </label>
                         )}
                       </div>
@@ -215,7 +240,16 @@ export default function CookieConsent() {
             <>
               <button
                 onClick={handleSavePreferences}
-                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold"
+                className="px-6 py-3 text-white rounded-lg transition-colors text-sm font-semibold"
+                style={{
+                  backgroundColor: primaryColor,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = primaryColorHover;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = primaryColor;
+                }}
               >
                 Save Preferences
               </button>
@@ -236,7 +270,16 @@ export default function CookieConsent() {
               </button>
               <button
                 onClick={handleAcceptAll}
-                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold"
+                className="px-6 py-3 text-white rounded-lg transition-colors text-sm font-semibold"
+                style={{
+                  backgroundColor: primaryColor,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = primaryColorHover;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = primaryColor;
+                }}
               >
                 Accept All
               </button>

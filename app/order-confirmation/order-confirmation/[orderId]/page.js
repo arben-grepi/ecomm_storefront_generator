@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import { getStorefront } from '@/lib/get-storefront';
+import { getStorefrontTheme } from '@/lib/storefront-logos';
 import AuthButton from '@/components/AuthButton';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -21,6 +22,10 @@ export default function OrderConfirmationPage() {
   const pathname = usePathname();
   const orderId = params?.orderId;
   const storefront = getStorefront(); // Get storefront from URL
+  const theme = getStorefrontTheme(storefront);
+  const primaryColor = theme.primaryColor || '#ec4899';
+  const primaryColorHover = theme.primaryColorHover || `${primaryColor}E6`;
+  
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -200,7 +205,16 @@ export default function OrderConfirmationPage() {
           <p className="mb-8 text-slate-600">{error || 'The order you are looking for does not exist.'}</p>
           <Link
             href={`/${storefront}`}
-            className="inline-block rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90"
+            className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
+            style={{
+              backgroundColor: primaryColor,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = primaryColorHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = primaryColor;
+            }}
           >
             Continue Shopping
           </Link>
@@ -381,7 +395,16 @@ export default function OrderConfirmationPage() {
           </Link>
           <Link
             href={`/${storefront}`}
-            className="flex-1 rounded-full bg-primary px-6 py-3 text-center font-semibold text-white transition hover:bg-primary/90"
+            className="flex-1 rounded-full px-6 py-3 text-center font-semibold text-white transition"
+            style={{
+              backgroundColor: primaryColor,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = primaryColorHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = primaryColor;
+            }}
           >
             Continue Shopping
           </Link>

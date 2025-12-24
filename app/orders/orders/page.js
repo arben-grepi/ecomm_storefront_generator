@@ -7,6 +7,7 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { getFirebaseDb } from '@/lib/firebase';
 import { subscribeToAuth } from '@/lib/auth';
 import { getStorefront } from '@/lib/get-storefront';
+import { getStorefrontTheme } from '@/lib/storefront-logos';
 import AuthButton from '@/components/AuthButton';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -45,6 +46,10 @@ const getStatusLabel = (status) => {
 export default function OrdersPage() {
   const router = useRouter();
   const storefront = getStorefront(); // Get storefront from URL
+  const theme = getStorefrontTheme(storefront);
+  const primaryColor = theme.primaryColor || '#ec4899';
+  const primaryColorHover = theme.primaryColorHover || `${primaryColor}E6`;
+  
   const [user, setUser] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +145,16 @@ export default function OrdersPage() {
             <p className="mb-4 text-slate-600">You haven't placed any orders yet.</p>
             <Link
                 href={`/${storefront}`}
-              className="inline-block rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90"
+              className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
+              style={{
+                backgroundColor: primaryColor,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = primaryColorHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = primaryColor;
+              }}
             >
               Start Shopping
             </Link>

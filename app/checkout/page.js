@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/cart';
 import { subscribeToAuth } from '@/lib/auth';
 import { getStorefront } from '@/lib/get-storefront';
+import { getStorefrontTheme } from '@/lib/storefront-logos';
 import Link from 'next/link';
 import AuthButton from '@/components/AuthButton';
 
@@ -18,10 +19,50 @@ const formatPrice = (value) => currencyFormatter.format(value ?? 0);
 export default function CheckoutPage() {
   const router = useRouter();
   const storefront = getStorefront(); // Get storefront from URL
+  const theme = getStorefrontTheme(storefront);
+  const [siteInfo, setSiteInfo] = useState(null);
   const { cart, getCartTotal, clearCart, loading: cartLoading } = useCart();
   const [user, setUser] = useState(null);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
+  
+  // Fetch site info to get primary color
+  useEffect(() => {
+    const fetchInfo = async () => {
+      try {
+        const { getFirebaseDb } = await import('@/lib/firebase');
+        const { getCachedInfo } = await import('@/lib/info-cache');
+        const { doc, getDoc } = await import('firebase/firestore');
+        
+        // Try cache first
+        const cachedInfo = getCachedInfo(storefront);
+        if (cachedInfo) {
+          setSiteInfo(cachedInfo);
+          return;
+        }
+        
+        // Fetch from Firestore
+        const db = getFirebaseDb();
+        if (db) {
+          const infoRef = doc(db, storefront, 'Info');
+          const infoSnap = await getDoc(infoRef);
+          if (infoSnap.exists()) {
+            const data = infoSnap.data();
+            setSiteInfo(data);
+            // Cache it
+            const { saveInfoToCache } = await import('@/lib/info-cache');
+            saveInfoToCache(storefront, data);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch Info for primary color:', error);
+      }
+    };
+    fetchInfo();
+  }, [storefront]);
+  
+  const primaryColor = siteInfo?.colorPrimary || theme.primaryColor || '#ec4899';
+  const primaryColorHover = theme.primaryColorHover || `${primaryColor}E6`;
   
   // Form state - Simplified: Only collect Country, City, Street Address for shipping validation
   // Email, name, phone will be collected on Shopify's checkout page. (Triggering build)
@@ -375,7 +416,20 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 disabled={processing || validatingInventory}
-                className="mt-6 w-full rounded-full bg-primary px-6 py-3 font-semibold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-6 w-full rounded-full px-6 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
+                style={{
+                  backgroundColor: primaryColor,
+                }}
+                onMouseEnter={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = primaryColorHover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!e.currentTarget.disabled) {
+                    e.currentTarget.style.backgroundColor = primaryColor;
+                  }
+                }}
               >
                 {processing ? (
                   'Processing...'
