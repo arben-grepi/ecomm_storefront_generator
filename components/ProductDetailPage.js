@@ -608,7 +608,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   alt={siteInfo.companyName || storefront}
                   width={240}
                   height={80}
-                  className="h-10 w-auto"
+                  className="h-10 w-auto object-contain flex-shrink-0"
+                  style={{ objectFit: 'contain' }}
                   priority
                 />
               </Link>

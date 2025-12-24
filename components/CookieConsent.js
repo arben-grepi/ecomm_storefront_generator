@@ -171,7 +171,8 @@ export default function CookieConsent() {
               <img
                 src={logoPath}
                 alt="Logo"
-                className="h-12 w-auto object-contain"
+                className="h-12 w-auto object-contain max-w-[200px] sm:max-w-[300px]"
+                style={{ objectFit: 'contain', maxHeight: '3rem' }}
               />
             </div>
             

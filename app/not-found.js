@@ -35,7 +35,8 @@ export default function NotFound() {
               alt={storefront === 'LUNERA' ? 'Lunera' : storefront}
               width={300}
               height={100}
-              className="h-16 w-auto sm:h-20"
+              className="h-16 w-auto sm:h-20 object-contain flex-shrink-0"
+              style={{ objectFit: 'contain' }}
               priority
             />
           </Link>

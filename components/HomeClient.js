@@ -422,7 +422,8 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                     alt={siteInfo.companyName || storefront}
                     width={300}
                     height={100}
-                    className="h-12 w-auto sm:h-16"
+                    className="h-12 w-auto sm:h-16 object-contain flex-shrink-0"
+                    style={{ objectFit: 'contain' }}
                     priority
                     onLoad={(e) => {
                       // Image loaded successfully (no logging needed)
@@ -436,8 +437,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   const wrappedText = preventOrphanedWords(siteInfo.companyTagline);
                   return (
                     <span 
-                      className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em]"
-                      className="max-sm:!text-[0.8rem]"
+                      className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em] max-sm:!text-[0.8rem]"
                       style={{ 
                         color: getColorFromSelection(siteInfo.companyTaglineColor || 'primary'),
                         fontFamily: getFontFromSelection(siteInfo.companyTaglineFont || 'primary'),
@@ -609,8 +609,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               const wrappedText = preventOrphanedWords(siteInfo.allCategoriesTagline);
               return (
                 <p 
-                  className="mt-2"
-                  className="max-sm:!text-[1rem]"
+                  className="mt-2 max-sm:!text-[1rem]"
                   style={{
                     color: getColorFromSelection(siteInfo.allCategoriesTaglineColor || 'secondary'),
                     fontFamily: getFontFromSelection(siteInfo.allCategoriesTaglineFont || 'primary'),
@@ -850,8 +849,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             const wrappedText = preventOrphanedWords(siteInfo.footerText);
             return (
               <div 
-                className="text-center mb-6"
-                className="max-sm:!text-[0.7rem]"
+                className="text-center mb-6 max-sm:!text-[0.7rem]"
                 style={{
                   color: getColorFromSelection(siteInfo.footerTextColor || 'tertiary'),
                   fontFamily: getFontFromSelection(siteInfo.footerTextFont || 'primary'),

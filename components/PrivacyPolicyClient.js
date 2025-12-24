@@ -80,7 +80,8 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
               alt={siteInfo.companyName || storefront}
               width={300}
               height={100}
-              className="h-12 w-auto sm:h-16"
+              className="h-12 w-auto sm:h-16 object-contain flex-shrink-0"
+              style={{ objectFit: 'contain' }}
               priority
             />
           </Link>
