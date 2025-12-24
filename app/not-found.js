@@ -6,11 +6,15 @@ import { useStorefront } from '@/lib/storefront-context';
 import { getStorefront } from '@/lib/get-storefront';
 import Image from 'next/image';
 import { getStorefrontLogo } from '@/lib/storefront-logos';
+import { getFirebaseDb } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { getCachedInfo } from '@/lib/info-cache';
 
 export default function NotFound() {
   const storefrontFromContext = useStorefront();
   const [storefront, setStorefront] = useState('LUNERA');
   const [mounted, setMounted] = useState(false);
+  const [info, setInfo] = useState(null);
 
   useEffect(() => {
     // Get storefront from cookie/cache (set by middleware) - don't use URL parameters
@@ -20,6 +24,36 @@ export default function NotFound() {
     setStorefront(currentStorefront);
     setMounted(true);
   }, [storefrontFromContext]);
+
+  // Fetch info document to get logo from Firestore
+  useEffect(() => {
+    if (!storefront || !mounted) return;
+
+    const fetchInfo = async () => {
+      try {
+        // Try cache first
+        const cachedInfo = getCachedInfo(storefront);
+        if (cachedInfo) {
+          setInfo(cachedInfo);
+          return;
+        }
+
+        // Fetch from Firestore
+        const db = getFirebaseDb();
+        if (db) {
+          const infoDoc = await getDoc(doc(db, storefront, 'Info'));
+          if (infoDoc.exists()) {
+            const data = infoDoc.data();
+            setInfo(data);
+          }
+        }
+      } catch (error) {
+        console.error('[404] Failed to fetch info for logo:', error);
+      }
+    };
+
+    fetchInfo();
+  }, [storefront, mounted]);
 
   // Calculate home path based on storefront
   const homePath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
@@ -31,7 +65,7 @@ export default function NotFound() {
         <div className="mb-8 flex justify-center">
           <Link href={homePath}>
             <Image
-              src={getStorefrontLogo(storefront)}
+              src={getStorefrontLogo(storefront, info)}
               alt={storefront === 'LUNERA' ? 'Lunera' : storefront}
               width={300}
               height={100}
