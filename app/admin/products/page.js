@@ -25,7 +25,6 @@ export default function ProductsListPage() {
   const [lowStockThreshold, setLowStockThreshold] = useState(10); // Low stock threshold
   const OUT_OF_STOCK_THRESHOLD = 5; // Out of stock threshold (< 5)
   const [editingProduct, setEditingProduct] = useState(null);
-  const [creatingProduct, setCreatingProduct] = useState(false);
   const [orderCounts, setOrderCounts] = useState({}); // Map productId -> order count
 
   // Fetch categories from all storefronts or selected one
@@ -290,20 +289,6 @@ export default function ProductsListPage() {
               Manage your product catalog, inventory, and pricing.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href={`${storefrontBasePath}/plans/products`}
-              className="rounded-full border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-600 transition hover:border-emerald-200 hover:bg-emerald-50/50"
-            >
-              View plan
-            </Link>
-            <button
-              onClick={() => setCreatingProduct(true)}
-              className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500"
-            >
-              + New product
-            </button>
-          </div>
         </div>
       </header>
 
@@ -430,7 +415,7 @@ export default function ProductsListPage() {
           <div className="px-4 py-10 text-center text-zinc-400">Loading products...</div>
         ) : visibleProducts.length === 0 ? (
           <div className="px-4 py-10 text-center text-zinc-400">
-            {searchQuery || selectedCategory || activeFilter !== 'all' ? 'No products match your filters.' : 'No products yet. Create your first product to get started.'}
+            {searchQuery || selectedCategory || activeFilter !== 'all' ? 'No products match your filters.' : 'No products yet. Import products from Shopify to get started.'}
           </div>
         ) : (
           <table className="min-w-full divide-y divide-zinc-100 bg-white text-sm">
@@ -623,17 +608,6 @@ export default function ProductsListPage() {
         />
       )}
 
-      {/* Product Create Modal */}
-      {creatingProduct && (
-        <ProductModal
-          mode="manual"
-          onClose={() => setCreatingProduct(false)}
-          onSaved={() => {
-            setCreatingProduct(false);
-            setMessage({ type: 'success', text: 'Product created successfully!' });
-          }}
-        />
-      )}
     </div>
   );
 }
