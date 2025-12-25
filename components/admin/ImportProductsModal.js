@@ -580,12 +580,14 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                                       const rawVariantName = variant.title || variant.name || variant.selectedOptions?.map((opt) => cleanBrackets(opt.value || '')).join(' / ') || 'Unnamed variant';
                                       let variantName = cleanBrackets(rawVariantName);
                                       
-                                      // If any product option contains "Country", remove everything after "/"
+                                      // If any product option contains "Country", remove the last segment (everything after the last "/")
                                       const hasCountryOption = productOptions?.some(opt => 
                                         opt?.name && /country/i.test(opt.name)
                                       );
                                       if (hasCountryOption && variantName.includes(' / ')) {
-                                        variantName = variantName.split(' / ')[0].trim();
+                                        const parts = variantName.split(' / ');
+                                        // Remove the last part (which should be the country)
+                                        variantName = parts.slice(0, -1).join(' / ').trim();
                                       }
                                       
                                       const stock = variant.inventory_quantity || variant.inventoryQuantity || 0;
