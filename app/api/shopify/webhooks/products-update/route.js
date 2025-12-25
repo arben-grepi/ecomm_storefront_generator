@@ -584,18 +584,33 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
           // Track which Shopify variant corresponds to the default variant
           let defaultVariantShopifyId = null;
           
-          // First pass: Find the Shopify ID of the default variant
+          // First pass: Check if defaultVariantId is a Shopify variant ID (most common case)
+          // If defaultVariantId matches any Shopify variant ID directly, use it
           if (defaultVariantId) {
-            const defaultVariant = existingVariants.find((v) => 
-              v.id === defaultVariantId || v.shopifyVariantId === defaultVariantId?.toString()
+            const directShopifyMatch = shopifyProduct.variants.find(
+              (v) => v.id.toString() === defaultVariantId?.toString()
             );
-            defaultVariantShopifyId = defaultVariant?.shopifyVariantId || null;
-            console.log(`[Webhook] Default variant lookup:`, {
-              defaultVariantId,
-              defaultVariantFound: !!defaultVariant,
-              defaultVariantShopifyId,
-              allExistingVariants: existingVariants.map(v => ({ id: v.id, shopifyVariantId: v.shopifyVariantId }))
-            });
+            
+            if (directShopifyMatch) {
+              defaultVariantShopifyId = directShopifyMatch.id.toString();
+              console.log(`[Webhook] ✅ Default variant matched directly by Shopify ID:`, {
+                defaultVariantId,
+                shopifyVariantId: defaultVariantShopifyId,
+                price: directShopifyMatch.price
+              });
+            } else {
+              // Fallback: Try to find it in existing variants by Firestore ID or existing Shopify ID
+              const defaultVariant = existingVariants.find((v) => 
+                v.id === defaultVariantId || v.shopifyVariantId === defaultVariantId?.toString()
+              );
+              defaultVariantShopifyId = defaultVariant?.shopifyVariantId || null;
+              console.log(`[Webhook] Default variant lookup (fallback):`, {
+                defaultVariantId,
+                defaultVariantFound: !!defaultVariant,
+                defaultVariantShopifyId,
+                allExistingVariants: existingVariants.map(v => ({ id: v.id, shopifyVariantId: v.shopifyVariantId }))
+              });
+            }
           }
 
           // Update all variants
@@ -630,17 +645,29 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
             }
 
             if (variantRef) {
-              // Check if this is the default variant and update tracking
-              // This ensures we always use the correct Shopify variant ID from the webhook
-              if (existingVariantData.id === defaultVariantId) {
-                // This IS the default variant - update the Shopify ID from webhook
-                defaultVariantShopifyId = shopifyVariant.id.toString();
-                console.log(`[Webhook] Found default variant in webhook update:`, {
-                  variantId: existingVariantData.id,
-                  shopifyVariantId: shopifyVariant.id.toString(),
-                  price: shopifyVariant.price,
-                  previousDefaultVariantShopifyId: existingVariantData.shopifyVariantId
-                });
+              // Check if this is the default variant and update tracking (only if not already found)
+              // Priority: Direct Shopify ID match > existing variant's Shopify ID > Firestore document ID
+              if (defaultVariantId && !defaultVariantShopifyId) {
+                const isDefaultVariant = 
+                  shopifyVariant.id.toString() === defaultVariantId?.toString() ||  // Direct Shopify ID match (most reliable)
+                  existingVariantData.shopifyVariantId === defaultVariantId?.toString() ||  // Existing variant's Shopify ID
+                  existingVariantData.id === defaultVariantId;  // Firestore document ID match
+                
+                if (isDefaultVariant) {
+                  // This IS the default variant - update the Shopify ID from webhook
+                  defaultVariantShopifyId = shopifyVariant.id.toString();
+                  console.log(`[Webhook] ✅ Found default variant during variant processing:`, {
+                    variantId: existingVariantData.id,
+                    shopifyVariantId: shopifyVariant.id.toString(),
+                    price: shopifyVariant.price,
+                    defaultVariantId,
+                    matchedBy: 
+                      shopifyVariant.id.toString() === defaultVariantId?.toString() ? 'shopifyWebhookId' :
+                      existingVariantData.shopifyVariantId === defaultVariantId?.toString() ? 'existingShopifyId' :
+                      existingVariantData.id === defaultVariantId ? 'firestoreId' :
+                      'unknown'
+                  });
+                }
               }
               
               // Get variant price from webhook payload
