@@ -60,7 +60,7 @@ The application implements modern performance optimization techniques:
 
 The admin dashboard provides comprehensive management capabilities:
 
-- **Product Management**: Import products from Shopify queue and customize before launching to storefronts
+- **Product Management**: Import products from Shopify queue and customize before launching to storefronts (products can only be created via Shopify import, not manually)
 - **Category Management**: Create, edit, and organize product categories
 - **Order Tracking**: Monitor orders, fulfillment status, and customer information
 - **Stock Management**: Real-time stock level monitoring with low-stock alerts
@@ -89,9 +89,18 @@ The production website is currently live and under continuous development:
 
 We are currently working closely with **Andreas Konge** to optimize the application further:
 
-- **AI-Powered Content Generation**: Using AI to generate better product names and descriptions
+- **AI-Powered Content Generation**: Using an external Python FastAPI service to generate product display names, descriptions, and bullet points automatically when importing products from Shopify
 - **Multi-Language Support**: AI-powered translation to generate content in multiple languages
 - **IP-Based Localization**: Automatically translate websites into different European languages based on the user's IP address
+
+### AI Content Generation
+
+The platform integrates with an external Python FastAPI service for AI-powered product content generation. When importing products from Shopify, the system automatically generates:
+- **Display Name**: Shorter, optimized product names
+- **Display Description**: 2-4 sentence product descriptions (50-150 words)
+- **Bullet Points**: Up to 5 key product features
+
+See `docs/AI_SERVICE_SETUP.md` and `docs/AI_SERVICE_DEPLOYMENT.md` for setup and deployment instructions.
 
 ## Technologies
 
@@ -135,20 +144,34 @@ We are currently working closely with **Andreas Konge** to optimize the applicat
 
 ## Deployment
 
-Deployment is handled via Firebase Hosting. The application is configured for automatic deployment when pushing to the `master` branch.
+Deployment is handled via **Firebase App Hosting**. The application is configured for automatic deployment when pushing to the `master` branch via GitHub integration.
+
+### Environment Variables & Secrets
+
+The application uses Google Cloud Secret Manager for environment variables. Required secrets include:
+- Firebase configuration (`NEXT_PUBLIC_FIREBASE_*`)
+- Shopify credentials (`SHOPIFY_*`)
+- AI Product Content Generation Service URL (`NEXT_PUBLIC_PRODUCT_API_URL`)
+
+Secrets must be created in Google Cloud Secret Manager and granted access to the App Hosting backend:
+
+```bash
+# Grant backend access to a secret
+firebase apphosting:secrets:grantaccess SECRET_NAME --backend BACKEND_NAME --location REGION
+```
+
+See `docs/AI_SERVICE_SETUP.md` and `docs/AI_SERVICE_DEPLOYMENT.md` for detailed setup instructions.
 
 ### Manual Deployment
 
-```bash
-npm run build
-firebase deploy --only hosting
-```
+For Firebase App Hosting, deployment is typically handled automatically via GitHub integration. For manual deployment, use the Firebase Console or CLI.
 
 ## Admin Access
 
 Authorized admin accounts:
 - `arbengrepi@gmail.com`
 - `muliqiblerine@gmail.com`
+- `andreas.konga@gmail.com`
 
 ## Learn More
 
