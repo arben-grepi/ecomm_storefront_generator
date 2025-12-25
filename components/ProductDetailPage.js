@@ -754,8 +754,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
     return firstVariant;
   }, [selectedGroup, selectedSize, groupVariants, defaultVariant]);
 
-  // Price priority: variant.price (from webhook) > priceOverride (legacy) > product.basePrice
-  const displayedPrice = selectedVariant?.price ?? selectedVariant?.priceOverride ?? product.basePrice ?? 0;
+  // Price priority: variant.price (from webhook) > product.basePrice
+  const displayedPrice = selectedVariant?.price ?? product.basePrice ?? 0;
 
   // Gallery images: variant photos first, then main product photos
   const galleryImages = useMemo(() => {
@@ -1131,11 +1131,6 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   <p className="text-3xl font-semibold sm:text-4xl" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                     {formatPrice(displayedPrice, market)}
                   </p>
-                  {selectedVariant?.priceOverride && (
-                    <span className="rounded-full bg-secondary/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                      Variant price
-                    </span>
-                  )}
                 </div>
                 {isEU && (
                   <p className="text-sm" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
@@ -1306,11 +1301,6 @@ export default function ProductDetailPage({ category, product, variants, info = 
                         return parts.length > 0 ? parts.join(' • ') : 'One size';
                       })()}
                     </span>
-                    {selectedVariant.priceOverride && (
-                      <span className="text-xs font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                        {formatPrice(selectedVariant.priceOverride, market)}
-                      </span>
-                    )}
                   </div>
                   {/* Display flexible attributes (Material, Model, Style, etc.) */}
                   {selectedVariant.attributes && typeof selectedVariant.attributes === 'object' && Object.keys(selectedVariant.attributes).length > 0 && (

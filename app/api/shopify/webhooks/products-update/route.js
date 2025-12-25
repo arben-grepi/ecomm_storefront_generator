@@ -571,7 +571,9 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
           // NOTE: Variant images are handled separately below and are NEVER updated
         };
 
-        await productRef.update(productUpdate);
+        // Get default variant ID before updating variants
+        const defaultVariantId = productData.defaultVariantId || null;
+        let defaultVariantPrice = productData.defaultVariantPrice || null;
 
         if (shopifyProduct.variants && shopifyProduct.variants.length > 0) {
           const allVariantsSnapshot = await variantsCollection.get();
@@ -628,7 +630,6 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
                 shopifyInventoryItemId: shopifyVariant.inventory_item_id || undefined,
                 stock: shopifyVariant.inventory_quantity || 0,
                 price: Number.isFinite(variantPrice) ? variantPrice : null,
-                priceOverride: Number.isFinite(variantPrice) ? variantPrice : null,
                 updatedAt: FieldValue.serverTimestamp(),
               };
               
@@ -692,9 +693,25 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
               // Explicitly ensure defaultPhoto is NOT in the update payload
               
               await variantRef.update(variantUpdate);
+              
+              // If this is the default variant and its price changed, update product-level defaultVariantPrice
+              if (defaultVariantId && (existingVariantData?.id === defaultVariantId || existingVariantData?.shopifyVariantId === shopifyVariant.id.toString())) {
+                const newPrice = Number.isFinite(variantPrice) ? variantPrice : null;
+                if (newPrice !== null) {
+                  defaultVariantPrice = newPrice;
+                  console.log(`[Webhook] Updated defaultVariantPrice to ${newPrice} for product ${productDoc.id} (default variant ${defaultVariantId})`);
+                }
+              }
             }
           }
+          
+          // Update product-level defaultVariantPrice if it changed
+          if (defaultVariantPrice !== null && defaultVariantPrice !== productData.defaultVariantPrice) {
+            productUpdate.defaultVariantPrice = defaultVariantPrice;
+          }
         }
+
+        await productRef.update(productUpdate);
 
         updatedIds.push({ id: productDoc.id, storefront });
       }

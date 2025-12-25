@@ -296,9 +296,8 @@ export function useProductSaver({
     const defaultVariant = selectedVariantData.find((v) => (v.id || v.shopifyId) === validatedDefaultVariantId);
     if (!defaultVariant) return null;
     
-    // Priority: variant.price (from webhook) > priceOverride
-    return defaultVariant.price != null ? parseFloat(defaultVariant.price) 
-         : (defaultVariant.priceOverride != null ? parseFloat(defaultVariant.priceOverride) : null);
+    // Get price from variant (from webhook)
+    return defaultVariant.price != null ? parseFloat(defaultVariant.price) : null;
   };
 
   /**
@@ -643,7 +642,6 @@ export function useProductSaver({
         sku: variant.sku || null,
         stock: variant.inventory_quantity || variant.inventoryQuantity || variant.stock || 0,
         price: Number.isFinite(variantPrice) ? variantPrice : null, // Save actual price from Shopify
-        priceOverride: Number.isFinite(variantPrice) ? variantPrice : null, // Also set priceOverride for webhook compatibility
         images: uniqueVariantImages.map(getFullQualityImageUrl).filter(Boolean),
         defaultPhoto: defaultPhoto ? getFullQualityImageUrl(defaultPhoto) : (uniqueVariantImages.length > 0 ? getFullQualityImageUrl(uniqueVariantImages[0]) : null),
         updatedAt: serverTimestamp(),

@@ -11,7 +11,6 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
     color: variant.color || '',
     sku: variant.sku || '',
     stock: variant.stock?.toString() || '0',
-    priceOverride: variant.priceOverride?.toString() || '',
     image: variant.image || '',
   });
   const [saving, setSaving] = useState(false);
@@ -43,11 +42,6 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
       throw new Error('Stock must be a valid number (0 or greater).');
     }
 
-    const priceOverride = form.priceOverride && form.priceOverride.trim() ? parseFloat(form.priceOverride) : null;
-    if (priceOverride !== null && (Number.isNaN(priceOverride) || priceOverride < 0)) {
-      throw new Error('Price override must be a valid number (0 or greater).');
-    }
-
     setSaving(true);
     try {
       const payload = {
@@ -55,7 +49,6 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
         color: form.color.trim() || null,
         sku: form.sku.trim() || null,
         stock,
-        priceOverride,
         image: form.image.trim() || null,
         updatedAt: serverTimestamp(),
       };
@@ -158,17 +151,6 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
         </td>
         <td className="px-4 py-3">
           <input
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.priceOverride}
-            onChange={(e) => setForm((prev) => ({ ...prev, priceOverride: e.target.value }))}
-            className="w-full rounded-lg border border-zinc-200 px-2 py-1 text-sm focus:border-emerald-400 focus:outline-none"
-            placeholder={`${basePrice.toFixed(2)} (base)`}
-          />
-        </td>
-        <td className="px-4 py-3">
-          <input
             type="url"
             value={form.image}
             onChange={(e) => setForm((prev) => ({ ...prev, image: e.target.value }))}
@@ -198,7 +180,6 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
                     color: variant.color || '',
                     sku: variant.sku || '',
                     stock: variant.stock?.toString() || '0',
-                    priceOverride: variant.priceOverride?.toString() || '',
                     image: variant.image || '',
                   });
                 }
@@ -213,8 +194,6 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
     );
   }
 
-  const displayPrice = variant.priceOverride || basePrice;
-
   return (
     <tr className="hover:bg-zinc-50/80">
       <td className="px-4 py-3 text-zinc-800">{variant.size || '—'}</td>
@@ -226,13 +205,7 @@ const VariantRow = forwardRef(function VariantRow({ variant, productId, basePric
         </span>
       </td>
       <td className="px-4 py-3 text-zinc-500">
-        {variant.priceOverride ? (
-          <span>
-            €{variant.priceOverride.toFixed(2)} <span className="text-xs text-zinc-400">(override)</span>
-          </span>
-        ) : (
-          <span className="text-zinc-400">€{basePrice.toFixed(2)}</span>
-        )}
+        <span className="text-zinc-400">€{basePrice.toFixed(2)}</span>
       </td>
       <td className="px-4 py-3">
         {variant.image ? (

@@ -140,8 +140,7 @@ export function useProductLoader({
             inventory_item_id: v.shopifyInventoryItemId || null, // Preserve inventory item ID
             option1: v.color || v.type || '',
             option2: v.size || '',
-            price: v.priceOverride || productData.basePrice || 0,
-            priceOverride: v.priceOverride || null, // Preserve priceOverride for editing
+            price: v.price || productData.basePrice || 0,
             inventory_quantity: v.stock || 0,
             inventoryQuantity: v.stock || 0,
             sku: v.sku || '',
