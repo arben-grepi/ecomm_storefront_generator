@@ -418,9 +418,10 @@ export function useProductSaver({
    * Save variants to all storefronts
    */
   const saveVariants = async (productRefs, selectedVariantData, mainImage, additionalImages) => {
+    const productOptions = mode === 'shopify' ? (item?.rawProduct?.options || null) : null;
     for (const variant of selectedVariantData) {
       const variantId = variant.id || variant.shopifyId;
-      const groupKey = getVariantGroupKey(variant);
+      const groupKey = getVariantGroupKey(variant, productOptions, selectedVariantData);
 
       let variantImageUrls = variantImages[groupKey] || getSelectedVariantImages(variantId);
 
