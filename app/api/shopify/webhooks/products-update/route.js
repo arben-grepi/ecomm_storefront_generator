@@ -571,16 +571,19 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
           // NOTE: Variant images are handled separately below and are NEVER updated
         };
 
-        // Get default variant ID before updating variants
-        const defaultVariantId = productData.defaultVariantId || null;
-        let defaultVariantPrice = productData.defaultVariantPrice || null;
-
         if (shopifyProduct.variants && shopifyProduct.variants.length > 0) {
           const allVariantsSnapshot = await variantsCollection.get();
           const existingVariants = allVariantsSnapshot.docs.map((doc) => ({
             id: doc.id,
             ...doc.data(),
           }));
+
+          // Get default variant ID and find the default variant before updating
+          const defaultVariantId = productData.defaultVariantId || null;
+          const defaultVariant = defaultVariantId 
+            ? existingVariants.find((v) => v.id === defaultVariantId || v.shopifyVariantId === defaultVariantId?.toString())
+            : null;
+          const defaultVariantShopifyId = defaultVariant?.shopifyVariantId || null;
 
           for (const shopifyVariant of shopifyProduct.variants) {
             let variantRef = null;
@@ -693,21 +696,29 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
               // Explicitly ensure defaultPhoto is NOT in the update payload
               
               await variantRef.update(variantUpdate);
-              
-              // If this is the default variant and its price changed, update product-level defaultVariantPrice
-              if (defaultVariantId && (existingVariantData?.id === defaultVariantId || existingVariantData?.shopifyVariantId === shopifyVariant.id.toString())) {
-                const newPrice = Number.isFinite(variantPrice) ? variantPrice : null;
-                if (newPrice !== null) {
-                  defaultVariantPrice = newPrice;
-                  console.log(`[Webhook] Updated defaultVariantPrice to ${newPrice} for product ${productDoc.id} (default variant ${defaultVariantId})`);
-                }
-              }
             }
           }
           
-          // Update product-level defaultVariantPrice if it changed
-          if (defaultVariantPrice !== null && defaultVariantPrice !== productData.defaultVariantPrice) {
-            productUpdate.defaultVariantPrice = defaultVariantPrice;
+          // After all variants are updated, check if the default variant's price changed
+          // and update product-level defaultVariantPrice
+          if (defaultVariantShopifyId) {
+            const updatedDefaultVariant = shopifyProduct.variants.find(
+              (v) => v.id.toString() === defaultVariantShopifyId
+            );
+            
+            if (updatedDefaultVariant) {
+              const newDefaultPrice = updatedDefaultVariant.price != null 
+                ? parseFloat(updatedDefaultVariant.price) 
+                : null;
+              
+              if (newDefaultPrice !== null && Number.isFinite(newDefaultPrice)) {
+                const currentDefaultPrice = productData.defaultVariantPrice;
+                if (currentDefaultPrice !== newDefaultPrice) {
+                  productUpdate.defaultVariantPrice = newDefaultPrice;
+                  console.log(`[Webhook] Updated defaultVariantPrice from ${currentDefaultPrice} to ${newDefaultPrice} for product ${productDoc.id} (default variant ${defaultVariantId})`);
+                }
+              }
+            }
           }
         }
 
