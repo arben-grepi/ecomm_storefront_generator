@@ -262,6 +262,112 @@ export default function ProductDetailPage({ category, product, variants, info = 
     return variants.some((v) => v.type);
   }, [variants]);
 
+  // Find default variant if set (define early so it can be used in other useMemos)
+  // If default variant is out of stock, find the first in-stock variant in the same group
+  const defaultVariant = useMemo(() => {
+    console.log('[ProductDetailPage] 🔍 Determining default variant:', {
+      productId: product.id,
+      productName: product.name,
+      productDefaultVariantId: product.defaultVariantId,
+      productKeys: Object.keys(product),
+      hasVariants,
+      variantsCount: variants.length,
+      variantIds: variants.map(v => v.id)
+    });
+    
+    if (!product.defaultVariantId) {
+      console.log('[ProductDetailPage] ⚠️ No default variant ID on product! Product object:', {
+        id: product.id,
+        name: product.name,
+        allKeys: Object.keys(product),
+        defaultVariantId: product.defaultVariantId,
+        basePrice: product.basePrice,
+        defaultVariantPrice: product.defaultVariantPrice
+      });
+      return null;
+    }
+    
+    if (!hasVariants) {
+      console.log('[ProductDetailPage] ⚠️ No variants available');
+      return null;
+    }
+    
+    const defaultVariantFromProduct = variants.find((v) => v.id === product.defaultVariantId);
+    if (!defaultVariantFromProduct) {
+      console.log('[ProductDetailPage] ⚠️ Default variant not found in variants list:', {
+        lookingFor: product.defaultVariantId,
+        availableIds: variants.map(v => v.id)
+      });
+      return null;
+    }
+    
+    // Check if default variant is in stock
+    const stock = defaultVariantFromProduct.stock ?? 0;
+    const allowsBackorder = defaultVariantFromProduct.inventory_policy === 'continue';
+    const isInStock = stock > 0 || allowsBackorder;
+    
+    console.log('[ProductDetailPage] 📦 Default variant stock check:', {
+      variantId: defaultVariantFromProduct.id,
+      stock,
+      allowsBackorder,
+      isInStock,
+      color: defaultVariantFromProduct.color,
+      type: defaultVariantFromProduct.type,
+      size: defaultVariantFromProduct.size
+    });
+    
+    // If in stock, use it
+    if (isInStock) {
+      console.log('[ProductDetailPage] ✅ Using default variant (in stock):', defaultVariantFromProduct.id);
+      return defaultVariantFromProduct;
+    }
+    
+    // If out of stock, find first in-stock variant in the same group
+    // Determine the default variant's group
+    let defaultGroupKey = 'default';
+    if (defaultVariantFromProduct.color && !isCountry(defaultVariantFromProduct.color)) {
+      const filteredColor = filterOutCountries(defaultVariantFromProduct.color);
+      if (filteredColor) defaultGroupKey = filteredColor;
+    } else if (defaultVariantFromProduct.type) {
+      const filteredType = filterOutCountries(defaultVariantFromProduct.type);
+      if (filteredType) defaultGroupKey = filteredType;
+    }
+    
+    console.log('[ProductDetailPage] 🔄 Default variant out of stock, finding alternative in group:', defaultGroupKey);
+    
+    // Find first in-stock variant in the same group
+    const groupVariants = variants.filter((v) => {
+      let vGroupKey = 'default';
+      if (v.color && !isCountry(v.color)) {
+        const filteredColor = filterOutCountries(v.color);
+        if (filteredColor) vGroupKey = filteredColor;
+      } else if (v.type) {
+        const filteredType = filterOutCountries(v.type);
+        if (filteredType) vGroupKey = filteredType;
+      }
+      return vGroupKey === defaultGroupKey;
+    });
+    
+    // Return first in-stock variant from the group
+    const inStockVariant = groupVariants.find((v) => {
+      const vStock = v.stock ?? 0;
+      const vAllowsBackorder = v.inventory_policy === 'continue';
+      return vStock > 0 || vAllowsBackorder;
+    });
+    
+    if (inStockVariant) {
+      console.log('[ProductDetailPage] ✅ Using alternative in-stock variant:', {
+        originalDefault: defaultVariantFromProduct.id,
+        alternative: inStockVariant.id,
+        group: defaultGroupKey
+      });
+    } else {
+      console.log('[ProductDetailPage] ⚠️ No in-stock variant found in group, using original default:', defaultVariantFromProduct.id);
+    }
+    
+    return inStockVariant || defaultVariantFromProduct; // Fallback to default variant if no in-stock variant found
+  }, [product.defaultVariantId, variants, hasVariants]);
+
   // Group variants by color or type (include all variants for grouping, filtering happens later)
   // Trust variant.color field - it was set using Shopify options during import
   const variantsByGroup = useMemo(() => {
@@ -289,8 +395,9 @@ export default function ProductDetailPage({ category, product, variants, info = 
   }, [hasVariants, variants]);
 
   // Filter groups to only show groups that have at least one in-stock variant
+  // Ensure default variant's group appears first
   const availableGroups = useMemo(() => {
-    return Array.from(variantsByGroup.keys()).filter((key) => {
+    const allGroups = Array.from(variantsByGroup.keys()).filter((key) => {
       const groupVariants = variantsByGroup.get(key) || [];
       // Group is available if it has at least one in-stock variant
       const hasInStockVariant = groupVariants.some((variant) => {
@@ -301,63 +408,161 @@ export default function ProductDetailPage({ category, product, variants, info = 
       // Also include 'default' if it's the only group (for products without colors/types)
       return hasInStockVariant || (key === 'default' && variantsByGroup.size === 1);
     });
-  }, [variantsByGroup]);
-
-  // availableGroups is now calculated above after filtering variants
-
-  // Find default variant if set
-  const defaultVariant = useMemo(() => {
-    if (!product.defaultVariantId || !hasVariants) return null;
-    return variants.find((v) => v.id === product.defaultVariantId);
-  }, [product.defaultVariantId, variants, hasVariants]);
+    
+    // If default variant exists, move its group to the front
+    if (defaultVariant) {
+      let defaultGroupKey = null;
+      // Find which group the default variant belongs to
+      for (const [key, groupVariants] of variantsByGroup.entries()) {
+        if (groupVariants.some(v => v.id === defaultVariant.id)) {
+          defaultGroupKey = key;
+          break;
+        }
+      }
+      
+      if (defaultGroupKey && allGroups.includes(defaultGroupKey)) {
+        // Remove default group from its current position and add it to the front
+        const filtered = allGroups.filter(g => g !== defaultGroupKey);
+        return [defaultGroupKey, ...filtered];
+      }
+    }
+    
+    return allGroups;
+  }, [variantsByGroup, defaultVariant]);
 
   // Initialize selected group and size from default variant
   // Trust variant.color field - it was set using Shopify options during import
   const getInitialGroup = () => {
-    if (defaultVariant) {
-      // If color exists, use it (trust that it's a color from Shopify options)
-      if (defaultVariant.color && !isCountry(defaultVariant.color)) {
-        const filteredColor = filterOutCountries(defaultVariant.color);
-        if (filteredColor) return filteredColor;
-      }
-      // Fallback to type
-      if (defaultVariant.type) {
-        const filteredType = filterOutCountries(defaultVariant.type);
-        if (filteredType) return filteredType;
+    console.log('[ProductDetailPage] 🎯 getInitialGroup called:', {
+      hasDefaultVariant: !!defaultVariant,
+      defaultVariantId: defaultVariant?.id,
+      availableGroups: Array.from(availableGroups),
+      variantsByGroupKeys: Array.from(variantsByGroup.keys())
+    });
+    
+    if (!defaultVariant) {
+      const firstGroup = availableGroups.length > 0 ? availableGroups[0] : null;
+      console.log('[ProductDetailPage] ⚠️ No default variant, using first available group:', firstGroup);
+      return firstGroup;
+    }
+    
+    // Find which group the default variant belongs to (check all variants, not just in-stock)
+    let defaultGroupKey = null;
+    for (const [key, groupVariants] of variantsByGroup.entries()) {
+      if (groupVariants.some(v => v.id === defaultVariant.id)) {
+        defaultGroupKey = key;
+        break;
       }
     }
-    return availableGroups.length > 0 ? availableGroups[0] : null;
+    
+    console.log('[ProductDetailPage] 🔍 Found default variant group:', {
+      defaultGroupKey,
+      isInAvailableGroups: defaultGroupKey && availableGroups.includes(defaultGroupKey)
+    });
+    
+    // If default variant's group is available, use it; otherwise use first available
+    if (defaultGroupKey && availableGroups.includes(defaultGroupKey)) {
+      console.log('[ProductDetailPage] ✅ Using default variant group:', defaultGroupKey);
+      return defaultGroupKey;
+    }
+    
+    // Fallback: try to find group from default variant's color/type
+    if (defaultVariant.color && !isCountry(defaultVariant.color)) {
+      const filteredColor = filterOutCountries(defaultVariant.color);
+      if (filteredColor && availableGroups.includes(filteredColor)) {
+        console.log('[ProductDetailPage] ✅ Using default variant color as group:', filteredColor);
+        return filteredColor;
+      }
+    }
+    if (defaultVariant.type) {
+      const filteredType = filterOutCountries(defaultVariant.type);
+      if (filteredType && availableGroups.includes(filteredType)) {
+        console.log('[ProductDetailPage] ✅ Using default variant type as group:', filteredType);
+        return filteredType;
+      }
+    }
+    
+    const firstGroup = availableGroups.length > 0 ? availableGroups[0] : null;
+    console.log('[ProductDetailPage] ⚠️ Default variant group not available, using first group:', firstGroup);
+    return firstGroup;
   };
 
   const getInitialSize = (group) => {
-    if (defaultVariant && group) {
-      const groupVariants = variantsByGroup.get(group) || [];
-      const defaultInGroup = groupVariants.find((v) => v.id === defaultVariant.id);
-      if (defaultInGroup && defaultInGroup.size) {
-        const filteredSize = filterOutCountries(defaultInGroup.size);
-        return filteredSize || null;
-      }
+    console.log('[ProductDetailPage] 📏 getInitialSize called:', {
+      group,
+      hasDefaultVariant: !!defaultVariant,
+      defaultVariantId: defaultVariant?.id
+    });
+    
+    if (!defaultVariant || !group) {
+      console.log('[ProductDetailPage] ⚠️ No default variant or group, returning null size');
+      return null;
     }
+    
+    // Check all variants in the group (not just in-stock) to find default variant
+    const groupVariants = variantsByGroup.get(group) || [];
+    const defaultInGroup = groupVariants.find((v) => v.id === defaultVariant.id);
+    
+    console.log('[ProductDetailPage] 🔍 Checking default variant in group:', {
+      groupVariantsCount: groupVariants.length,
+      defaultInGroup: !!defaultInGroup,
+      defaultInGroupSize: defaultInGroup?.size
+    });
+    
+    if (defaultInGroup && defaultInGroup.size) {
+      const filteredSize = filterOutCountries(defaultInGroup.size);
+      console.log('[ProductDetailPage] ✅ Using default variant size:', filteredSize);
+      return filteredSize;
+    }
+    
+    console.log('[ProductDetailPage] ⚠️ No size found for default variant, returning null');
     return null;
   };
 
   // State: selected group (color or type) first, then size within that group
-  const [selectedGroup, setSelectedGroup] = useState(getInitialGroup);
-  const [selectedSize, setSelectedSize] = useState(() => getInitialSize(getInitialGroup()));
+  const [selectedGroup, setSelectedGroup] = useState(() => {
+    const initial = getInitialGroup();
+    console.log('[ProductDetailPage] 🎬 Initial selectedGroup state:', initial);
+    return initial;
+  });
+  const [selectedSize, setSelectedSize] = useState(() => {
+    const initialGroup = getInitialGroup();
+    const initialSize = getInitialSize(initialGroup);
+    console.log('[ProductDetailPage] 🎬 Initial selectedSize state:', {
+      group: initialGroup,
+      size: initialSize
+    });
+    return initialSize;
+  });
 
   // Get variants for selected group - FILTER OUT OF STOCK VARIANTS
+  // Ensure default variant appears first in the list
   const groupVariants = useMemo(() => {
     if (!selectedGroup) return [];
     const allVariants = variantsByGroup.get(selectedGroup) || [];
     // Filter to only show in-stock variants (stock > 0 OR inventory_policy === 'continue' for backorder)
-    return allVariants.filter((variant) => {
+    const inStockVariants = allVariants.filter((variant) => {
       const stock = variant.stock ?? 0;
       const allowsBackorder = variant.inventory_policy === 'continue';
       return stock > 0 || allowsBackorder;
     });
-  }, [selectedGroup, variantsByGroup]);
+    
+    // If default variant exists and is in this group, move it to the front
+    if (defaultVariant && inStockVariants.some(v => v.id === defaultVariant.id)) {
+      const defaultVariantIndex = inStockVariants.findIndex(v => v.id === defaultVariant.id);
+      if (defaultVariantIndex > 0) {
+        // Move default variant to front
+        const defaultVariantItem = inStockVariants[defaultVariantIndex];
+        const rest = inStockVariants.filter((_, i) => i !== defaultVariantIndex);
+        return [defaultVariantItem, ...rest];
+      }
+    }
+    
+    return inStockVariants;
+  }, [selectedGroup, variantsByGroup, defaultVariant]);
 
   // Get available sizes for selected group - simple and straightforward
+  // Ensure default variant's size appears first
   const availableSizes = useMemo(() => {
     if (!selectedGroup) return [];
     
@@ -376,7 +581,14 @@ export default function ProductDetailPage({ category, product, variants, info = 
     const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'ONE SIZE', 'ONE-SIZE'];
     const sizes = Array.from(sizeSet);
     
-    return sizes.sort((a, b) => {
+    // Get default variant's size if it exists
+    let defaultSize = null;
+    if (defaultVariant && defaultVariant.size) {
+      defaultSize = filterOutCountries(defaultVariant.size);
+    }
+    
+    // Sort sizes, but put default size first if it exists
+    const sortedSizes = sizes.sort((a, b) => {
       const aUpper = a.toUpperCase().trim();
       const bUpper = b.toUpperCase().trim();
       
@@ -400,40 +612,138 @@ export default function ProductDetailPage({ category, product, variants, info = 
       if (bIsNum) return 1;
       return a.localeCompare(b);
     });
-  }, [selectedGroup, groupVariants]);
+    
+    // If default size exists and is in the list, move it to the front
+    if (defaultSize && sortedSizes.includes(defaultSize)) {
+      const filtered = sortedSizes.filter(s => s !== defaultSize);
+      return [defaultSize, ...filtered];
+    }
+    
+    return sortedSizes;
+  }, [selectedGroup, groupVariants, defaultVariant]);
 
-  // Simple: when group changes, reset size to first available (already filtered)
+  // When group changes, try to preserve default variant's size if available
+  // Otherwise, select first available size
   useEffect(() => {
+    console.log('[ProductDetailPage] 🔄 useEffect: group/size change:', {
+      selectedGroup,
+      availableSizes,
+      currentSelectedSize: selectedSize,
+      hasDefaultVariant: !!defaultVariant,
+      defaultVariantId: defaultVariant?.id
+    });
+    
     if (!selectedGroup || availableSizes.length === 0) {
+      console.log('[ProductDetailPage] ⚠️ No group or no available sizes, clearing size');
       setSelectedSize(null);
       return;
     }
     
-    // Always select first available size when group changes
-    // availableSizes are already filtered (countries removed)
+    // If we have a default variant and it's in this group, try to use its size
+    if (defaultVariant) {
+      const defaultInGroup = variantsByGroup.get(selectedGroup)?.find((v) => v.id === defaultVariant.id);
+      console.log('[ProductDetailPage] 🔍 Checking default variant in selected group:', {
+        defaultInGroup: !!defaultInGroup,
+        defaultInGroupSize: defaultInGroup?.size
+      });
+      
+      if (defaultInGroup && defaultInGroup.size) {
+        const filteredDefaultSize = filterOutCountries(defaultInGroup.size);
+        if (filteredDefaultSize && availableSizes.includes(filteredDefaultSize)) {
+          console.log('[ProductDetailPage] ✅ Setting size to default variant size:', filteredDefaultSize);
+          setSelectedSize(filteredDefaultSize);
+          return;
+        } else {
+          console.log('[ProductDetailPage] ⚠️ Default variant size not available:', {
+            filteredDefaultSize,
+            availableSizes
+          });
+        }
+      }
+    }
+    
+    // Otherwise, select first available size
+    console.log('[ProductDetailPage] 📏 Setting size to first available:', availableSizes[0]);
     setSelectedSize(availableSizes[0]);
-  }, [selectedGroup, availableSizes]);
+  }, [selectedGroup, availableSizes, defaultVariant, variantsByGroup]);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
   // Find selected variant based on group (color/type) + size
+  // Prioritize default variant if it's in the selected group and matches the size
   const selectedVariant = useMemo(() => {
-    if (!selectedGroup) return null;
+    console.log('[ProductDetailPage] 🎯 Determining selectedVariant:', {
+      selectedGroup,
+      selectedSize,
+      groupVariantsCount: groupVariants.length,
+      hasDefaultVariant: !!defaultVariant,
+      defaultVariantId: defaultVariant?.id
+    });
+    
+    if (!selectedGroup) {
+      console.log('[ProductDetailPage] ⚠️ No selected group, returning null');
+      return null;
+    }
     
     // If size is selected, find variant with that size (matching filtered size)
     if (selectedSize) {
+      console.log('[ProductDetailPage] 🔍 Size selected, looking for variant with size:', selectedSize);
+      
+      // First, try to find the default variant with this size
+      if (defaultVariant) {
+        const defaultInGroup = groupVariants.find((v) => v.id === defaultVariant.id);
+        if (defaultInGroup) {
+          const filteredDefaultSize = defaultInGroup.size ? filterOutCountries(defaultInGroup.size) : null;
+          console.log('[ProductDetailPage] 🔍 Default variant in group:', {
+            defaultInGroup: !!defaultInGroup,
+            filteredDefaultSize,
+            selectedSize,
+            matches: filteredDefaultSize === selectedSize
+          });
+          
+          if (filteredDefaultSize === selectedSize) {
+            console.log('[ProductDetailPage] ✅ Selected default variant (matches size):', defaultInGroup.id);
+            return defaultInGroup; // Default variant matches selected size
+          }
+        } else {
+          console.log('[ProductDetailPage] ⚠️ Default variant not in groupVariants (might be out of stock)');
+        }
+      }
+      
+      // Otherwise, find any variant with this size
       const variant = groupVariants.find((v) => {
         const filteredVariantSize = v.size ? filterOutCountries(v.size) : null;
         return filteredVariantSize === selectedSize;
       });
+      
+      if (variant) {
+        console.log('[ProductDetailPage] ✅ Selected variant with matching size:', variant.id);
+      } else {
+        console.log('[ProductDetailPage] ⚠️ No variant with matching size, using first variant:', groupVariants[0]?.id);
+      }
+      
       return variant || groupVariants[0] || null;
     }
     
+    // No size selected - prioritize default variant if it's in this group
+    console.log('[ProductDetailPage] 🔍 No size selected, checking default variant');
+    if (defaultVariant) {
+      const defaultInGroup = groupVariants.find((v) => v.id === defaultVariant.id);
+      if (defaultInGroup) {
+        console.log('[ProductDetailPage] ✅ Selected default variant (no size selected):', defaultInGroup.id);
+        return defaultInGroup; // Default variant is in this group and in stock
+      } else {
+        console.log('[ProductDetailPage] ⚠️ Default variant not in groupVariants (might be out of stock)');
+      }
+    }
+    
     // Otherwise, return first variant of selected group
-    return groupVariants[0] || null;
-  }, [selectedGroup, selectedSize, groupVariants]);
+    const firstVariant = groupVariants[0] || null;
+    console.log('[ProductDetailPage] 📦 Selected first variant in group:', firstVariant?.id);
+    return firstVariant;
+  }, [selectedGroup, selectedSize, groupVariants, defaultVariant]);
 
   // Price priority: variant.price (from webhook) > priceOverride (legacy) > product.basePrice
   const displayedPrice = selectedVariant?.price ?? selectedVariant?.priceOverride ?? product.basePrice ?? 0;

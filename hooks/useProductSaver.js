@@ -152,39 +152,73 @@ export function useProductSaver({
     let mainImage = null;
     let additionalImages = [];
     
-    // PRIORITY 1: Always use default variant's default photo as main image
+    // PRIORITY 1: ALWAYS use default variant's default photo as main image if default variant exists
+    // This is NON-NEGOTIABLE - product card MUST show default variant's photo
     if (defaultVariantId && selectedVariantData.length > 0) {
       const defaultVariant = selectedVariantData.find((v) => (v.id || v.shopifyId) === defaultVariantId);
       if (defaultVariant) {
         const defaultVariantIdKey = defaultVariant.id || defaultVariant.shopifyId;
-        const defaultPhoto = defaultVariantPhotos[defaultVariantIdKey];
         
-        if (defaultPhoto) {
-          // Use the default variant's default photo as main image
-          mainImage = defaultPhoto;
-          console.log('[useProductSaver] Using default variant default photo as main image:', defaultPhoto);
-        } else {
-          // Fallback: try to get from variant images or default images
+        // Method 1: Check explicitly set default photo in defaultVariantPhotos
+        let defaultPhoto = defaultVariantPhotos[defaultVariantIdKey];
+        
+        // Method 2: If no explicit default photo, get from variant's selected/grouped images
+        if (!defaultPhoto) {
           const productOptions = mode === 'shopify' ? (item?.rawProduct?.options || null) : null;
-          const variantImageUrls = variantImages[getVariantGroupKey(defaultVariant, productOptions, selectedVariantData)] || getSelectedVariantImages(defaultVariantIdKey);
+          const groupKey = getVariantGroupKey(defaultVariant, productOptions, selectedVariantData);
+          const variantImageUrls = variantImages[groupKey] || getSelectedVariantImages(defaultVariantIdKey);
           if (variantImageUrls.length > 0) {
-            mainImage = variantImageUrls[0];
-            console.log('[useProductSaver] Using first variant image as main image (no default photo set):', mainImage);
-          } else {
-            const defaultImages = getVariantDefaultImages(defaultVariant);
-            if (defaultImages.length > 0) {
-              mainImage = defaultImages[0];
-              console.log('[useProductSaver] Using first default image as main image:', mainImage);
-            }
+            defaultPhoto = variantImageUrls[0];
           }
         }
+        
+        // Method 3: If still no photo, get from variant's default images (from Shopify)
+        if (!defaultPhoto) {
+          const defaultImages = getVariantDefaultImages(defaultVariant);
+          if (defaultImages.length > 0) {
+            defaultPhoto = defaultImages[0];
+          }
+        }
+        
+        // Method 4: Last resort - check if variant has a saved defaultPhoto field
+        if (!defaultPhoto && defaultVariant.defaultPhoto) {
+          defaultPhoto = defaultVariant.defaultPhoto;
+        }
+        
+        // Method 5: Check variant.images array (for edit mode)
+        if (!defaultPhoto && defaultVariant.images && Array.isArray(defaultVariant.images) && defaultVariant.images.length > 0) {
+          defaultPhoto = defaultVariant.images[0];
+        }
+        
+        // If we found ANY photo from the default variant, use it as main image
+        // This ensures product card ALWAYS shows the default variant's photo
+        if (defaultPhoto) {
+          mainImage = defaultPhoto;
+          console.log('[useProductSaver] ✅ Using default variant photo as main image:', {
+            defaultVariantId: defaultVariantIdKey,
+            mainImage,
+            source: defaultVariantPhotos[defaultVariantIdKey] ? 'explicit defaultPhoto' : 
+                    variantImages[getVariantGroupKey(defaultVariant, mode === 'shopify' ? (item?.rawProduct?.options || null) : null, selectedVariantData)] ? 'variant images' :
+                    'variant default images'
+          });
+        } else {
+          console.warn('[useProductSaver] ⚠️ Default variant found but no photo available:', {
+            defaultVariantId: defaultVariantIdKey,
+            variant: defaultVariant
+          });
+        }
+      } else {
+        console.warn('[useProductSaver] ⚠️ Default variant ID specified but variant not found in selectedVariantData:', {
+          defaultVariantId,
+          selectedVariantIds: selectedVariantData.map(v => v.id || v.shopifyId)
+        });
       }
     }
     
-    // PRIORITY 2: If no default variant or no photo found, use first selectedImage
+    // PRIORITY 2: Only if no default variant photo found, use first selectedImage
     if (!mainImage && selectedImages.length > 0) {
       mainImage = selectedImages[0].url;
-      console.log('[useProductSaver] Using first selected image as main image (no default variant photo):', mainImage);
+      console.log('[useProductSaver] ⚠️ Using first selected image as main image (no default variant photo found):', mainImage);
     }
     
     // Collect additional images (selected images that aren't the main image)
@@ -194,17 +228,17 @@ export function useProductSaver({
         .map((img) => img.url);
     }
     
-    // PRIORITY 3: Fallback to available images or first variant
+    // PRIORITY 3: Last resort fallback to available images or first variant
     if (!mainImage) {
       if (availableImages.length > 0) {
         mainImage = availableImages[0];
-        console.log('[useProductSaver] Using first available image as main image (fallback):', mainImage);
+        console.log('[useProductSaver] ⚠️ Using first available image as main image (fallback):', mainImage);
       } else if (selectedVariantData.length > 0) {
         const firstVariant = selectedVariantData[0];
         const firstVariantImages = getVariantDefaultImages(firstVariant);
         if (firstVariantImages.length > 0) {
           mainImage = firstVariantImages[0];
-          console.log('[useProductSaver] Using first variant default image as main image (fallback):', mainImage);
+          console.log('[useProductSaver] ⚠️ Using first variant default image as main image (fallback):', mainImage);
         }
       }
     }
@@ -213,6 +247,12 @@ export function useProductSaver({
       setToastMessage({ type: 'error', text: 'Please select at least one image or variant photo.' });
       return null;
     }
+
+    console.log('[useProductSaver] 📸 Final main image determined:', {
+      mainImage,
+      defaultVariantId,
+      hasDefaultVariantPhoto: defaultVariantId && defaultVariantPhotos[defaultVariantId] ? true : false
+    });
 
     return { mainImage, additionalImages };
   };
@@ -247,9 +287,24 @@ export function useProductSaver({
   };
 
   /**
+   * Get default variant's price for product card display
+   * Returns the price from the default variant, or null if not found
+   */
+  const getDefaultVariantPrice = (selectedVariantData, validatedDefaultVariantId) => {
+    if (!validatedDefaultVariantId || !selectedVariantData.length) return null;
+    
+    const defaultVariant = selectedVariantData.find((v) => (v.id || v.shopifyId) === validatedDefaultVariantId);
+    if (!defaultVariant) return null;
+    
+    // Priority: variant.price (from webhook) > priceOverride
+    return defaultVariant.price != null ? parseFloat(defaultVariant.price) 
+         : (defaultVariant.priceOverride != null ? parseFloat(defaultVariant.priceOverride) : null);
+  };
+
+  /**
    * Build product data object
    */
-  const buildProductData = (slug, parsedBasePrice, validatedDefaultVariantId, mainImage, additionalImages) => {
+  const buildProductData = (slug, parsedBasePrice, validatedDefaultVariantId, mainImage, additionalImages, defaultVariantPrice) => {
     const sourceType = mode === 'shopify' ? 'shopify' : 'manual';
     const sourceShopifyId = mode === 'shopify' ? item.shopifyId : (mode === 'edit' ? existingProduct?.sourceShopifyId : null);
     const sourceShopifyItemDocId = mode === 'shopify' ? item.id : (mode === 'edit' ? existingProduct?.sourceShopifyItemDocId : null);
@@ -296,6 +351,7 @@ export function useProductSaver({
       slug,
       categoryIds,
       basePrice: parsedBasePrice,
+      defaultVariantPrice, // Price from default variant (for product card display)
       description: displayDescription,
       defaultVariantId: validatedDefaultVariantId,
       bulletPoints: bulletPoints.filter(Boolean),
@@ -900,7 +956,10 @@ export function useProductSaver({
         return;
       }
 
-      const productData = buildProductData(slug, parsedBasePrice, validatedDefaultVariantId, mainImage, additionalImages);
+      // Get default variant's price for product card display (falls back to basePrice if not found)
+      const defaultVariantPrice = getDefaultVariantPrice(selectedVariantData, validatedDefaultVariantId) || parsedBasePrice;
+      
+      const productData = buildProductData(slug, parsedBasePrice, validatedDefaultVariantId, mainImage, additionalImages, defaultVariantPrice);
       const productRefs = await saveProductToStorefronts(productData, selectedStorefronts);
       await saveVariants(productRefs, selectedVariantData, mainImage, additionalImages);
       
@@ -913,6 +972,7 @@ export function useProductSaver({
           hasInStockVariants: stockStatus.hasInStockVariants,
           inStockVariantCount: stockStatus.inStockVariantCount,
           totalVariantCount: stockStatus.totalVariantCount,
+          defaultVariantPrice, // Keep in sync (webhooks might update variant prices)
           updatedAt: serverTimestamp(),
         });
       }
