@@ -476,15 +476,15 @@ export default function ProductDetailPage({ category, product, variants, info = 
     }
     
     // Fallback: try to find group from default variant's color/type
-    if (defaultVariant.color && !isCountry(defaultVariant.color)) {
-      const filteredColor = filterOutCountries(defaultVariant.color);
+      if (defaultVariant.color && !isCountry(defaultVariant.color)) {
+        const filteredColor = filterOutCountries(defaultVariant.color);
       if (filteredColor && availableGroups.includes(filteredColor)) {
         console.log('[ProductDetailPage] ✅ Using default variant color as group:', filteredColor);
         return filteredColor;
       }
     }
-    if (defaultVariant.type) {
-      const filteredType = filterOutCountries(defaultVariant.type);
+      if (defaultVariant.type) {
+        const filteredType = filterOutCountries(defaultVariant.type);
       if (filteredType && availableGroups.includes(filteredType)) {
         console.log('[ProductDetailPage] ✅ Using default variant type as group:', filteredType);
         return filteredType;
@@ -509,8 +509,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
     }
     
     // Check all variants in the group (not just in-stock) to find default variant
-    const groupVariants = variantsByGroup.get(group) || [];
-    const defaultInGroup = groupVariants.find((v) => v.id === defaultVariant.id);
+      const groupVariants = variantsByGroup.get(group) || [];
+      const defaultInGroup = groupVariants.find((v) => v.id === defaultVariant.id);
     
     console.log('[ProductDetailPage] 🔍 Checking default variant in group:', {
       groupVariantsCount: groupVariants.length,
@@ -518,11 +518,11 @@ export default function ProductDetailPage({ category, product, variants, info = 
       defaultInGroupSize: defaultInGroup?.size
     });
     
-    if (defaultInGroup && defaultInGroup.size) {
-      const filteredSize = filterOutCountries(defaultInGroup.size);
+      if (defaultInGroup && defaultInGroup.size) {
+        const filteredSize = filterOutCountries(defaultInGroup.size);
       console.log('[ProductDetailPage] ✅ Using default variant size:', filteredSize);
       return filteredSize;
-    }
+      }
     
     console.log('[ProductDetailPage] ⚠️ No size found for default variant, returning null');
     return null;

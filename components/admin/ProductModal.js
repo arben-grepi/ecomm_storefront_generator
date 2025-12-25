@@ -28,6 +28,7 @@ import { getDisplayImageUrl, getFullQualityImageUrl } from '@/lib/image-utils';
 import { useProductLoader } from '@/hooks/useProductLoader';
 import { useShopifyItemInitializer } from '@/hooks/useShopifyItemInitializer';
 import { useProductSaver } from '@/hooks/useProductSaver';
+import { generateProductContent } from '@/lib/productContentApi';
 
 /**
  * ProductModal - Unified modal for creating/editing products
@@ -698,6 +699,68 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const sourceShopifyId = mode === 'shopify' 
     ? item?.shopifyId 
     : (mode === 'edit' ? existingProduct?.sourceShopifyId : null);
+
+  // Handler to regenerate AI content (edit mode only)
+  const handleRegenerateContent = useCallback(async () => {
+    if (mode !== 'edit' || !editModeShopifyItem) {
+      console.warn('[ProductModal] Cannot regenerate content: not in edit mode or no shopifyItem');
+      return;
+    }
+
+    const rawProduct = editModeShopifyItem.rawProduct;
+    if (!rawProduct) {
+      setToastMessage({ type: 'error', text: 'Unable to regenerate content: Shopify product data not available.' });
+      return;
+    }
+
+    const title = rawProduct.title || '';
+    const bodyHtml = rawProduct.body_html || '';
+    
+    if (!title || !bodyHtml) {
+      setToastMessage({ type: 'error', text: 'Unable to regenerate content: Missing product title or description.' });
+      return;
+    }
+
+    // Truncate bodyHtml at 'src=' to exclude images (same as useShopifyItemInitializer)
+    let truncatedBodyHtml = bodyHtml;
+    const srcIndex = bodyHtml.indexOf('src=');
+    if (srcIndex !== -1) {
+      truncatedBodyHtml = bodyHtml.substring(0, srcIndex);
+    }
+
+    setIsGeneratingAIContent(true);
+    try {
+      console.log('[ProductModal] 🤖 Regenerating AI content for edit mode');
+      const content = await generateProductContent(title, truncatedBodyHtml);
+      
+      console.log('[ProductModal] ✅ AI content regenerated successfully', {
+        hasDisplayName: !!content.displayName,
+        hasDisplayDescription: !!content.displayDescription,
+        bulletpointCount: content.bulletpoints?.length || 0,
+      });
+      
+      // Update form fields with generated content
+      if (content.displayName) {
+        setDisplayName(content.displayName);
+      }
+      if (content.displayDescription) {
+        setDisplayDescription(content.displayDescription);
+      }
+      if (content.bulletpoints && Array.isArray(content.bulletpoints) && content.bulletpoints.length > 0) {
+        setBulletPoints(content.bulletpoints.filter(Boolean));
+      }
+      
+      setToastMessage({ type: 'success', text: 'Content regenerated successfully!' });
+    } catch (error) {
+      console.error('[ProductModal] Failed to regenerate content:', error);
+      setToastMessage({ 
+        type: 'error', 
+        text: `Failed to regenerate content: ${error.message || 'Unknown error'}` 
+      });
+    } finally {
+      setIsGeneratingAIContent(false);
+    }
+  }, [mode, editModeShopifyItem, setDisplayName, setDisplayDescription, setBulletPoints, setIsGeneratingAIContent, setToastMessage]);
   
   const availableVariants = showOnlyInStock
     ? allVariants.filter((v) => (v.inventory_quantity || v.inventoryQuantity || 0) > 0)
@@ -907,6 +970,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   setBulletPoints={setBulletPoints}
                   mode={mode}
                   isGeneratingAIContent={isGeneratingAIContent}
+                  onRegenerateContent={mode === 'edit' ? handleRegenerateContent : null}
                 />
               </div>
             </div>
