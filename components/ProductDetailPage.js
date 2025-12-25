@@ -79,10 +79,19 @@ const filterOutCountries = (value) => {
   return filtered || null;
 };
 
-export default function ProductDetailPage({ category, product, variants, info = null }) {
+export default function ProductDetailPage({ category, product, variants, info = null, storefront: storefrontProp = null }) {
   const { addToCart, getCartItemCount, cart } = useCart();
-  const storefront = useStorefront(); // Get storefront for dynamic links
+  const storefrontFromContext = useStorefront(); // Get storefront from context (client-side)
+  // Use prop if provided (from server), otherwise use context (client-side only)
+  const storefront = storefrontProp || storefrontFromContext;
   const searchParams = useSearchParams();
+  
+  // Update cache when storefront prop is provided (from server)
+  useEffect(() => {
+    if (storefrontProp && typeof window !== 'undefined') {
+      saveStorefrontToCache(storefrontProp);
+    }
+  }, [storefrontProp]);
   const [addingToCart, setAddingToCart] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);

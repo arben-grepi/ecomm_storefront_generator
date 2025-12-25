@@ -84,6 +84,7 @@ export default async function ProductPage({ params }) {
         product={detail.product}
         variants={detail.variants}
         info={info}
+        storefront={storefront}
       />
     </Suspense>
   );
