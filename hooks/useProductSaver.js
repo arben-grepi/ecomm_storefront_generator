@@ -145,45 +145,66 @@ export function useProductSaver({
 
   /**
    * Determine main image and additional images
+   * ALWAYS uses the default variant's default photo as the main product image
+   * This ensures the product card shows the default variant photo and updates when it changes
    */
   const determineMainImage = (selectedVariantData) => {
     let mainImage = null;
     let additionalImages = [];
     
-    if (selectedImages.length > 0) {
-      mainImage = selectedImages.find((img) => img.isMain)?.url || selectedImages[0].url;
-      additionalImages = selectedImages
-        .filter((img) => !img.isMain)
-        .map((img) => img.url);
-    } else if (defaultVariantId && selectedVariantData.length > 0) {
+    // PRIORITY 1: Always use default variant's default photo as main image
+    if (defaultVariantId && selectedVariantData.length > 0) {
       const defaultVariant = selectedVariantData.find((v) => (v.id || v.shopifyId) === defaultVariantId);
       if (defaultVariant) {
         const defaultVariantIdKey = defaultVariant.id || defaultVariant.shopifyId;
         const defaultPhoto = defaultVariantPhotos[defaultVariantIdKey];
+        
         if (defaultPhoto) {
+          // Use the default variant's default photo as main image
           mainImage = defaultPhoto;
+          console.log('[useProductSaver] Using default variant default photo as main image:', defaultPhoto);
         } else {
-          const variantImageUrls = variantImages[getVariantGroupKey(defaultVariant)] || getSelectedVariantImages(defaultVariantIdKey);
+          // Fallback: try to get from variant images or default images
+          const productOptions = mode === 'shopify' ? (item?.rawProduct?.options || null) : null;
+          const variantImageUrls = variantImages[getVariantGroupKey(defaultVariant, productOptions, selectedVariantData)] || getSelectedVariantImages(defaultVariantIdKey);
           if (variantImageUrls.length > 0) {
             mainImage = variantImageUrls[0];
+            console.log('[useProductSaver] Using first variant image as main image (no default photo set):', mainImage);
           } else {
             const defaultImages = getVariantDefaultImages(defaultVariant);
             if (defaultImages.length > 0) {
               mainImage = defaultImages[0];
+              console.log('[useProductSaver] Using first default image as main image:', mainImage);
             }
           }
         }
       }
     }
     
+    // PRIORITY 2: If no default variant or no photo found, use selectedImages
+    if (!mainImage && selectedImages.length > 0) {
+      mainImage = selectedImages.find((img) => img.isMain)?.url || selectedImages[0].url;
+      console.log('[useProductSaver] Using selected image as main image (no default variant photo):', mainImage);
+    }
+    
+    // Collect additional images (selected images that aren't the main image)
+    if (selectedImages.length > 0) {
+      additionalImages = selectedImages
+        .filter((img) => img.url !== mainImage)
+        .map((img) => img.url);
+    }
+    
+    // PRIORITY 3: Fallback to available images or first variant
     if (!mainImage) {
       if (availableImages.length > 0) {
         mainImage = availableImages[0];
+        console.log('[useProductSaver] Using first available image as main image (fallback):', mainImage);
       } else if (selectedVariantData.length > 0) {
         const firstVariant = selectedVariantData[0];
         const firstVariantImages = getVariantDefaultImages(firstVariant);
         if (firstVariantImages.length > 0) {
           mainImage = firstVariantImages[0];
+          console.log('[useProductSaver] Using first variant default image as main image (fallback):', mainImage);
         }
       }
     }
@@ -917,4 +938,6 @@ export function useProductSaver({
 
   return { save, saving, error };
 }
+
+
 
