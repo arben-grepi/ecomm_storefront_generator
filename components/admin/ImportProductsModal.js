@@ -578,7 +578,16 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                                       const isVariantSelected = selectedVariants.has(variantKey);
                                       // Clean brackets from variant name for display
                                       const rawVariantName = variant.title || variant.name || variant.selectedOptions?.map((opt) => cleanBrackets(opt.value || '')).join(' / ') || 'Unnamed variant';
-                                      const variantName = cleanBrackets(rawVariantName);
+                                      let variantName = cleanBrackets(rawVariantName);
+                                      
+                                      // If any product option contains "Country", remove everything after "/"
+                                      const hasCountryOption = productOptions?.some(opt => 
+                                        opt?.name && /country/i.test(opt.name)
+                                      );
+                                      if (hasCountryOption && variantName.includes(' / ')) {
+                                        variantName = variantName.split(' / ')[0].trim();
+                                      }
+                                      
                                       const stock = variant.inventory_quantity || variant.inventoryQuantity || 0;
 
                                       return (
