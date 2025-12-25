@@ -6,7 +6,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import { getCollectionPath } from '@/lib/store-collections';
 import { useWebsite } from '@/lib/website-context';
-import { getVariantColor, cleanBrackets } from '@/lib/variant-utils';
+import { getVariantColor, cleanBrackets, normalizeVariantName } from '@/lib/variant-utils';
 import Toast from '@/components/admin/Toast';
 
 export default function ImportProductsModal({ isOpen, onClose, onImport }) {
@@ -580,14 +580,10 @@ export default function ImportProductsModal({ isOpen, onClose, onImport }) {
                                       const rawVariantName = variant.title || variant.name || variant.selectedOptions?.map((opt) => cleanBrackets(opt.value || '')).join(' / ') || 'Unnamed variant';
                                       let variantName = cleanBrackets(rawVariantName);
                                       
-                                      // If any product option contains "Country", remove the last segment (everything after the last "/")
-                                      const hasCountryOption = productOptions?.some(opt => 
-                                        opt?.name && /country/i.test(opt.name)
-                                      );
-                                      if (hasCountryOption && variantName.includes(' / ')) {
-                                        const parts = variantName.split(' / ');
-                                        // Remove the last part (which should be the country)
-                                        variantName = parts.slice(0, -1).join(' / ').trim();
+                                      // Use normalizeVariantName which handles country removal from both beginning and end
+                                      const normalizedName = normalizeVariantName({ title: variantName, selectedOptions: variant.selectedOptions }, productOptions);
+                                      if (normalizedName) {
+                                        variantName = normalizedName;
                                       }
                                       
                                       const stock = variant.inventory_quantity || variant.inventoryQuantity || 0;
