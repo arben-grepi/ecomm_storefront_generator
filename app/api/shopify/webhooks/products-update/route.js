@@ -578,13 +578,27 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
             ...doc.data(),
           }));
 
-          // Get default variant ID and find the default variant before updating
+          // Get default variant ID from product data
           const defaultVariantId = productData.defaultVariantId || null;
-          const defaultVariant = defaultVariantId 
-            ? existingVariants.find((v) => v.id === defaultVariantId || v.shopifyVariantId === defaultVariantId?.toString())
-            : null;
-          const defaultVariantShopifyId = defaultVariant?.shopifyVariantId || null;
 
+          // Track which Shopify variant corresponds to the default variant
+          let defaultVariantShopifyId = null;
+          
+          // First pass: Find the Shopify ID of the default variant
+          if (defaultVariantId) {
+            const defaultVariant = existingVariants.find((v) => 
+              v.id === defaultVariantId || v.shopifyVariantId === defaultVariantId?.toString()
+            );
+            defaultVariantShopifyId = defaultVariant?.shopifyVariantId || null;
+            console.log(`[Webhook] Default variant lookup:`, {
+              defaultVariantId,
+              defaultVariantFound: !!defaultVariant,
+              defaultVariantShopifyId,
+              allExistingVariants: existingVariants.map(v => ({ id: v.id, shopifyVariantId: v.shopifyVariantId }))
+            });
+          }
+
+          // Update all variants
           for (const shopifyVariant of shopifyProduct.variants) {
             let variantRef = null;
             let existingVariantData = null;
@@ -616,6 +630,19 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
             }
 
             if (variantRef) {
+              // Check if this is the default variant and update tracking
+              // This ensures we always use the correct Shopify variant ID from the webhook
+              if (existingVariantData.id === defaultVariantId) {
+                // This IS the default variant - update the Shopify ID from webhook
+                defaultVariantShopifyId = shopifyVariant.id.toString();
+                console.log(`[Webhook] Found default variant in webhook update:`, {
+                  variantId: existingVariantData.id,
+                  shopifyVariantId: shopifyVariant.id.toString(),
+                  price: shopifyVariant.price,
+                  previousDefaultVariantShopifyId: existingVariantData.shopifyVariantId
+                });
+              }
+              
               // Get variant price from webhook payload
               const variantPrice = shopifyVariant.price != null ? parseFloat(shopifyVariant.price) : NaN;
               
@@ -700,7 +727,7 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
           }
           
           // After all variants are updated, check if the default variant's price changed
-          // and update product-level defaultVariantPrice
+          // and update product-level defaultVariantPrice for the product card
           if (defaultVariantShopifyId) {
             const updatedDefaultVariant = shopifyProduct.variants.find(
               (v) => v.id.toString() === defaultVariantShopifyId
@@ -715,10 +742,23 @@ async function updateProcessedProduct(db, shopifyProduct, updatedShopifyItemData
                 const currentDefaultPrice = productData.defaultVariantPrice;
                 if (currentDefaultPrice !== newDefaultPrice) {
                   productUpdate.defaultVariantPrice = newDefaultPrice;
-                  console.log(`[Webhook] Updated defaultVariantPrice from ${currentDefaultPrice} to ${newDefaultPrice} for product ${productDoc.id} (default variant ${defaultVariantId})`);
+                  console.log(`[Webhook] ✅ Updated defaultVariantPrice from ${currentDefaultPrice} to ${newDefaultPrice} for product ${productDoc.id} (default variant ${defaultVariantId}, shopify variant ${defaultVariantShopifyId})`);
+                } else {
+                  console.log(`[Webhook] ℹ️ Default variant price unchanged: ${newDefaultPrice} for product ${productDoc.id}`);
                 }
+              } else {
+                console.log(`[Webhook] ⚠️ Default variant found but price is invalid:`, {
+                  productId: productDoc.id,
+                  defaultVariantId,
+                  defaultVariantShopifyId,
+                  price: updatedDefaultVariant.price
+                });
               }
+            } else {
+              console.log(`[Webhook] ⚠️ Default variant Shopify ID ${defaultVariantShopifyId} not found in shopifyProduct.variants for product ${productDoc.id}`);
             }
+          } else {
+            console.log(`[Webhook] ⚠️ No default variant Shopify ID found for product ${productDoc.id} (defaultVariantId: ${defaultVariantId})`);
           }
         }
 
