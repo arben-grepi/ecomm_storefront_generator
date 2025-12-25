@@ -59,6 +59,10 @@ env:
     secret: SHOPIFY_STORE_DOMAIN
   - variable: SHOPIFY_WEBHOOK_SECRET
     secret: SHOPIFY_WEBHOOK_SECRET
+  
+  # AI Product Content Generation Service
+  - variable: NEXT_PUBLIC_PRODUCT_API_URL
+    secret: NEXT_PUBLIC_PRODUCT_API_URL
 
 # GitHub integration (configure in Firebase Console)
 # This will automatically build and deploy on push to master
