@@ -74,9 +74,9 @@ export default function OverlayPreviewProductCard({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
-            <div className="max-sm:min-h-[2.5rem] sm:min-h-0 mb-1">
+            <div className="min-h-[2.5rem] mb-1">
               <h3 
-                className="font-medium uppercase tracking-[0.25em] text-white max-sm:line-clamp-2"
+                className="font-medium uppercase tracking-[0.25em] text-white line-clamp-2"
                 style={{
                   fontFamily: getFontFromSelection(nameFont),
                   fontSize: `clamp(0.5rem, ${nameFontSize}rem, 1.5rem)`,

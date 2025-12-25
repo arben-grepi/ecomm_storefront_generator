@@ -120,9 +120,9 @@ function ProductCard({
         )}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-3 sm:p-5">
-        <div className="max-sm:min-h-[2.5rem] sm:min-h-0">
+        <div className="min-h-[2.5rem]">
           <h3 
-            className="font-medium uppercase tracking-[0.25em] max-sm:line-clamp-2"
+            className="font-medium uppercase tracking-[0.25em] line-clamp-2"
             style={{
               color: getColorFromSelection(nameColor),
               fontFamily: getFontFromSelection(nameFont),
