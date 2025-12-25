@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { doc, getDoc, getDocs, setDoc, serverTimestamp, collection, addDoc, updateDoc, query, where, limit, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { getCollectionPath, getDocumentPath } from '@/lib/store-collections';
-import { getVariantColor, getVariantSize, getVariantGroupKey, cleanVariantName, normalizeVariantName, cleanBrackets } from '@/lib/variant-utils';
+import { getVariantColor, getVariantSize, getVariantGroupKey, cleanVariantName, normalizeVariantName, cleanBrackets, getVaryingOptionIndex, getVariantOptionValue } from '@/lib/variant-utils';
 import { getFullQualityImageUrl } from '@/lib/image-utils';
 
 const slugify = (value) =>
@@ -444,12 +444,63 @@ export function useProductSaver({
       // Get product options for Shopify mode to correctly identify size/color
       const productOptions = mode === 'shopify' ? (item?.rawProduct?.options || null) : null;
       
-      const normalizedColor = mode === 'shopify' 
-        ? getVariantColor(variant, productOptions) 
-        : (variant.color || null);
-      const normalizedSize = mode === 'shopify'
-        ? getVariantSize(variant, productOptions)
-        : (variant.size || null);
+      // Intelligently map options to color/size/type based on option names
+      let normalizedColor = null;
+      let normalizedSize = null;
+      let normalizedType = null;
+      
+      if (mode === 'shopify' && productOptions && Array.isArray(productOptions)) {
+        // Try to extract color and size using option names
+        normalizedColor = getVariantColor(variant, productOptions);
+        normalizedSize = getVariantSize(variant, productOptions);
+        
+        // If no color or size found, find the varying option and map it to type
+        if (!normalizedColor && !normalizedSize) {
+          const allVariants = selectedVariantData;
+          const varyingOptionIndex = getVaryingOptionIndex(productOptions, allVariants);
+          
+          if (varyingOptionIndex !== null) {
+            const varyingOption = productOptions[varyingOptionIndex];
+            const optionValue = getVariantOptionValue(variant, varyingOptionIndex);
+            
+            // Map based on option name if it's not Color/Size
+            if (varyingOption?.name) {
+              const optionName = varyingOption.name.toLowerCase();
+              if (/color|colour/i.test(optionName)) {
+                normalizedColor = optionValue;
+              } else if (/size/i.test(optionName)) {
+                normalizedSize = optionValue;
+              } else {
+                // For other options (Package, Weight, etc.), map to type
+                normalizedType = optionValue;
+              }
+            } else if (optionValue) {
+              normalizedType = optionValue;
+            }
+          }
+        }
+        
+        // Also check for type if there's a second varying option
+        if (!normalizedType && productOptions.length > 1) {
+          // If we already have color or size, the other varying option might be type
+          const allVariants = selectedVariantData;
+          for (let i = 0; i < productOptions.length; i++) {
+            const opt = productOptions[i];
+            if (opt?.name && !/color|colour|size/i.test(opt.name)) {
+              const optionValue = getVariantOptionValue(variant, i);
+              if (optionValue) {
+                normalizedType = optionValue;
+                break;
+              }
+            }
+          }
+        }
+      } else {
+        // Manual mode - use existing fields
+        normalizedColor = variant.color || null;
+        normalizedSize = variant.size || null;
+        normalizedType = variant.type || null;
+      }
 
       // Construct variant name from variant data
       // Always normalize to "color / size" format for consistent grouping
@@ -507,6 +558,7 @@ export function useProductSaver({
       const variantDataRaw = {
         size: normalizedSize || null,
         color: normalizedColor || null,
+        type: normalizedType || null,
         variantName: variantName || null,
         sku: variant.sku || null,
         stock: variant.inventory_quantity || variant.inventoryQuantity || variant.stock || 0,

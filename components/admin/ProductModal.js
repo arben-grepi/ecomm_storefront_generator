@@ -105,9 +105,13 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
   const getVariantGroupKeyWithOptions = useCallback(
     (variant) => {
-      return getVariantGroupKey(variant, mode === 'shopify' ? itemOptions : null);
+      return getVariantGroupKey(
+        variant, 
+        mode === 'shopify' ? itemOptions : null,
+        mode === 'shopify' ? sortedVariants : allVariants
+      );
     },
-    [mode, itemOptions]
+    [mode, itemOptions, sortedVariants, allVariants]
   );
 
   const getSameColorVariantIds = useCallback(
@@ -245,7 +249,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     }
     
     // Otherwise, it's a variant-specific image - toggle it in variantImages
-    const groupKey = getVariantGroupKey(variant);
+    const groupKey = getVariantGroupKey(variant, mode === 'shopify' ? itemOptions : null, sortedVariants);
     const sameGroupVariantIds = getSameColorVariantIds(variantId);
 
     // Get current selections to check if variant has no photos
@@ -355,7 +359,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     }
     
     // In shopify mode, use group images for variants of the same color
-    const groupKey = getVariantGroupKey(variant);
+    const groupKey = getVariantGroupKey(variant, mode === 'shopify' ? itemOptions : null, sortedVariants);
     return variantImages[groupKey] || variantImages[variantId] || [];
   };
   
