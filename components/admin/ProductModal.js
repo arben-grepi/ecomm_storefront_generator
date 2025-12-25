@@ -58,6 +58,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const [displayName, setDisplayName] = useState('');
   const [displayDescription, setDisplayDescription] = useState('');
   const [bulletPoints, setBulletPoints] = useState([]);
+  const [isGeneratingAIContent, setIsGeneratingAIContent] = useState(false);
   const [showOnlyInStock, setShowOnlyInStock] = useState(true); // Default to showing only in-stock variants
   const [expandedVariants, setExpandedVariants] = useState(new Set());
   const [productId, setProductId] = useState(null); // For edit mode
@@ -478,6 +479,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     setVariantImages,
     setDefaultVariantPhotos,
     initializedItemIdRef,
+    setIsGeneratingAIContent,
   });
   
   const handleImageToggle = (imageUrl) => {
@@ -911,6 +913,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   setBulletPoints={setBulletPoints}
                   mode={mode}
                   handleGenerateAI={handleGenerateAI}
+                  isGeneratingAIContent={isGeneratingAIContent}
                 />
               </div>
             </div>
