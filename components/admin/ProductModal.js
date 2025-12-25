@@ -490,28 +490,13 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     setSelectedImages((prev) => {
       const exists = prev.find((img) => img.url === imageUrl);
       if (exists) {
-        // If removing main image, make first remaining image main
-        const filtered = prev.filter((img) => img.url !== imageUrl);
-        if (exists.isMain && filtered.length > 0) {
-          filtered[0].isMain = true;
-        }
-        // Note: We don't remove from variantImages here because variant images are now
-        // automatically synced with selectedImages. Variant-specific images are separate.
-        return filtered;
+        // Remove image from selection
+        return prev.filter((img) => img.url !== imageUrl);
       } else {
-        // If no images selected, make this one main
-        const isMain = prev.length === 0;
-        const newSelected = [...prev, { url: imageUrl, isMain }];
-        // Note: Variant images will automatically include selectedImages, so no need to update here
-        return newSelected;
+        // Add image to selection (no isMain property - main image comes from default variant)
+        return [...prev, { url: imageUrl }];
       }
     });
-  };
-
-  const handleSetMainImage = (imageUrl) => {
-    setSelectedImages((prev) =>
-      prev.map((img) => ({ ...img, isMain: img.url === imageUrl }))
-    );
   };
 
   const handleVariantToggle = (variantId) => {
@@ -600,11 +585,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     });
   };
 
-  const handleGenerateAI = async () => {
-    // TODO: Implement AI text generation
-    // See docs/ai-text-generation.md for implementation instructions
-    setToastMessage({ type: 'error', text: 'AI text generation not yet implemented. See docs/ai-text-generation.md for details.' });
-  };
 
   // Determine available images based on mode
   // For edit mode, use ALL images from shopifyItem (product + variant images)
@@ -812,7 +792,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   availableImages={availableImages}
                   selectedImages={selectedImages}
                   handleImageToggle={handleImageToggle}
-                  handleSetMainImage={handleSetMainImage}
                   mode={mode}
                 />
 
@@ -916,7 +895,6 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   bulletPoints={bulletPoints}
                   setBulletPoints={setBulletPoints}
                   mode={mode}
-                  handleGenerateAI={handleGenerateAI}
                   isGeneratingAIContent={isGeneratingAIContent}
                 />
               </div>

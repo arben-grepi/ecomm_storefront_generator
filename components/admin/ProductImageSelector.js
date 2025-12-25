@@ -9,7 +9,6 @@ export default function ProductImageSelector({
   availableImages,
   selectedImages,
   handleImageToggle,
-  handleSetMainImage,
   mode,
 }) {
   if (mode === 'manual') {
@@ -27,15 +26,14 @@ export default function ProductImageSelector({
   return (
     <div>
       <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">
-        Main Product Photo ({selectedImages.length} selected) <span className="text-xs font-normal text-zinc-400">(Optional)</span>
+        Additional Product Photos ({selectedImages.length} selected) <span className="text-xs font-normal text-zinc-400">(Optional)</span>
         <span className="ml-2 text-xs font-normal text-zinc-500">
-          - Used in product cards. Select one main photo (mark as "Main") that will be shown on product cards. If none selected, the default variant's photo will be used.
+          - Additional photos for the product gallery. The product card image is automatically set from the default variant's default photo.
         </span>
       </label>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7">
         {availableImages.map((imageUrl, idx) => {
           const isSelected = selectedImages.some((img) => img.url === imageUrl);
-          const isMain = selectedImages.find((img) => img.url === imageUrl)?.isMain;
           return (
             <div key={idx} className="relative group">
               <button
@@ -62,24 +60,6 @@ export default function ProductImageSelector({
                   </div>
                 )}
               </button>
-              {isMain && (
-                <div className="absolute -top-1 -right-1 rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-medium text-white">
-                  Main (Product Card)
-                </div>
-              )}
-              {isSelected && !isMain && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSetMainImage(imageUrl);
-                  }}
-                  className="absolute bottom-1 left-1/2 -translate-x-1/2 rounded bg-zinc-900/80 px-2 py-1 text-xs text-white opacity-0 transition group-hover:opacity-100"
-                  title="Set as main product photo (used in product cards)"
-                >
-                  Set as Main
-                </button>
-              )}
             </div>
           );
         })}

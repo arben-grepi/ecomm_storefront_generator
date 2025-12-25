@@ -11,7 +11,6 @@ export default function ProductFormFields({
   bulletPoints,
   setBulletPoints,
   mode,
-  handleGenerateAI,
   isGeneratingAIContent = false,
 }) {
   return (
@@ -19,22 +18,9 @@ export default function ProductFormFields({
 
       {/* AI Generated Text */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Display Name
-          </label>
-          {mode !== 'manual' && (
-            <button
-              type="button"
-              onClick={handleGenerateAI}
-              disabled={true}
-              className="rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700 disabled:opacity-50 cursor-not-allowed"
-              title="AI text generation coming soon - see docs/ai-text-generation.md"
-            >
-              Generate with AI (Coming Soon)
-            </button>
-          )}
-        </div>
+        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          Display Name
+        </label>
         <div className="relative">
           <input
             type="text"

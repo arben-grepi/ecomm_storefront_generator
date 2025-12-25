@@ -1,6 +1,6 @@
 'use client';
 
-import { getDisplayImageUrl } from '@/lib/image-utils';
+import { getDisplayImageUrl, getFullQualityImageUrl } from '@/lib/image-utils';
 
 /**
  * VariantExpandedView - Expanded view of a variant showing images and price override
@@ -79,15 +79,43 @@ export default function VariantExpandedView({
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7">
         {availableVariantImages.map((imageUrl, idx) => {
           const isSelectedImage = groupSelectedImages.includes(imageUrl);
-          const isDefaultPhoto = defaultVariantPhotos[variantId] === imageUrl;
+          // Compare URLs by normalizing both to full quality (remove query params)
+          // This handles cases where one URL has ?width=300 and the other doesn't
+          const defaultPhotoUrl = defaultVariantPhotos[variantId];
+          const normalizedDefaultPhoto = defaultPhotoUrl ? getFullQualityImageUrl(defaultPhotoUrl) : null;
+          const normalizedImageUrl = getFullQualityImageUrl(imageUrl);
+          const isDefaultPhoto = normalizedDefaultPhoto && normalizedDefaultPhoto === normalizedImageUrl;
           return (
-            <button
-              key={`${variantId}-image-${idx}`}
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (e.shiftKey || e.metaKey || e.ctrlKey) {
-                  // Set as default photo when holding Shift/Cmd/Ctrl
+            <div key={`${variantId}-image-${idx}`} className="relative group">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                    // Set as default photo when holding Shift/Cmd/Ctrl
+                    // Apply to all grouped variants (same color/style)
+                    setDefaultVariantPhotos((prev) => {
+                      const updated = { ...prev };
+                      // Set default photo for all variants in the same group
+                      sameGroupVariants.forEach((groupId) => {
+                        updated[groupId] = imageUrl;
+                      });
+                      return updated;
+                    });
+                    // Also select the image (toggle selection)
+                    handleVariantImageToggle(variantId, imageUrl);
+                  } else {
+                    // Toggle image selection
+                    handleVariantImageToggle(variantId, imageUrl);
+                  }
+                }}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  // Double-click to set as default photo
+                  // First, make sure the image is selected
+                  if (!isSelectedImage) {
+                    handleVariantImageToggle(variantId, imageUrl);
+                  }
                   // Apply to all grouped variants (same color/style)
                   setDefaultVariantPhotos((prev) => {
                     const updated = { ...prev };
@@ -97,64 +125,42 @@ export default function VariantExpandedView({
                     });
                     return updated;
                   });
-                  // Also select the image (toggle selection)
-                  handleVariantImageToggle(variantId, imageUrl);
-                } else {
-                  // Toggle image selection
-                  handleVariantImageToggle(variantId, imageUrl);
-                }
-              }}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                // Double-click to set as default photo
-                // First, make sure the image is selected
-                if (!isSelectedImage) {
-                  handleVariantImageToggle(variantId, imageUrl);
-                }
-                // Apply to all grouped variants (same color/style)
-                setDefaultVariantPhotos((prev) => {
-                  const updated = { ...prev };
-                  // Set default photo for all variants in the same group
-                  sameGroupVariants.forEach((groupId) => {
-                    updated[groupId] = imageUrl;
-                  });
-                  return updated;
-                });
-              }}
-              className={`group relative aspect-square w-full overflow-hidden rounded-lg border-2 transition ${
-                isSelectedImage
-                  ? 'border-emerald-500 ring-2 ring-emerald-200'
-                  : 'border-zinc-200 dark:border-zinc-700'
-              } ${isDefaultPhoto ? 'ring-2 ring-yellow-400 ring-offset-2' : ''}`}
-              title={isDefaultPhoto ? 'Default photo (double-click to change)' : 'Click to select, Shift+Click or Double-click to set as default'}
-            >
-              <img
-                src={getDisplayImageUrl(imageUrl)}
-                alt={`Variant image ${idx + 1}`}
-                className="h-full w-full object-cover"
-              />
-              {isSelectedImage && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                  <div className="rounded-full bg-emerald-500 p-1">
-                    <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                }}
+                className={`group relative aspect-square w-full overflow-hidden rounded-lg border-2 transition ${
+                  isSelectedImage
+                    ? 'border-emerald-500 ring-2 ring-emerald-200'
+                    : 'border-zinc-200 dark:border-zinc-700'
+                } ${isDefaultPhoto ? 'border-yellow-500 ring-2 ring-yellow-400 dark:border-yellow-400' : ''}`}
+                title={isDefaultPhoto ? 'Default photo (double-click to change)' : 'Click to select, Shift+Click or Double-click to set as default'}
+              >
+                <img
+                  src={getDisplayImageUrl(imageUrl)}
+                  alt={`Variant image ${idx + 1}`}
+                  className="h-full w-full object-cover"
+                />
+                {isSelectedImage && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <div className="rounded-full bg-emerald-500 p-1">
+                      <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+                {isDefaultPhoto && (
+                  <div className="absolute -top-1 -right-1 z-10 rounded-full bg-yellow-500 px-2 py-0.5 text-xs font-bold text-white shadow-lg ring-2 ring-white dark:ring-zinc-900">
+                    ⭐ Default
+                  </div>
+                )}
+                {isDefaultPhoto && (
+                  <div className="absolute top-1 left-1 rounded-full bg-yellow-500 p-1 shadow-lg">
+                    <svg className="h-4 w-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                     </svg>
                   </div>
-                </div>
-              )}
-              {isDefaultPhoto && (
-                <div className="absolute -top-1 -right-1 rounded-full bg-emerald-500 px-2 py-0.5 text-xs font-medium text-white">
-                  Default
-                </div>
-              )}
-              {isDefaultPhoto && (
-                <div className="absolute top-1 right-1 rounded-full bg-yellow-500 p-1 shadow-lg">
-                  <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                </div>
-              )}
-            </button>
+                )}
+              </button>
+            </div>
           );
         })}
       </div>

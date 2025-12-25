@@ -181,10 +181,10 @@ export function useProductSaver({
       }
     }
     
-    // PRIORITY 2: If no default variant or no photo found, use selectedImages
+    // PRIORITY 2: If no default variant or no photo found, use first selectedImage
     if (!mainImage && selectedImages.length > 0) {
-      mainImage = selectedImages.find((img) => img.isMain)?.url || selectedImages[0].url;
-      console.log('[useProductSaver] Using selected image as main image (no default variant photo):', mainImage);
+      mainImage = selectedImages[0].url;
+      console.log('[useProductSaver] Using first selected image as main image (no default variant photo):', mainImage);
     }
     
     // Collect additional images (selected images that aren't the main image)
@@ -463,9 +463,6 @@ export function useProductSaver({
         }
       });
       
-      // Get product options for Shopify mode to correctly identify size/color
-      const productOptions = mode === 'shopify' ? (item?.rawProduct?.options || null) : null;
-      
       // Intelligently map options to color/size/type based on option names
       let normalizedColor = null;
       let normalizedSize = null;
@@ -576,6 +573,11 @@ export function useProductSaver({
         ? variant.inventory_levels
         : (variant.inventory_levels || []);
 
+      // Get variant price from Shopify
+      const variantPrice = mode === 'shopify' 
+        ? (variant.price != null ? parseFloat(variant.price) : null)
+        : (mode === 'edit' && variant.price != null ? parseFloat(variant.price) : null);
+
       // Build variant data object
       const variantDataRaw = {
         size: normalizedSize || null,
@@ -584,7 +586,8 @@ export function useProductSaver({
         variantName: variantName || null,
         sku: variant.sku || null,
         stock: variant.inventory_quantity || variant.inventoryQuantity || variant.stock || 0,
-        priceOverride: null, // Prices come from Shopify only - no overrides
+        price: Number.isFinite(variantPrice) ? variantPrice : null, // Save actual price from Shopify
+        priceOverride: Number.isFinite(variantPrice) ? variantPrice : null, // Also set priceOverride for webhook compatibility
         images: uniqueVariantImages.map(getFullQualityImageUrl).filter(Boolean),
         defaultPhoto: defaultPhoto ? getFullQualityImageUrl(defaultPhoto) : (uniqueVariantImages.length > 0 ? getFullQualityImageUrl(uniqueVariantImages[0]) : null),
         updatedAt: serverTimestamp(),

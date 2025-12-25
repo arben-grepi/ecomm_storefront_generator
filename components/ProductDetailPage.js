@@ -500,11 +500,14 @@ export default function ProductDetailPage({ category, product, variants, info = 
   }, [selectedGroup, groupVariants, product.images, hasVariants, selectedVariant]);
 
   const [activeImage, setActiveImage] = useState(null);
+  const [imageAspectRatio, setImageAspectRatio] = useState(3/4); // Default to 3:4
 
   // Update active image when group changes or gallery changes
   useEffect(() => {
     const primaryImage = galleryImages[0] || product.images?.[0] || null;
     setActiveImage(primaryImage);
+    // Reset aspect ratio when image changes
+    setImageAspectRatio(3/4);
   }, [selectedGroup, galleryImages, product.images]);
 
   // Fallback: Clear changing variant state after a timeout (in case image doesn't load or onLoad doesn't fire)
@@ -686,16 +689,26 @@ export default function ProductDetailPage({ category, product, variants, info = 
           <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-12 sm:px-6 lg:flex-row lg:items-start lg:gap-16 lg:px-8">
         {/* Gallery */}
         <section className="flex w-full flex-col gap-4 lg:w-1/2">
-          <div className="overflow-hidden rounded-3xl bg-secondary/70 shadow-sm ring-1 ring-secondary/50 aspect-[3/4] relative">
+          <div 
+            className="overflow-hidden rounded-3xl bg-secondary/70 shadow-sm ring-1 ring-secondary/50 relative w-full"
+            style={{
+              aspectRatio: imageAspectRatio,
+              maxHeight: '80vh',
+            }}
+          >
             {activeImage ? (
-              <Image
+              <img
                 src={activeImage}
                 alt={product.name}
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                className="object-cover"
-                priority
-                onLoad={() => {
+                className="w-full h-full object-contain"
+                style={{ display: 'block' }}
+                onLoad={(e) => {
+                  // Calculate aspect ratio from loaded image
+                  const img = e.target;
+                  if (img.naturalWidth && img.naturalHeight) {
+                    const aspectRatio = img.naturalWidth / img.naturalHeight;
+                    setImageAspectRatio(aspectRatio);
+                  }
                   // Clear ghost effect once image is loaded
                   if (isChangingVariant) {
                     // Small delay to ensure smooth transition
@@ -710,7 +723,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 }}
               />
             ) : (
-              <div className="flex aspect-[3/4] items-center justify-center text-secondary">
+              <div className="flex items-center justify-center text-secondary w-full h-full" style={{ aspectRatio: imageAspectRatio }}>
                 <svg className="h-16 w-16" viewBox="0 0 48 48" fill="none" stroke="currentColor">
                   <path
                     strokeLinecap="round"
@@ -760,7 +773,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   }}
                 >
                   <div className="aspect-square relative">
-                    <Image src={image} alt="" fill sizes="(max-width: 1024px) 25vw, 12.5vw" className="object-cover" />
+                    <Image src={image} alt="" fill sizes="(max-width: 1024px) 25vw, 12.5vw" className="object-contain" />
                   </div>
                 </button>
               ))}
