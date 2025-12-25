@@ -92,18 +92,17 @@ export default function VariantExpandedView({
                 onClick={(e) => {
                   e.stopPropagation();
                   if (e.shiftKey || e.metaKey || e.ctrlKey) {
-                    // Set as default photo when holding Shift/Cmd/Ctrl
-                    // Apply to all grouped variants (same color/style)
+                    // Set as default photo when holding Ctrl/Cmd/Shift+Click
+                    // Set for THIS specific variant only (each variant has its own default photo)
                     setDefaultVariantPhotos((prev) => {
                       const updated = { ...prev };
-                      // Set default photo for all variants in the same group
-                      sameGroupVariants.forEach((groupId) => {
-                        updated[groupId] = imageUrl;
-                      });
+                      updated[variantId] = imageUrl;
                       return updated;
                     });
-                    // Also select the image (toggle selection)
-                    handleVariantImageToggle(variantId, imageUrl);
+                    // Also select the image (toggle selection) if not already selected
+                    if (!isSelectedImage) {
+                      handleVariantImageToggle(variantId, imageUrl);
+                    }
                   } else {
                     // Toggle image selection
                     handleVariantImageToggle(variantId, imageUrl);
@@ -111,18 +110,15 @@ export default function VariantExpandedView({
                 }}
                 onDoubleClick={(e) => {
                   e.stopPropagation();
-                  // Double-click to set as default photo
+                  // Double-click to set as default photo for THIS variant
                   // First, make sure the image is selected
                   if (!isSelectedImage) {
                     handleVariantImageToggle(variantId, imageUrl);
                   }
-                  // Apply to all grouped variants (same color/style)
+                  // Set default photo for THIS specific variant only
                   setDefaultVariantPhotos((prev) => {
                     const updated = { ...prev };
-                    // Set default photo for all variants in the same group
-                    sameGroupVariants.forEach((groupId) => {
-                      updated[groupId] = imageUrl;
-                    });
+                    updated[variantId] = imageUrl;
                     return updated;
                   });
                 }}

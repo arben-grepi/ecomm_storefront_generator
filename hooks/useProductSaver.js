@@ -499,11 +499,14 @@ export function useProductSaver({
       
       const defaultPhoto = defaultVariantPhotos[variantId];
       
-      if (defaultPhoto && variantImageUrls.includes(defaultPhoto)) {
+      // ALWAYS add defaultPhoto first if it exists (even if not in variantImageUrls)
+      // This ensures it's saved to the variant's images array and shows on product detail page
+      if (defaultPhoto) {
         uniqueVariantImages.push(defaultPhoto);
         seen.add(defaultPhoto);
       }
       
+      // Then add other variant images (excluding the defaultPhoto if it was already added)
       variantImageUrls.forEach((url) => {
         if (url && !seen.has(url)) {
           uniqueVariantImages.push(url);
@@ -511,6 +514,7 @@ export function useProductSaver({
         }
       });
       
+      // Finally add main gallery images
       allMainImages.forEach((url) => {
         if (url && !seen.has(url)) {
           uniqueVariantImages.push(url);

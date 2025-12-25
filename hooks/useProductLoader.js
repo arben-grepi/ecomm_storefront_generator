@@ -360,6 +360,17 @@ export function useProductLoader({
 
         setInternalLoading(false);
         setLoading?.(false);
+        
+        // Ensure default variant is selected (if it exists)
+        const finalDefaultVariantId = productData.defaultVariantId || null;
+        if (finalDefaultVariantId) {
+          setSelectedVariants((prev) => {
+            if (!prev.includes(finalDefaultVariantId)) {
+              return [...prev, finalDefaultVariantId];
+            }
+            return prev;
+          });
+        }
       } catch (error) {
         console.error('Failed to load product:', error);
         setError(error);

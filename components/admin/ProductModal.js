@@ -468,6 +468,17 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     setLoading,
   });
 
+  // Auto-expand default variant when editing (so user can see which one is default)
+  useEffect(() => {
+    if (mode === 'edit' && defaultVariantId) {
+      setExpandedVariants((prev) => {
+        const next = new Set(prev);
+        next.add(defaultVariantId);
+        return next;
+      });
+    }
+  }, [mode, defaultVariantId]);
+
   // Initialize Shopify item data
   useShopifyItemInitializer({
     mode,
