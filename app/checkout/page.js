@@ -400,18 +400,19 @@ export default function CheckoutPage() {
                   You'll select your shipping option on Shopify's checkout page
                 </p>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2 border-t border-secondary/70 pt-4">
                 <div className="flex justify-between text-sm">
                   <span>Tax</span>
                   <span>{formatPrice(tax)}</span>
                 </div>
-              <div className="flex justify-between border-t border-secondary/70 pt-2 text-lg font-semibold">
-                <span>Est. Total</span>
-                <span>{formatPrice(estimatedTotal)}</span>
+                <div className="flex justify-between pt-2 text-lg font-semibold">
+                  <span>Est. Total</span>
+                  <span>{formatPrice(estimatedTotal)}</span>
+                </div>
+                <p className="text-xs text-slate-500 mt-2 text-center">
+                  Includes VAT • Final total shown at checkout
+                </p>
               </div>
-              <p className="text-xs text-slate-500 mt-2 text-center">
-                Final total shown at checkout
-              </p>
             </div>
 
               <button

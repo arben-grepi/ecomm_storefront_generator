@@ -839,7 +839,7 @@ function CartPageContent() {
                     )}
                   </span>
                 </div>
-               
+                <p className="text-xs text-slate-500 mt-2" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Includes VAT</p>
               </div>
 
               {/* Proceed to Checkout Button */}
