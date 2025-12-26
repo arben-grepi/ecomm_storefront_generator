@@ -301,8 +301,15 @@ function CartPageContent() {
   const [validatingShipping, setValidatingShipping] = useState(false);
   const [validationError, setValidationError] = useState(null);
   const [checkoutStatus, setCheckoutStatus] = useState(''); // Current checkout step message
+  const [unavailableItems, setUnavailableItems] = useState(new Set()); // Set of item keys that are unavailable
 
-  const subtotal = getCartTotal();
+  // Calculate subtotal excluding unavailable items
+  // Calculate subtotal excluding unavailable items
+  const subtotal = useMemo(() => {
+    return cart
+      .filter(item => !unavailableItems.has(`${item.productId}-${item.variantId}`))
+      .reduce((sum, item) => sum + (item.priceAtAdd * item.quantity), 0);
+  }, [cart, unavailableItems]);
   
   // Get current market from selected country
   const currentMarket = shippingAddress.countryCode || market;
@@ -341,29 +348,25 @@ function CartPageContent() {
   })();
   
   const tax = 0; // TODO: Calculate tax
-  const estimatedTotal = subtotal + shippingEstimatePrice + tax;
+  const estimatedTotal = useMemo(() => subtotal + shippingEstimatePrice + tax, [subtotal, shippingEstimatePrice, tax]);
 
   // Validation only happens when "Proceed to Checkout" is clicked
   // No automatic validation on address change
 
   const handleCheckout = async (e) => {
     e.preventDefault();
-    const checkoutStartTime = Date.now();
-    console.log(`[CHECKOUT] 🛒 Checkout initiated - Cart items: ${cart.length}, Market: ${market}`);
     
     if (cart.length === 0) {
-      console.warn(`[CHECKOUT] ⚠️  Checkout attempted with empty cart`);
       return;
     }
     
     setProcessing(true);
     setValidationError(null);
-    setCheckoutStatus('Validating products...');
+    setCheckoutStatus('Validating your cart...');
 
     try {
       // Validate country is entered (full address will be collected in Shopify checkout)
       if (!shippingAddress.countryCode) {
-        console.error(`[CHECKOUT] ❌ Validation failed: Missing country`);
         setValidationError('Please select your country');
         setProcessing(false);
         setCheckoutStatus('');
@@ -371,11 +374,9 @@ function CartPageContent() {
       }
 
       // Validate inventory and shipping (only when proceeding to checkout)
-      console.log(`[CHECKOUT] ✅ Address validated, starting pre-checkout validation...`);
       setValidatingShipping(true);
-      setCheckoutStatus('Checking inventory...');
+      setCheckoutStatus('Checking availability and shipping...');
       
-      const validationStartTime = Date.now();
       const validationResponse = await fetch('/api/checkout/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -386,44 +387,81 @@ function CartPageContent() {
       });
 
       if (!validationResponse.ok) {
-        const validationDuration = Date.now() - validationStartTime;
-        console.error(`[CHECKOUT] ❌ Validation API returned error (${validationDuration}ms):`, validationResponse.status);
         throw new Error('Pre-checkout validation failed');
       }
 
       const validation = await validationResponse.json();
-      const validationDuration = Date.now() - validationStartTime;
-      console.log(`[CHECKOUT] ✅ Validation complete (${validationDuration}ms) - Valid: ${validation.valid}, Market: ${validation.market?.valid}, Inventory: ${validation.inventory?.valid}, Shipping: ${validation.shipping?.available}`);
       setValidatingShipping(false);
       
+      // Track unavailable items for visual display and removal
+      const unavailableItemKeys = new Set();
+      const itemsToRemove = [];
+      
+      if (validation.unavailableItems && Array.isArray(validation.unavailableItems)) {
+        validation.unavailableItems.forEach(item => {
+          if (item.productId && item.variantId) {
+            const itemKey = `${item.productId}-${item.variantId}`;
+            unavailableItemKeys.add(itemKey);
+            // Remove from cart
+            itemsToRemove.push({ productId: item.productId, variantId: item.variantId });
+          } else if (item.productId) {
+            // If only productId is available, mark all variants of this product as unavailable
+            cart.filter(cartItem => cartItem.productId === item.productId)
+              .forEach(cartItem => {
+                const itemKey = `${cartItem.productId}-${cartItem.variantId}`;
+                unavailableItemKeys.add(itemKey);
+                itemsToRemove.push({ productId: cartItem.productId, variantId: cartItem.variantId });
+              });
+          }
+        });
+      }
+      setUnavailableItems(unavailableItemKeys);
+      
+      // Remove unavailable items from cart
+      if (itemsToRemove.length > 0) {
+        itemsToRemove.forEach(({ productId, variantId }) => {
+          removeFromCart(productId, variantId);
+        });
+      }
+      
       if (!validation.valid) {
-        console.error(`[CHECKOUT] ❌ Validation failed:`, validation.errors);
-        setValidationError(validation.errors?.join(', ') || 'Validation failed');
+        // Use improved error messages that include product names
+        const errorMessage = validation.errors?.length > 0 
+          ? validation.errors.join('. ')
+          : 'Validation failed. Please check your cart items and shipping address.';
+        setValidationError(errorMessage);
         setProcessing(false);
         setCheckoutStatus('');
         return;
       }
 
       if (!validation.inventory.valid) {
-        console.error(`[CHECKOUT] ❌ Inventory validation failed:`, validation.inventory.error);
-        setValidationError(validation.inventory.error || 'Some items are no longer available in the requested quantity');
+        // Use improved error message with product names
+        const errorMessage = validation.errors?.find(e => e.includes('not available')) 
+          || validation.inventory.error 
+          || 'Some items are no longer available in the requested quantity';
+        setValidationError(errorMessage);
         setProcessing(false);
         setCheckoutStatus('');
         return;
       }
 
       if (!validation.shipping.available) {
-        console.error(`[CHECKOUT] ❌ Shipping validation failed:`, validation.shipping.error);
-        setValidationError(validation.shipping.error || 'We cannot ship to this address. Please check your address and try again.');
+        // Use improved error message with product names if available
+        const errorMessage = validation.errors?.find(e => e.includes('cannot be shipped') || e.includes('shipped to'))
+          || validation.shipping.error 
+          || 'We cannot ship to this address. Please check your address and try again.';
+        setValidationError(errorMessage);
         setProcessing(false);
         setCheckoutStatus('');
         return;
       }
+      
+      // Clear unavailable items if validation passes
+      setUnavailableItems(new Set());
 
       // Create Shopify checkout and redirect
-      console.log(`[CHECKOUT] 🛒 Creating Shopify checkout...`);
       setCheckoutStatus('Creating checkout...');
-      const checkoutCreateStartTime = Date.now();
       const checkoutResponse = await fetch('/api/checkout/create-shopify-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -435,36 +473,42 @@ function CartPageContent() {
       });
 
       if (!checkoutResponse.ok) {
-        const checkoutCreateDuration = Date.now() - checkoutCreateStartTime;
         const errorData = await checkoutResponse.json();
-        console.error(`[CHECKOUT] ❌ Checkout creation failed (${checkoutCreateDuration}ms):`, errorData);
         throw new Error(errorData.message || errorData.error || 'Failed to create checkout');
       }
 
       const checkoutData = await checkoutResponse.json();
       const checkoutUrl = checkoutData.checkoutUrl;
-      const checkoutCreateDuration = Date.now() - checkoutCreateStartTime;
 
       if (!checkoutUrl) {
-        console.error(`[CHECKOUT] ❌ No checkout URL in response`);
         throw new Error('Failed to get checkout URL');
       }
-
-      const totalDuration = Date.now() - checkoutStartTime;
-      console.log(`[CHECKOUT] ✅ Checkout created successfully - URL: ${checkoutUrl} (${totalDuration}ms total)`);
-      console.log(`[CHECKOUT] 🔀 Redirecting to Shopify checkout...`);
 
       // Redirect to Shopify checkout
       window.location.href = checkoutUrl;
     } catch (err) {
-      const totalDuration = Date.now() - checkoutStartTime;
-      console.error(`[CHECKOUT] ❌ Checkout error (${totalDuration}ms):`, err);
-      console.error(`[CHECKOUT] ❌ Error details:`, {
-        message: err.message,
-        stack: err.stack,
-        name: err.name,
-      });
-      setValidationError(err.message || 'An error occurred during checkout. Please try again.');
+      
+      // Try to parse error message for unavailable items
+      // Check if error mentions variant IDs or product IDs
+      const errorMessage = err.message || 'An error occurred during checkout. Please try again.';
+      
+      // If error mentions specific variant IDs, try to mark those items as unavailable
+      const variantIdMatch = errorMessage.match(/\d{13,}/g); // Shopify variant IDs are typically 13+ digits
+      if (variantIdMatch) {
+        const variantIdsToMark = variantIdMatch.map(id => id.toString());
+        const unavailableItemKeys = new Set();
+        cart.forEach(item => {
+          const shopifyVariantId = item.shopifyVariantId?.toString() || item.variantId?.toString();
+          if (shopifyVariantId && variantIdsToMark.includes(shopifyVariantId)) {
+            unavailableItemKeys.add(`${item.productId}-${item.variantId}`);
+          }
+        });
+        if (unavailableItemKeys.size > 0) {
+          setUnavailableItems(unavailableItemKeys);
+        }
+      }
+      
+      setValidationError(errorMessage);
       setProcessing(false);
       setCheckoutStatus('');
     }
@@ -589,6 +633,9 @@ function CartPageContent() {
                         countryCode: e.target.value,
                         country: selectedCountry?.name || '',
                       });
+                      // Clear validation errors and unavailable items when address changes
+                      setValidationError(null);
+                      setUnavailableItems(new Set());
                     }}
                     className="w-full rounded-lg border px-4 py-2.5 focus:outline-none focus:ring-2"
                     style={{
@@ -617,10 +664,16 @@ function CartPageContent() {
             {/* Cart Items */}
             <section className="space-y-4">
               <h2 className="text-lg font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Cart Items</h2>
-              {cart.map((item) => (
+              {cart.map((item) => {
+                const itemKey = `${item.productId}-${item.variantId}`;
+                const isUnavailable = unavailableItems.has(itemKey);
+                return (
                 <div
-                  key={`${item.productId}-${item.variantId}`}
+                  key={itemKey}
                   className="flex gap-4 rounded-xl border border-secondary/70 bg-white/90 p-4"
+                  style={{
+                    opacity: isUnavailable ? 0.3 : 1,
+                  }}
                 >
                   {item.image && (
                     <img
@@ -697,8 +750,14 @@ function CartPageContent() {
                       Remove
                     </button>
                   </div>
+                  {isUnavailable && (
+                    <div className="mt-2 w-full text-sm text-red-600">
+                      This item is not available for checkout
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </section>
           </div>
 
@@ -726,11 +785,19 @@ function CartPageContent() {
                
               </div>
 
-              {/* Estimated Total */}
+              {/* Estimated Total - Exclude unavailable items */}
               <div className="border-t border-secondary/70 pt-4">
                 <div className="mb-2 flex justify-between">
                   <span className="text-sm font-medium text-slate-700" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Estimated Total</span>
-                  <span className="text-lg font-semibold" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{formatPrice(estimatedTotal, shippingAddress.countryCode || market)}</span>
+                  <span className="text-lg font-semibold" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
+                    {formatPrice(
+                      cart
+                        .filter(item => !unavailableItems.has(`${item.productId}-${item.variantId}`))
+                        .reduce((sum, item) => sum + (item.priceAtAdd * item.quantity), 0) +
+                      shippingEstimatePrice,
+                      shippingAddress.countryCode || market
+                    )}
+                  </span>
                 </div>
                
               </div>
@@ -755,7 +822,7 @@ function CartPageContent() {
                 }}
               >
                 {processing || validatingShipping ? (
-                  checkoutStatus || (validatingShipping ? 'Validating...' : 'Processing...')
+                  checkoutStatus || 'Validating...'
                 ) : (
                   'Proceed to Checkout'
                 )}
