@@ -544,8 +544,48 @@ export default function ProductDetailPage({ category, product, variants, info = 
     return initialSize;
   });
 
+  // Helper function to get size index for sorting (matches logic in availableSizes)
+  const getSizeIndexForSorting = (size) => {
+    if (!size) return Infinity; // Variants without size go to the end
+    const normalized = size.toUpperCase().trim();
+    const sizeOrder = [
+      'XXS', 'XXXS', 'XXXXS', 'XXXXXS',
+      'XS', 'X-SMALL', 'X-S', 'EXTRA SMALL', 'EXTRA-SMALL',
+      'S', 'SMALL', 'SIZE S',
+      'M', 'MEDIUM', 'SIZE M',
+      'L', 'LARGE', 'SIZE L',
+      'XL', 'X-LARGE', 'X-L', 'EXTRA LARGE', 'EXTRA-LARGE', '1X',
+      'XXL', '2XL', '2X', 'XX-LARGE', 'XX-L', 'EXTRA EXTRA LARGE',
+      'XXXL', '3XL', '3X', 'XXX-LARGE', 'XXX-L',
+      'XXXXL', '4XL', '4X',
+      'XXXXXL', '5XL', '5X',
+      'ONE SIZE', 'ONE-SIZE', 'ONESIZE', 'OS', 'OSFA', 'ONE SIZE FITS ALL'
+    ];
+    
+    // Direct match
+    const directIndex = sizeOrder.findIndex(order => {
+      const orderNormalized = order.toUpperCase();
+      return normalized === orderNormalized || normalized === orderNormalized.replace(/-/g, ' ').replace(/\s+/g, ' ');
+    });
+    if (directIndex !== -1) return directIndex;
+    
+    // Partial match
+    const partialIndex = sizeOrder.findIndex(order => {
+      const orderNormalized = order.toUpperCase();
+      const cleanSize = normalized.replace(/^(SIZE|SIZE\s+)/i, '').trim();
+      const cleanOrder = orderNormalized.replace(/^(SIZE|SIZE\s+)/i, '').trim();
+      return cleanSize === cleanOrder || 
+             normalized.includes(cleanOrder) || 
+             cleanOrder.includes(cleanSize) ||
+             (normalized.replace(/\s+/g, '') === cleanOrder.replace(/\s+/g, ''));
+    });
+    if (partialIndex !== -1) return partialIndex;
+    
+    return Infinity; // Not a traditional size
+  };
+
   // Get variants for selected group - FILTER OUT OF STOCK VARIANTS
-  // Ensure default variant appears first in the list
+  // Ensure default variant appears first in the list, then sort by size
   const groupVariants = useMemo(() => {
     if (!selectedGroup) return [];
     const allVariants = variantsByGroup.get(selectedGroup) || [];
@@ -556,18 +596,61 @@ export default function ProductDetailPage({ category, product, variants, info = 
       return stock > 0 || allowsBackorder;
     });
     
-    // If default variant exists and is in this group, move it to the front
+    // Separate default variant from others
+    let defaultVariantItem = null;
+    let otherVariants = [];
+    
     if (defaultVariant && inStockVariants.some(v => v.id === defaultVariant.id)) {
       const defaultVariantIndex = inStockVariants.findIndex(v => v.id === defaultVariant.id);
-      if (defaultVariantIndex > 0) {
-        // Move default variant to front
-        const defaultVariantItem = inStockVariants[defaultVariantIndex];
-        const rest = inStockVariants.filter((_, i) => i !== defaultVariantIndex);
-        return [defaultVariantItem, ...rest];
-      }
+      defaultVariantItem = inStockVariants[defaultVariantIndex];
+      otherVariants = inStockVariants.filter((_, i) => i !== defaultVariantIndex);
+    } else {
+      otherVariants = inStockVariants;
     }
     
-    return inStockVariants;
+    // Sort other variants by size (traditional sizes first, then numeric, then alphabetical)
+    const sortedOtherVariants = otherVariants.sort((a, b) => {
+      const aSize = a.size ? filterOutCountries(a.size) : '';
+      const bSize = b.size ? filterOutCountries(b.size) : '';
+      
+      if (!aSize && !bSize) return 0;
+      if (!aSize) return 1; // No size goes to end
+      if (!bSize) return -1;
+      
+      const aUpper = aSize.toUpperCase().trim();
+      const bUpper = bSize.toUpperCase().trim();
+      
+      const aIndex = getSizeIndexForSorting(aSize);
+      const bIndex = getSizeIndexForSorting(bSize);
+      
+      // Both are traditional sizes - sort by index
+      if (aIndex !== Infinity && bIndex !== Infinity) {
+        return aIndex - bIndex;
+      }
+      // Only a is traditional - put it first
+      if (aIndex !== Infinity) return -1;
+      // Only b is traditional - put it first
+      if (bIndex !== Infinity) return 1;
+      
+      // Neither is traditional - try numeric sorting
+      const aNum = parseFloat(aUpper.replace(/[^\d.]/g, ''));
+      const bNum = parseFloat(bUpper.replace(/[^\d.]/g, ''));
+      const aIsNum = !Number.isNaN(aNum);
+      const bIsNum = !Number.isNaN(bNum);
+      if (aIsNum && bIsNum) {
+        return aNum - bNum;
+      }
+      if (aIsNum) return -1;
+      if (bIsNum) return 1;
+      
+      // Fallback to alphabetical
+      return aSize.localeCompare(bSize);
+    });
+    
+    // Return default variant first (if exists), then sorted variants
+    return defaultVariantItem 
+      ? [defaultVariantItem, ...sortedOtherVariants]
+      : sortedOtherVariants;
   }, [selectedGroup, variantsByGroup, defaultVariant]);
 
   // Get available sizes for selected group - simple and straightforward
@@ -586,8 +669,21 @@ export default function ProductDetailPage({ category, product, variants, info = 
       }
     });
     
-    // Sort sizes in standard order: XS, S, M, L, XL, XXL, etc.
-    const sizeOrder = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'ONE SIZE', 'ONE-SIZE'];
+    // Traditional size order (case-insensitive matching)
+    // This comprehensive list covers most common size variations
+    const sizeOrder = [
+      'XXS', 'XXXS', 'XXXXS', 'XXXXXS',
+      'XS', 'X-SMALL', 'X-S', 'EXTRA SMALL', 'EXTRA-SMALL',
+      'S', 'SMALL', 'SIZE S',
+      'M', 'MEDIUM', 'SIZE M',
+      'L', 'LARGE', 'SIZE L',
+      'XL', 'X-LARGE', 'X-L', 'EXTRA LARGE', 'EXTRA-LARGE', '1X',
+      'XXL', '2XL', '2X', 'XX-LARGE', 'XX-L', 'EXTRA EXTRA LARGE',
+      'XXXL', '3XL', '3X', 'XXX-LARGE', 'XXX-L',
+      'XXXXL', '4XL', '4X',
+      'XXXXXL', '5XL', '5X',
+      'ONE SIZE', 'ONE-SIZE', 'ONESIZE', 'OS', 'OSFA', 'ONE SIZE FITS ALL'
+    ];
     const sizes = Array.from(sizeSet);
     
     // Get default variant's size if it exists
@@ -596,22 +692,53 @@ export default function ProductDetailPage({ category, product, variants, info = 
       defaultSize = filterOutCountries(defaultVariant.size);
     }
     
+    // Helper function to normalize and match sizes (case-insensitive)
+    const getSizeIndex = (size) => {
+      const normalized = size.toUpperCase().trim();
+      
+      // Direct match
+      const directIndex = sizeOrder.findIndex(order => {
+        const orderNormalized = order.toUpperCase();
+        return normalized === orderNormalized || normalized === orderNormalized.replace(/-/g, ' ').replace(/\s+/g, ' ');
+      });
+      if (directIndex !== -1) return directIndex;
+      
+      // Partial match (e.g., "Size S" matches "S", "XL" matches "XL")
+      const partialIndex = sizeOrder.findIndex(order => {
+        const orderNormalized = order.toUpperCase();
+        // Remove common prefixes/suffixes for matching
+        const cleanSize = normalized.replace(/^(SIZE|SIZE\s+)/i, '').trim();
+        const cleanOrder = orderNormalized.replace(/^(SIZE|SIZE\s+)/i, '').trim();
+        return cleanSize === cleanOrder || 
+               normalized.includes(cleanOrder) || 
+               cleanOrder.includes(cleanSize) ||
+               (normalized.replace(/\s+/g, '') === cleanOrder.replace(/\s+/g, ''));
+      });
+      if (partialIndex !== -1) return partialIndex;
+      
+      return -1;
+    };
+    
     // Sort sizes, but put default size first if it exists
     const sortedSizes = sizes.sort((a, b) => {
       const aUpper = a.toUpperCase().trim();
       const bUpper = b.toUpperCase().trim();
       
-      const aIndex = sizeOrder.findIndex((order) => aUpper === order || aUpper.includes(order));
-      const bIndex = sizeOrder.findIndex((order) => bUpper === order || bUpper.includes(order));
+      const aIndex = getSizeIndex(a);
+      const bIndex = getSizeIndex(b);
       
+      // Both are traditional sizes - sort by index
       if (aIndex !== -1 && bIndex !== -1) {
         return aIndex - bIndex;
       }
+      // Only a is traditional - put it first
       if (aIndex !== -1) return -1;
+      // Only b is traditional - put it first
       if (bIndex !== -1) return 1;
       
-      const aNum = parseFloat(aUpper);
-      const bNum = parseFloat(bUpper);
+      // Neither is traditional - try numeric sorting
+      const aNum = parseFloat(aUpper.replace(/[^\d.]/g, ''));
+      const bNum = parseFloat(bUpper.replace(/[^\d.]/g, ''));
       const aIsNum = !Number.isNaN(aNum);
       const bIsNum = !Number.isNaN(bNum);
       if (aIsNum && bIsNum) {
@@ -619,6 +746,8 @@ export default function ProductDetailPage({ category, product, variants, info = 
       }
       if (aIsNum) return -1;
       if (bIsNum) return 1;
+      
+      // Fallback to alphabetical
       return a.localeCompare(b);
     });
     
