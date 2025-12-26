@@ -12,6 +12,13 @@ export async function POST(request) {
   const apiStartTime = Date.now();
   console.log(`[API] 🛒 POST /api/checkout/create-shopify-checkout: Request received`);
   
+  // Get the origin/host from the request to build return URL
+  const origin = request.headers.get('origin') || request.headers.get('host');
+  const protocol = request.headers.get('x-forwarded-proto') || 'https';
+  const baseUrl = origin 
+    ? (origin.startsWith('http') ? origin : `${protocol}://${origin}`)
+    : (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.blerinas.com');
+  
   try {
     const body = await request.json();
     const {
@@ -244,14 +251,33 @@ export async function POST(request) {
 
     // Convert checkout URL to use the correct .myshopify.com domain
     // Replace any domain with pdvt0w-an.myshopify.com
+    // Also add return_to parameter for "Continue Shopping" button
     if (finalCheckoutUrl) {
       try {
         const url = new URL(finalCheckoutUrl);
+        
+        // Determine the return URL based on storefront
+        // Root (LUNERA) goes to luneralingerie.com, others go to blerinas.com/{STOREFRONT}
+        let returnToUrl;
+        if (storefront === 'LUNERA') {
+          // LUNERA uses its own domain
+          returnToUrl = 'https://luneralingerie.com';
+        } else {
+          // Other storefronts use blerinas.com with storefront path
+          const returnToPath = `/${storefront}`;
+          // Use blerinas.com for other storefronts, not the request origin
+          const blerinasBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.blerinas.com';
+          returnToUrl = `${blerinasBaseUrl}${returnToPath}`;
+        }
+        
+        // Add return_to parameter to the checkout URL
+        url.searchParams.set('return_to', returnToUrl);
+        
         // Extract the path and query from the checkout URL
         const checkoutPath = url.pathname + url.search;
         // Build new URL with pdvt0w-an.myshopify.com domain
         finalCheckoutUrl = `https://pdvt0w-an.myshopify.com${checkoutPath}`;
-        console.log(`[API] 🔄 Converted checkout URL from ${url.hostname} to pdvt0w-an.myshopify.com`);
+        console.log(`[API] 🔄 Converted checkout URL from ${url.hostname} to pdvt0w-an.myshopify.com with return_to=${returnToUrl}`);
       } catch (error) {
         console.warn(`[API] ⚠️  Failed to parse/convert checkout URL:`, error.message);
       }
