@@ -302,6 +302,7 @@ function CartPageContent() {
   const [validationError, setValidationError] = useState(null);
   const [checkoutStatus, setCheckoutStatus] = useState(''); // Current checkout step message
   const [unavailableItems, setUnavailableItems] = useState(new Set()); // Set of item keys that are unavailable
+  const [cartEmptiedMessage, setCartEmptiedMessage] = useState(null); // Message when cart becomes empty due to unavailable items
 
   // Calculate subtotal excluding unavailable items
   // Calculate subtotal excluding unavailable items
@@ -383,6 +384,7 @@ function CartPageContent() {
         body: JSON.stringify({
           cart,
           shippingAddress,
+          storefront: storefront, // Pass storefront so validation knows where to look for products
         }),
       });
 
@@ -396,12 +398,18 @@ function CartPageContent() {
       // Track unavailable items for visual display and removal
       const unavailableItemKeys = new Set();
       const itemsToRemove = [];
+      const removedItemNames = []; // Track product names for error message
       
       if (validation.unavailableItems && Array.isArray(validation.unavailableItems)) {
         validation.unavailableItems.forEach(item => {
           if (item.productId && item.variantId) {
             const itemKey = `${item.productId}-${item.variantId}`;
             unavailableItemKeys.add(itemKey);
+            // Find the cart item to get product name
+            const cartItem = cart.find(ci => ci.productId === item.productId && ci.variantId === item.variantId);
+            if (cartItem) {
+              removedItemNames.push(cartItem.productName || item.title || 'item');
+            }
             // Remove from cart
             itemsToRemove.push({ productId: item.productId, variantId: item.variantId });
           } else if (item.productId) {
@@ -410,6 +418,9 @@ function CartPageContent() {
               .forEach(cartItem => {
                 const itemKey = `${cartItem.productId}-${cartItem.variantId}`;
                 unavailableItemKeys.add(itemKey);
+                if (!removedItemNames.includes(cartItem.productName || item.title || 'item')) {
+                  removedItemNames.push(cartItem.productName || item.title || 'item');
+                }
                 itemsToRemove.push({ productId: cartItem.productId, variantId: cartItem.variantId });
               });
           }
@@ -417,11 +428,27 @@ function CartPageContent() {
       }
       setUnavailableItems(unavailableItemKeys);
       
+      // Check if cart will be empty after removal
+      const cartWillBeEmpty = cart.length === itemsToRemove.length;
+      
       // Remove unavailable items from cart
       if (itemsToRemove.length > 0) {
         itemsToRemove.forEach(({ productId, variantId }) => {
           removeFromCart(productId, variantId);
         });
+      }
+      
+      // If cart becomes empty, set a helpful message
+      if (cartWillBeEmpty && removedItemNames.length > 0) {
+        const itemList = removedItemNames.length === 1 
+          ? removedItemNames[0]
+          : removedItemNames.slice(0, -1).join(', ') + ' and ' + removedItemNames[removedItemNames.length - 1];
+        const message = removedItemNames.length === 1
+          ? `The item "${itemList}" is no longer available and has been removed from your cart.`
+          : `The following items are no longer available and have been removed from your cart: ${itemList}.`;
+        setCartEmptiedMessage(message);
+      } else {
+        setCartEmptiedMessage(null);
       }
       
       if (!validation.valid) {
@@ -459,6 +486,7 @@ function CartPageContent() {
       
       // Clear unavailable items if validation passes
       setUnavailableItems(new Set());
+      setCartEmptiedMessage(null);
 
       // Create Shopify checkout and redirect
       setCheckoutStatus('Creating checkout...');
@@ -551,7 +579,18 @@ function CartPageContent() {
         </header>
         <main className="mx-auto max-w-4xl px-4 py-16 text-center">
           <h1 className="mb-4 text-2xl font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Your cart is empty</h1>
-          <p className="mb-8" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Add some items to get started.</p>
+          
+          {cartEmptiedMessage ? (
+            <>
+              <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-left text-red-800 max-w-2xl mx-auto">
+                {cartEmptiedMessage}
+              </div>
+              <p className="mb-8" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Please add other items to continue.</p>
+            </>
+          ) : (
+            <p className="mb-8" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Add some items to get started.</p>
+          )}
+          
           <Link
             href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
             className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
@@ -636,6 +675,7 @@ function CartPageContent() {
                       // Clear validation errors and unavailable items when address changes
                       setValidationError(null);
                       setUnavailableItems(new Set());
+                      setCartEmptiedMessage(null);
                     }}
                     className="w-full rounded-lg border px-4 py-2.5 focus:outline-none focus:ring-2"
                     style={{

@@ -1013,6 +1013,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
         productName: product.name,
         variantName,
         image,
+        storefront: storefront || storefrontProp || 'LUNERA', // Include storefront so validation can find the product
       });
 
       // Show success state
