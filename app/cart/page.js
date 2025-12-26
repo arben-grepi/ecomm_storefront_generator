@@ -610,7 +610,7 @@ function CartPageContent() {
             {/* Shipping Address Form - At the top */}
             <section className="rounded-xl border border-secondary/70 bg-white/90 p-6">
               <h2 className="mb-2 text-lg font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Shipping Location</h2>
-              <p className="mb-4 text-sm" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
+              <p className="mb-4 text-sm" style={{ color: '#000000' }}>
                 Select your country to check shipping availability. Full address will be collected on the checkout page.
               </p>
               <div className="space-y-4">
@@ -769,7 +769,7 @@ function CartPageContent() {
               {/* Subtotal */}
               <div className="mb-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>Subtotal</span>
+                  <span className="text-slate-600" style={{ color: '#000000' }}>Subtotal</span>
                   <span className="font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{formatPrice(subtotal, shippingAddress.countryCode || market)}</span>
                 </div>
               </div>
@@ -777,7 +777,7 @@ function CartPageContent() {
               {/* Shipping Estimate */}
               <div className="mb-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>Shipping</span>
+                  <span className="text-slate-600" style={{ color: '#000000' }}>Shipping</span>
                   <span className="font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                     {formatPrice(shippingEstimatePrice, currentMarket)}
                   </span>
