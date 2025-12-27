@@ -1,7 +1,7 @@
 'use client';
 
 import { getDisplayImageUrl } from '@/lib/image-utils';
-import { cleanBrackets, normalizeVariantName } from '@/lib/variant-utils';
+import { cleanBrackets, normalizeVariantName, cleanSizeValue } from '@/lib/variant-utils';
 import VariantExpandedView from './VariantExpandedView';
 
 /**
@@ -32,6 +32,7 @@ export default function VariantSelector({
   handleVariantImageToggle,
   handleRemoveVariant,
   getVariantColor,
+  productOptions, // Optional: Product options for proper variant name normalization
 }) {
   const filteredVariants = showOnlyInStock
     ? availableVariants.filter((v) => {
@@ -147,21 +148,59 @@ export default function VariantSelector({
                   <label htmlFor={`variant-${variantId}`} className="flex flex-col text-sm">
                     <span className="font-medium text-zinc-900 dark:text-zinc-100">
                       {(() => {
-                        // Use normalizeVariantName if available (for Shopify mode with options)
-                        // Otherwise clean brackets from fallback values
+                        const variantId = variant.id || variant.shopifyId;
+                        console.log('[VariantSelector] Rendering variant name:', {
+                          variantId,
+                          hasProductOptions: !!productOptions,
+                          hasVariantName: !!variant.variantName,
+                          hasTitle: !!variant.title,
+                          hasName: !!variant.name,
+                          hasSelectedOptions: !!variant.selectedOptions,
+                          selectedOptionsCount: variant.selectedOptions?.length,
+                          selectedOptions: variant.selectedOptions?.map(opt => ({ name: opt.name, value: opt.value })),
+                          option1: variant.option1,
+                          option2: variant.option2,
+                          option3: variant.option3,
+                        });
+                        
+                        // Always try to use normalizeVariantName if productOptions available (cleans size values properly)
+                        // This works even if selectedOptions is undefined, as it can use option1, option2, option3
+                        if (productOptions && productOptions.length > 0) {
+                          const normalizedName = normalizeVariantName(variant, productOptions);
+                          console.log('[VariantSelector] normalizeVariantName result:', { variantId, normalizedName });
+                          if (normalizedName) {
+                            return normalizedName;
+                          }
+                        }
+                        
+                        // Fallback to variant properties, but clean size values from them too
                         if (variant.variantName) {
-                          return cleanBrackets(variant.variantName);
+                          console.log('[VariantSelector] Using variant.variantName:', { variantId, variantName: variant.variantName });
+                          // Clean size patterns from the variant name
+                          const parts = cleanBrackets(variant.variantName).split(' / ');
+                          const cleanedParts = parts.map(part => cleanSizeValue(part));
+                          return cleanedParts.join(' / ');
                         }
                         if (variant.title) {
-                          return cleanBrackets(variant.title);
+                          console.log('[VariantSelector] Using variant.title:', { variantId, title: variant.title });
+                          // Clean size patterns from the title - split by " / " and clean each part
+                          const parts = cleanBrackets(variant.title).split(' / ');
+                          const cleanedParts = parts.map(part => cleanSizeValue(part));
+                          return cleanedParts.join(' / ');
                         }
                         if (variant.name) {
-                          return cleanBrackets(variant.name);
+                          console.log('[VariantSelector] Using variant.name:', { variantId, name: variant.name });
+                          const parts = cleanBrackets(variant.name).split(' / ');
+                          const cleanedParts = parts.map(part => cleanSizeValue(part));
+                          return cleanedParts.join(' / ');
                         }
                         if (variant.selectedOptions && Array.isArray(variant.selectedOptions) && variant.selectedOptions.length > 0) {
-                          // Clean brackets from each option value
-                          return variant.selectedOptions.map((opt) => cleanBrackets(opt.value || '')).join(' / ');
+                          // Clean brackets and size patterns from each option value
+                          const fallbackName = variant.selectedOptions.map((opt) => cleanSizeValue(cleanBrackets(opt.value || ''))).join(' / ');
+                          console.log('[VariantSelector] Using selectedOptions fallback:', { variantId, fallbackName });
+                          return fallbackName;
                         }
+                        console.log('[VariantSelector] Using "Unnamed variant" fallback:', { variantId });
                         return 'Unnamed variant';
                       })()}
                     </span>

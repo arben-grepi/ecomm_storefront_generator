@@ -29,6 +29,7 @@ import { useProductLoader } from '@/hooks/useProductLoader';
 import { useShopifyItemInitializer } from '@/hooks/useShopifyItemInitializer';
 import { useProductSaver } from '@/hooks/useProductSaver';
 import { generateProductContent } from '@/lib/productContentApi';
+import ReprocessButton from '@/components/admin/ReprocessButton';
 
 /**
  * ProductModal - Unified modal for creating/editing products
@@ -67,6 +68,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const [defaultVariantId, setDefaultVariantId] = useState(null);
   const [defaultVariantPhotos, setDefaultVariantPhotos] = useState({}); // Map variantId -> default photo URL
   const [editModeShopifyItem, setEditModeShopifyItem] = useState(null); // Store shopifyItem when editing
+  const [resolvedShopifyItemId, setResolvedShopifyItemId] = useState(null); // Resolved shopifyItemId for edit mode
   
   // Manual mode: image URLs and variant creation
   const [manualImageUrls, setManualImageUrls] = useState([]); // Raw image URLs for manual mode
@@ -469,6 +471,48 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     setLoading,
   });
 
+  // Look up shopifyItemId by sourceShopifyId if sourceShopifyItemDocId is missing
+  useEffect(() => {
+    if (mode === 'edit' && existingProduct && !resolvedShopifyItemId && !editModeShopifyItem?.id) {
+      const sourceShopifyItemDocId = existingProduct.sourceShopifyItemDocId;
+      const sourceShopifyId = existingProduct.sourceShopifyId;
+      
+      // If we already have sourceShopifyItemDocId, use it
+      if (sourceShopifyItemDocId) {
+        setResolvedShopifyItemId(sourceShopifyItemDocId);
+        return;
+      }
+      
+      // If we have sourceShopifyId but no sourceShopifyItemDocId, look it up
+      if (sourceShopifyId && db) {
+        console.log('[ProductModal] Looking up shopifyItemId by sourceShopifyId:', sourceShopifyId);
+        const lookupShopifyItem = async () => {
+          try {
+            const shopifyItemsCollection = collection(db, ...getCollectionPath('shopifyItems'));
+            const querySnapshot = await getDocs(
+              query(shopifyItemsCollection, where('shopifyId', '==', sourceShopifyId.toString()), limit(1))
+            );
+            
+            if (!querySnapshot.empty) {
+              const shopifyItemDoc = querySnapshot.docs[0];
+              const shopifyItemId = shopifyItemDoc.id;
+              console.log('[ProductModal] Found shopifyItemId by sourceShopifyId:', shopifyItemId);
+              setResolvedShopifyItemId(shopifyItemId);
+              // Also set editModeShopifyItem for consistency
+              setEditModeShopifyItem({ id: shopifyItemId, ...shopifyItemDoc.data() });
+            } else {
+              console.warn('[ProductModal] No shopifyItem found for sourceShopifyId:', sourceShopifyId);
+            }
+          } catch (error) {
+            console.error('[ProductModal] Error looking up shopifyItemId:', error);
+          }
+        };
+        
+        lookupShopifyItem();
+      }
+    }
+  }, [mode, existingProduct, resolvedShopifyItemId, editModeShopifyItem, db]);
+  
   // Auto-expand default variant when editing (so user can see which one is default)
   useEffect(() => {
     if (mode === 'edit' && defaultVariantId) {
@@ -699,6 +743,11 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
   const sourceShopifyId = mode === 'shopify' 
     ? item?.shopifyId 
     : (mode === 'edit' ? existingProduct?.sourceShopifyId : null);
+  
+  // Get shopifyItemId for edit mode (for reprocess button and display)
+  const shopifyItemId = mode === 'edit' 
+    ? (existingProduct?.sourceShopifyItemDocId || editModeShopifyItem?.id || resolvedShopifyItemId)
+    : (mode === 'shopify' ? shopifyItem?.id : null);
 
   // Handler to regenerate AI content (edit mode only)
   const handleRegenerateContent = useCallback(async () => {
@@ -828,26 +877,34 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                   <h2 className="text-xl font-semibold text-emerald-600 dark:text-emerald-400">
                     {mode === 'edit' ? 'Edit Product' : mode === 'manual' ? 'Create Product' : 'Process Shopify Item'}
                   </h2>
-                  {sourceShopifyId && (
-                    <a
-                      href="/admin/overview/shopifyItems"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-emerald-600 underline hover:text-emerald-700 dark:text-emerald-400"
-                    >
-                      View Shopify Item
-                    </a>
+                  {/* Show Shopify Item ID in edit mode - top left, visible and prominent */}
+                  {mode === 'edit' && shopifyItemId && (
+                    <span className="rounded-lg bg-blue-500 px-4 py-2 text-sm font-bold text-white shadow-md dark:bg-blue-600">
+                      Shopify Item: {shopifyItemId}
+                    </span>
                   )}
                 </div>
-                <button
-                  onClick={onClose}
-                  disabled={loading}
-                  className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Reprocess Button - only for edit mode when product came from Shopify */}
+                  {mode === 'edit' && shopifyItemId && (
+                    <ReprocessButton
+                      shopifyItemId={shopifyItemId}
+                      onReprocessed={() => {
+                        // Reload page to refresh product data
+                        window.location.reload();
+                      }}
+                    />
+                  )}
+                  <button
+                    onClick={onClose}
+                    disabled={loading}
+                    className="rounded-full p-2 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-6">
@@ -922,6 +979,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                     handleVariantImageToggle={handleVariantImageToggle}
                     handleRemoveVariant={handleRemoveVariant}
                     getVariantColor={getVariantColorWithOptions}
+                    productOptions={mode === 'shopify' ? itemOptions : null}
                   />
                 ) : (
                   <div className="rounded-lg border border-zinc-200 dark:border-zinc-700 p-8 text-center text-zinc-500">
