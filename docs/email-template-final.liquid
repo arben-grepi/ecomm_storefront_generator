@@ -1,0 +1,25 @@
+{%- comment -%} Set storefront-specific branding {%- endcomment -%}
+{%- case storefront_name -%}
+  {%- when "LUNERA" -%}
+    {%- assign display_name = "Lunera Lingerie" -%}
+    {%- assign logo_url = "https://luneralingerie.com/email-logo.png" -%}
+    {%- assign home_url = "https://luneralingerie.com" -%}
+    {%- assign brand_color = "#E91E63" -%}
+  {%- when "HEALTH" -%}
+    {%- assign display_name = "Blerinas Health" -%}
+    {%- assign logo_url = "https://blerinas.com/health/email-logo.png" -%}
+    {%- assign home_url = "https://blerinas.com/HEALTH" -%}
+    {%- assign brand_color = "#4CAF50" -%}
+  {%- when "FIVESTARFINDS" -%}
+    {%- assign display_name = "Blerinas Five Star Finds" -%}
+    {%- assign logo_url = "https://blerinas.com/fivestar/email-logo.png" -%}
+    {%- assign home_url = "https://blerinas.com/FIVESTARFINDS" -%}
+    {%- assign brand_color = "#FF9800" -%}
+  {%- else -%}
+    {%- assign display_name = "Blerinas" -%}
+    {%- assign logo_url = "https://blerinas.com/email-logo.png" -%}
+    {%- assign home_url = "https://blerinas.com" -%}
+    {%- assign brand_color = "#2196F3" -%}
+{%- endcase -%}
+{%- comment -%} End storefront branding {%- endcomment -%}
+

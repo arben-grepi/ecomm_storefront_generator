@@ -116,6 +116,7 @@ function transformShopifyOrder(shopifyOrder) {
   return {
     shopifyOrderId: shopifyOrder.id.toString(),
     orderNumber: shopifyOrder.order_number?.toString() || shopifyOrder.name || null,
+    confirmationNumber: shopifyOrder.confirmation_number || shopifyOrder.name || null, // Used for thank-you page lookup
     userId: null, // Shopify orders don't have Firebase user IDs - would need to match by email
     email: shopifyOrder.email || null,
     storefront: storefront, // Extract from note_attributes
@@ -198,6 +199,37 @@ async function syncOrderToFirestore(db, shopifyOrder) {
       });
       
       console.log(`[Order Webhook] ✅ Successfully updated order: ${existingOrderId} (Shopify order ${shopifyOrder.id}) in collection: ${collectionPath}`);
+      
+      // Also update orderConfirmations if confirmation number exists
+      if (updateData.confirmationNumber) {
+        try {
+          const confirmationRef = db.collection('orderConfirmations').doc(updateData.confirmationNumber);
+          const confirmationData = {
+            orderId: updateData.shopifyOrderId,
+            orderNumber: updateData.orderNumber,
+            confirmationNumber: updateData.confirmationNumber,
+            storefront: updateData.storefront,
+            market: updateData.market,
+            email: updateData.email,
+            total: updateData.totals.grandTotal,
+            currency: updateData.currency,
+            items: updateData.items.map(item => ({
+              title: item.title,
+              quantity: item.quantity,
+              price: item.unitPrice,
+              subtotal: item.subtotal,
+            })),
+            updatedAt: FieldValue.serverTimestamp(),
+          };
+          
+          await confirmationRef.set(confirmationData, { merge: true });
+          console.log(`[Order Webhook] ✅ Updated confirmation data for confirmation number: ${updateData.confirmationNumber}`);
+        } catch (confirmationError) {
+          console.error(`[Order Webhook] ⚠️  Failed to update confirmation data:`, confirmationError);
+          // Don't throw - this is non-critical for order processing
+        }
+      }
+      
       return existingOrderId;
     } else {
       // Create new order
@@ -208,6 +240,39 @@ async function syncOrderToFirestore(db, shopifyOrder) {
       const newOrderId = orderRef.id;
       
       console.log(`[Order Webhook] ✅ Successfully created order: ${newOrderId} (Shopify order ${shopifyOrder.id}) in collection: ${collectionPath}`);
+      
+      // Also store in orderConfirmations collection for fast thank-you page lookup
+      if (orderData.confirmationNumber) {
+        try {
+          const confirmationRef = db.collection('orderConfirmations').doc(orderData.confirmationNumber);
+          const confirmationData = {
+            orderId: orderData.shopifyOrderId,
+            orderNumber: orderData.orderNumber,
+            confirmationNumber: orderData.confirmationNumber,
+            storefront: orderData.storefront,
+            market: orderData.market,
+            email: orderData.email,
+            customerName: shopifyOrder.customer?.first_name || shopifyOrder.shipping_address?.first_name || '',
+            total: orderData.totals.grandTotal,
+            currency: orderData.currency,
+            items: orderData.items.map(item => ({
+              title: item.title,
+              quantity: item.quantity,
+              price: item.unitPrice,
+              subtotal: item.subtotal,
+            })),
+            createdAt: orderData.placedAt,
+            expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days TTL
+          };
+          
+          await confirmationRef.set(confirmationData);
+          console.log(`[Order Webhook] ✅ Stored confirmation data for confirmation number: ${orderData.confirmationNumber}`);
+        } catch (confirmationError) {
+          console.error(`[Order Webhook] ⚠️  Failed to store confirmation data:`, confirmationError);
+          // Don't throw - this is non-critical for order processing
+        }
+      }
+      
       return newOrderId;
     }
   } catch (error) {

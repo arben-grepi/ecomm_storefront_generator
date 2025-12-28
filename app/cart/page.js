@@ -512,6 +512,20 @@ function CartPageContent() {
         throw new Error('Failed to get checkout URL');
       }
 
+      // Store checkout session in localStorage for thank-you page
+      try {
+        const checkoutSession = {
+          cartId: checkoutData.cartId || null,
+          storefront: storefront,
+          market: shippingAddress.countryCode || shippingAddress.country || 'DE',
+          timestamp: Date.now(),
+        };
+        localStorage.setItem('checkout_session', JSON.stringify(checkoutSession));
+      } catch (sessionError) {
+        console.warn('Failed to store checkout session:', sessionError);
+        // Non-critical, continue with redirect
+      }
+
       // Redirect to Shopify checkout
       window.location.href = checkoutUrl;
     } catch (err) {

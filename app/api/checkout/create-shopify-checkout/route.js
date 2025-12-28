@@ -251,12 +251,21 @@ export async function POST(request) {
 
     // Convert checkout URL to use the correct .myshopify.com domain
     // Replace any domain with pdvt0w-an.myshopify.com
-    // Also add return_to parameter for "Continue Shopping" button
+    // Also add return_to parameter for "Continue Shopping" button and thank-you page redirect
     if (finalCheckoutUrl) {
       try {
         const url = new URL(finalCheckoutUrl);
         
-        // Determine the return URL based on storefront
+        // Determine the base URL for thank-you page redirect
+        const protocol = request.headers.get('x-forwarded-proto') || 'https';
+        const host = request.headers.get('host');
+        const baseUrl = `${protocol}://${host}`;
+        
+        // Thank-you page URL - Shopify will redirect here after checkout completion
+        // The confirmation number will be in the URL parameters
+        const thankYouUrl = `${baseUrl}/thank-you`;
+        
+        // Determine the return URL for "Continue Shopping" button (different from thank-you redirect)
         // Root (LUNERA) goes to luneralingerie.com, others go to blerinas.com/{STOREFRONT}
         let returnToUrl;
         if (storefront === 'LUNERA') {
@@ -270,14 +279,18 @@ export async function POST(request) {
           returnToUrl = `${blerinasBaseUrl}${returnToPath}`;
         }
         
-        // Add return_to parameter to the checkout URL
+        // Add return_to parameter to the checkout URL (for "Continue Shopping" button)
         url.searchParams.set('return_to', returnToUrl);
+        
+        // Note: Shopify will redirect to thank-you page automatically after checkout completion
+        // The thank-you page will read confirmation number from URL params or use localStorage session
         
         // Extract the path and query from the checkout URL
         const checkoutPath = url.pathname + url.search;
         // Build new URL with pdvt0w-an.myshopify.com domain
         finalCheckoutUrl = `https://pdvt0w-an.myshopify.com${checkoutPath}`;
         console.log(`[API] 🔄 Converted checkout URL from ${url.hostname} to pdvt0w-an.myshopify.com with return_to=${returnToUrl}`);
+        console.log(`[API] 📧 Thank-you page URL: ${thankYouUrl}`);
       } catch (error) {
         console.warn(`[API] ⚠️  Failed to parse/convert checkout URL:`, error.message);
       }
