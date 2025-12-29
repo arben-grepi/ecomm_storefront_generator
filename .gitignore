@@ -15,6 +15,7 @@ privateKey/*
 
 # testing
 /coverage
+app/test-email-logos/*
 
 # next.js
 /.next/
