@@ -15,9 +15,8 @@ For detailed information about the AI system implementation, see the [CreateName
 - **Multiple Storefronts**: Create unlimited independent storefronts, each with its own product catalog and branding
 - **Shopify Integration**: Import products from Shopify as a headless backend for dropshipping
 - **Product Customization**: Customize products (images, descriptions, pricing, variants) before launching to storefronts
-- **Market Management**: Manage different products for different markets (e.g., Finland, Germany) with market-specific pricing and availability
 - **Country-Based Routing**: Products are automatically filtered and displayed based on the user's country/market detected from their IP address
-- **Editable Content**: Essential website text can be altered from the admin overview without code changes. All content is rendered on the server before being sent as fully formed HTML to the client, ensuring optimal web crawler indexing and search engine optimization
+- **Editable Content**: Essential website text (company tagline, hero headings, descriptions) can be altered from the admin overview without code changes. Product information and hero text are rendered on the server for SEO optimization, ensuring search engines can index all product content without executing JavaScript
 - **Real-Time Sync**: Webhooks synchronize Shopify backend information (shipping prices, stock levels, product updates) with the Next.js app in real-time
 
 ## Shopify-Handled Features
@@ -34,7 +33,12 @@ The platform leverages Shopify's infrastructure for:
 
 ### Server-Side Rendering (SSR) Optimization
 
-The application uses strategic SSR to ensure all product content, descriptions, and metadata are fully rendered as HTML on the server before delivery. This makes content highly search-optimizable, as search engine crawlers can index all product information without executing JavaScript, significantly improving SEO rankings and discoverability.
+The application uses strategic SSR for SEO-critical content. Product information (names, descriptions, prices, variants) and hero text (company tagline, main heading, description) are fully rendered as HTML on the server before delivery. This makes content highly search-optimizable, as search engine crawlers can index all product information without executing JavaScript, significantly improving SEO rankings and discoverability.
+
+**Content Storage & Configuration:**
+- **Product Cards & Banners**: Component code is stored in the project, but styling configurations (card type, colors, fonts, sizes, border radius, columns) come from the database and are customizable via the admin dashboard
+- **Banner Images**: Static image files stored in the project (`public/banners/`), but banner display settings (crop percentages, text width) are configured in the database
+- **CSS & Styling**: All styling (color palettes, font selections, sizing) is stored in the database and can be customized per storefront through the admin interface
 
 ### Intelligent Middleware & IP-Based Routing
 
@@ -60,7 +64,7 @@ The comprehensive admin dashboard provides complete control over the platform:
 
 - **Product Management**: Import products from Shopify queue, customize before launch (images, descriptions, pricing, variants), assign to storefronts and categories
 - **Storefront Control**: Manage multiple storefronts from a single interface - assign products, configure branding, and control visibility
-- **CSS & Styling Management**: Storefront-specific styling and CSS customization controlled from the admin interface
+- **CSS & Styling Management**: Storefront-specific styling and CSS customization controlled from the admin interface - color palettes, fonts, product card styles (minimal, bordered, overlay, compact), banner settings, and all visual configurations are stored in the database
 - **Category Management**: Create, edit, and organize product categories across all storefronts
 - **Order Tracking**: Monitor orders, fulfillment status, and customer information
 - **Content Editing**: Edit essential website text without code changes
