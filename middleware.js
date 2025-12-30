@@ -93,9 +93,14 @@ export async function middleware(request) {
   // ⚠️ BREAKPOINTS DON'T WORK HERE - Use console.log for debugging
   const middlewareStartTime = Date.now();
   const { pathname } = request.nextUrl;
+  const hostname = request.headers.get('host') || '';
   
   // Minimal logging - only essential information
   const cookieNames = request.cookies.getAll().map(c => c.name).join(', ') || 'none';
+  
+  // Domain-based routing: blerinas.com should route to /HEALTH, only luneralingerie.com can access root
+  const isBlerinasDomain = hostname.includes('blerinas.com');
+  const isLuneraDomain = hostname.includes('luneralingerie.com');
   
   // Skip middleware for API routes, static files, admin routes, and unavailable page
   if (
@@ -106,6 +111,22 @@ export async function middleware(request) {
     pathname.includes('.')
   ) {
     return NextResponse.next();
+  }
+  
+  // If accessing blerinas.com at root path, redirect to blerinas.com/HEALTH (canonical domain)
+  if (isBlerinasDomain && pathname === '/') {
+    const url = request.nextUrl.clone();
+    url.hostname = 'blerinas.com'; // Normalize to canonical domain (no www)
+    url.pathname = '/HEALTH';
+    return NextResponse.redirect(url);
+  }
+  
+  // If accessing root path on non-lunera domain, redirect to /HEALTH (for blerinas.com)
+  if (!isLuneraDomain && pathname === '/') {
+    const url = request.nextUrl.clone();
+    url.hostname = 'blerinas.com'; // Normalize to canonical domain (no www)
+    url.pathname = '/HEALTH';
+    return NextResponse.redirect(url);
   }
 
   // Extract storefront from URL path
