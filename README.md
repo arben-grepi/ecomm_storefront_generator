@@ -1,14 +1,39 @@
 # Multi-Storefront E-commerce Platform
 
-A sophisticated Next.js e-commerce platform that uses Shopify as a headless backend for dropshipping products. The platform enables the creation and management of multiple independent storefronts, each selling different product catalogs imported from Shopify, with advanced customization capabilities before products go live.
+A Next.js multi-storefront e-commerce platform using Shopify as a headless backend and single source of truth. The system generates multiple independent storefronts, imports products from Shopify into an internal database, and serves market-specific catalogs.
 
-## Project Overview
+After import, products go through a processing phase where they are assigned to storefronts and categories, configured with images, and prepared for launch with customer-facing content.
 
-This platform is designed for managing multiple e-commerce storefronts that source products from Shopify (via DSers from Alibaba and Temu). The Next.js application provides a powerful solution for creating and managing different storefronts that sell different items imported from Shopify. Users can customize products before launching them on one or multiple storefronts, manage different items for different markets, and display products to users based on their country/market accessed via URL path.
+## AI-Powered Content Generation
 
-### Key Features
+As part of the product workflow, I built an AI system that generates optimized product display names, marketing-ready descriptions, and optional bullet points from raw Shopify product data.
 
-- **Premium Design**: Tailwind-powered design system that gives the site a legitimate, high-quality online shop feel and look
+### AI Integration
+
+The AI system is implemented as a FastAPI microservice using LangChain and Anthropic Claude (Haiku), deployed on Google Cloud Run. The Next.js application communicates with it via HTTP POST during product processing or manual regeneration.
+
+**Key Implementation Details:**
+- **Structured Output Parsing**: Pydantic models enforce type-safe JSON responses and validation
+- **Prompt Engineering**: Multi-layered prompts define tone, formatting, and content constraints
+- **Constraint-Based Generation**: Business rules (e.g., display names shorter than original titles) enforced via schemas and prompts
+- **Asynchronous Processing**: Non-blocking API calls keep the UI responsive (2–5 seconds per request)
+
+### Data Flow and Processing
+
+Product data flows from Shopify Admin API → Next.js app → FastAPI AI service → Claude LLM → structured JSON response. No RAG or vector databases are required since the input data is already structured.
+
+The AI extracts relevant information from HTML, removes technical noise, identifies key benefits, and generates marketing copy while avoiding hallucination. Outputs (`displayName`, `displayDescription`, `bulletPoints[]`) are validated before being persisted and used by storefronts.
+
+### Technologies and Deployment
+
+Technologies include LangChain, Anthropic Claude (Haiku), FastAPI, Pydantic, Google Cloud Run, and prompt engineering. The AI service is containerized, integrates with Next.js via REST, and uses Google Secret Manager for secure API key management.
+
+**Repositories:**
+- Backend: [CreateNameAndDescription](https://github.com/arben-grepi/CreateNameAndDescription)
+- Frontend: [ecomm_storefront_generator](https://github.com/arben-grepi/ecomm_storefront_generator)
+
+## Platform Features
+
 - **Multiple Storefronts**: Create unlimited independent storefronts, each with its own product catalog and branding
 - **Shopify Integration**: Import products from Shopify as a headless backend for dropshipping
 - **Product Customization**: Customize products (images, descriptions, pricing, variants) before launching to storefronts
@@ -19,88 +44,11 @@ This platform is designed for managing multiple e-commerce storefronts that sour
 - **Real-Time Sync**: Webhooks synchronize Shopify backend information (shipping prices, stock levels, product updates) with the Next.js app in real-time
 - **Smart Server-Side Rendering (SSR)**: The application uses SSR strategically to ensure all product content, descriptions, and metadata are fully rendered as HTML on the server before delivery. This makes the content highly search-optimizable, as search engine crawlers can index all product information without executing JavaScript, significantly improving SEO rankings and discoverability
 
-## Architecture
+## Production Storefronts
 
-### Server-Side Rendering (SSR)
-
-The application uses server-side rendering for critical benefits:
-
-**SEO Optimization:**
-- Product names, descriptions, and metadata are rendered as HTML on the server, making them immediately accessible to search engine crawlers
-- Search engines can index product content without executing JavaScript, improving discoverability and search rankings
-
-**Performance Benefits:**
-- Faster initial page load as users receive fully rendered HTML with product data
-- Improved Core Web Vitals scores (better LCP, reduced time to interactive)
-- Better user experience, especially on slower connections
-
-### Performance Optimizations
-
-The application implements modern performance optimization techniques:
-
-**React Optimizations:**
-- **Memoization (`useMemo`)**: Prevents expensive recalculations on every render. For example, variant grouping and filtering in `ProductDetailPage` are memoized - they only recalculate when variants actually change, not on every state update. Market and storefront values are also memoized to avoid recalculating them on every Firestore snapshot update.
-- **Component Memoization (`React.memo`)**: `ProductCard` and `CategoryCard` are wrapped with `React.memo` to prevent unnecessary re-renders. When a parent component updates, these cards won't re-render unless their props actually change.
-- **Optimized Context**: Storefront context uses memoization to avoid recalculating storefront values unnecessarily.
-
-**Image Optimization:**
-- **Next.js Image Component**: Automatically converts images to modern formats (WebP/AVIF) which are 30-50% smaller than JPEG/PNG, reducing bandwidth and load times. Images are lazy-loaded (only load when scrolled into view) and use responsive sizing based on viewport.
-
-**Caching Strategies:**
-- **In-Memory Caching**: Storefront detection is cached in memory to avoid repeatedly parsing URLs or reading cookies. Once detected, it's reused throughout the session.
-- **localStorage Caching**: Stock levels are cached in the browser's localStorage with a 5-minute expiration, reducing API calls for frequently accessed product data.
-
-**Parallel Data Fetching:**
-- **Promise.all**: On server-side pages, we fetch categories, products, and site info simultaneously using `Promise.all` instead of waiting for each one sequentially. This reduces total page load time from ~300ms (100ms × 3) to ~100ms (all at once).
-
-**Code Splitting:**
-- **Dynamic Imports**: Admin-only components like `AdminRedirect` are loaded dynamically only when needed, reducing the initial JavaScript bundle size for regular customers.
-
-## Admin Dashboard
-
-The admin dashboard provides comprehensive management capabilities:
-
-- **Product Management**: Import products from Shopify queue and customize before launching to storefronts (products can only be created via Shopify import, not manually)
-- **Category Management**: Create, edit, and organize product categories
-- **Order Tracking**: Monitor orders, fulfillment status, and customer information
-- **Stock Management**: Real-time stock level monitoring with low-stock alerts
-- **Content Editing**: Edit essential website text without code changes
-
-## Webhook Integration
-
-The platform uses Shopify webhooks to maintain real-time synchronization between Shopify and the Next.js application. Webhooks automatically update product data, inventory levels, prices, shipping rates, and order information whenever changes occur in Shopify, ensuring the storefronts always display current information without manual intervention.
-
-## Production Website
-
-The production website is currently live and under continuous development:
-
-- **LUNERA Storefront** (Default): [https://blerinas.com](https://blerinas.com) - Served at the root URL
-- **FIVESTARFINDS Storefront**: [https://blerinas.com/FIVESTARFINDS](https://blerinas.com/FIVESTARFINDS) - Served at `/FIVESTARFINDS`
-- **Status**: Under construction and being developed continuously
-- **Current Status**: We currently have 2 storefronts. Products are only available in FIVESTARFINDS at this time.
-
-### Storefront Routing
-
-- **Root URL** (`/` or `blerinas.com`): Serves the **LUNERA** storefront (default)
-- **Other Storefronts**: Accessible via `/STOREFRONT_NAME` (e.g., `/FIVESTARFINDS`)
-- In development: `http://localhost:3000` serves LUNERA, `http://localhost:3000/FIVESTARFINDS` serves FIVESTARFINDS
-
-## Current Development
-
-We are currently working closely with **Andreas Konge** to optimize the application further:
-
-- **AI-Powered Content Generation**: Using an external Python FastAPI service to generate product display names, descriptions, and bullet points automatically when importing products from Shopify
-- **Multi-Language Support**: AI-powered translation to generate content in multiple languages
-- **IP-Based Localization**: Automatically translate websites into different European languages based on the user's IP address
-
-### AI Content Generation
-
-The platform integrates with an external Python FastAPI service for AI-powered product content generation. When importing products from Shopify, the system automatically generates:
-- **Display Name**: Shorter, optimized product names
-- **Display Description**: 2-4 sentence product descriptions (50-150 words)
-- **Bullet Points**: Up to 5 key product features
-
-See `docs/AI_SERVICE_SETUP.md` and `docs/AI_SERVICE_DEPLOYMENT.md` for setup and deployment instructions.
+Currently live storefronts:
+- **HEALTH**: [https://blerinas.com/HEALTH](https://blerinas.com/HEALTH)
+- **FIVESTARFINDS**: [https://blerinas.com/FIVESTARFINDS](https://blerinas.com/FIVESTARFINDS)
 
 ## Technologies
 
@@ -113,7 +61,7 @@ See `docs/AI_SERVICE_SETUP.md` and `docs/AI_SERVICE_DEPLOYMENT.md` for setup and
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - Firebase project with Firestore enabled
 - Shopify store with Storefront API access
 
@@ -121,8 +69,8 @@ See `docs/AI_SERVICE_SETUP.md` and `docs/AI_SERVICE_DEPLOYMENT.md` for setup and
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/LUNERA-ECOMM/ecommerce-admin.git
-   cd ecommerce-admin
+   git clone https://github.com/arben-grepi/ecomm_storefront_generator.git
+   cd ecomm_storefront_generator
    ```
 
 2. **Install dependencies:**
@@ -131,7 +79,7 @@ See `docs/AI_SERVICE_SETUP.md` and `docs/AI_SERVICE_DEPLOYMENT.md` for setup and
    ```
 
 3. **Configure environment variables:**
-   Create a `.env.local` file in the root directory with Firebase and Shopify credentials (see `.env.example` for reference)
+   Create a `.env.local` file with Firebase and Shopify credentials
 
 4. **Run the development server:**
    ```bash
@@ -139,42 +87,7 @@ See `docs/AI_SERVICE_SETUP.md` and `docs/AI_SERVICE_DEPLOYMENT.md` for setup and
    ```
 
 5. **Open [http://localhost:3000](http://localhost:3000)** in your browser
-   - Root URL (`http://localhost:3000`) serves the **LUNERA** storefront (default)
-   - Other storefronts are accessible at `http://localhost:3000/STOREFRONT_NAME` (e.g., `http://localhost:3000/FIVESTARFINDS`)
 
 ## Deployment
 
-Deployment is handled via **Firebase App Hosting**. The application is configured for automatic deployment when pushing to the `master` branch via GitHub integration.
-
-### Environment Variables & Secrets
-
-The application uses Google Cloud Secret Manager for environment variables. Required secrets include:
-- Firebase configuration (`NEXT_PUBLIC_FIREBASE_*`)
-- Shopify credentials (`SHOPIFY_*`)
-- AI Product Content Generation Service URL (`NEXT_PUBLIC_PRODUCT_API_URL`)
-
-Secrets must be created in Google Cloud Secret Manager and granted access to the App Hosting backend:
-
-```bash
-# Grant backend access to a secret
-firebase apphosting:secrets:grantaccess SECRET_NAME --backend BACKEND_NAME --location REGION
-```
-
-See `docs/AI_SERVICE_SETUP.md` and `docs/AI_SERVICE_DEPLOYMENT.md` for detailed setup instructions.
-
-### Manual Deployment
-
-For Firebase App Hosting, deployment is typically handled automatically via GitHub integration. For manual deployment, use the Firebase Console or CLI.
-
-## Admin Access
-
-Authorized admin accounts:
-- `arbengrepi@gmail.com`
-- `muliqiblerine@gmail.com`
-- `andreas.konga@gmail.com`
-
-## Learn More
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Firebase Documentation](https://firebase.google.com/docs)
-- [Shopify Storefront API](https://shopify.dev/docs/api/storefront)
+Deployment is handled via **Firebase App Hosting** with automatic deployment when pushing to the `master` branch. Environment variables and secrets are managed through Google Cloud Secret Manager.
