@@ -51,12 +51,7 @@ Custom Next.js middleware implements sophisticated routing logic:
 
 ### Real-Time Stock Management
 
-Stock levels are synchronized in real-time from Shopify via webhooks. Products are automatically filtered based on:
-- Current stock availability per market
-- Real-time inventory updates
-- Market-specific product availability rules
-
-The system ensures customers only see products that are in stock and available in their market.
+**Stock levels are synchronized in real-time from Shopify via webhooks. The system ensures customers only see products that are in stock and available in their market.**
 
 ### Backend Admin Dashboard
 
@@ -79,18 +74,14 @@ The platform enables multiple independent storefronts through a shared component
 **Shared Components:**
 - Core React components (ProductCard, CategoryCard, ProductDetailPage, etc.) are shared across all storefronts
 - Layout structure and routing logic are unified
-- Admin dashboard serves as the central control point
+- Admin dashboard serves as the central control point for all your storefronts. 
 
 **Storefront-Specific Customization:**
 - Each storefront has its own route path (e.g., `/HEALTH`, `/FIVESTARFINDS`)
 - Product catalog is independently controlled - products are assigned to specific storefronts via the admin dashboard
 - CSS and styling are storefront-specific, controlled from the backend admin app
-- Branding assets (logos, banners, colors) are isolated per storefront
-
-**Backend Control:**
-- Products, categories, and storefront assignments are managed entirely through the admin dashboard
-- CSS customizations are persisted in the database and applied dynamically
-- Storefront configuration (name, branding, visibility) is controlled from a single admin interface
+- Branding assets (logos, banners, colors, fonts, product card styling) are isolated per storefront
+- All customizations are persisted in the database and applied dynamically
 
 This architecture allows rapid creation of new storefronts with minimal code duplication, as all storefronts share the same core application code and are differentiated only by configuration data stored in the database.
 
