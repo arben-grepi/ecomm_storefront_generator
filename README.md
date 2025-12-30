@@ -6,31 +6,9 @@ After import, products go through a processing phase where they are assigned to 
 
 ## AI-Powered Content Generation
 
-As part of the product workflow, I built an AI system that generates optimized product display names, marketing-ready descriptions, and optional bullet points from raw Shopify product data.
+The platform integrates with an AI microservice that automatically generates optimized product display names, marketing-ready descriptions, and bullet points from raw Shopify product data during the import process. This reduces manual content creation time significantly.
 
-### AI Integration
-
-The AI system is implemented as a FastAPI microservice using LangChain and Anthropic Claude (Haiku), deployed on Google Cloud Run. The Next.js application communicates with it via HTTP POST during product processing or manual regeneration.
-
-**Key Implementation Details:**
-- **Structured Output Parsing**: Pydantic models enforce type-safe JSON responses and validation
-- **Prompt Engineering**: Multi-layered prompts define tone, formatting, and content constraints
-- **Constraint-Based Generation**: Business rules (e.g., display names shorter than original titles) enforced via schemas and prompts
-- **Asynchronous Processing**: Non-blocking API calls keep the UI responsive (2–5 seconds per request)
-
-### Data Flow and Processing
-
-Product data flows from Shopify Admin API → Next.js app → FastAPI AI service → Claude LLM → structured JSON response. No RAG or vector databases are required since the input data is already structured.
-
-The AI extracts relevant information from HTML, removes technical noise, identifies key benefits, and generates marketing copy while avoiding hallucination. Outputs (`displayName`, `displayDescription`, `bulletPoints[]`) are validated before being persisted and used by storefronts.
-
-### Technologies and Deployment
-
-Technologies include LangChain, Anthropic Claude (Haiku), FastAPI, Pydantic, Google Cloud Run, and prompt engineering. The AI service is containerized, integrates with Next.js via REST, and uses Google Secret Manager for secure API key management.
-
-**Repositories:**
-- Backend: [CreateNameAndDescription](https://github.com/arben-grepi/CreateNameAndDescription)
-- Frontend: [ecomm_storefront_generator](https://github.com/arben-grepi/ecomm_storefront_generator)
+For detailed information about the AI system implementation, see the [CreateNameAndDescription repository](https://github.com/arben-grepi/CreateNameAndDescription).
 
 ## Platform Features
 
@@ -39,10 +17,78 @@ Technologies include LangChain, Anthropic Claude (Haiku), FastAPI, Pydantic, Goo
 - **Product Customization**: Customize products (images, descriptions, pricing, variants) before launching to storefronts
 - **Market Management**: Manage different products for different markets (e.g., Finland, Germany) with market-specific pricing and availability
 - **Country-Based Routing**: Products are automatically filtered and displayed based on the user's country/market detected from their IP address
-- **Payment & Checkout**: Integrated with Shopify's checkout system, leveraging Shopify's outstanding payment processing and global order tracking services
 - **Editable Content**: Essential website text can be altered from the admin overview without code changes. All content is rendered on the server before being sent as fully formed HTML to the client, ensuring optimal web crawler indexing and search engine optimization
 - **Real-Time Sync**: Webhooks synchronize Shopify backend information (shipping prices, stock levels, product updates) with the Next.js app in real-time
-- **Smart Server-Side Rendering (SSR)**: The application uses SSR strategically to ensure all product content, descriptions, and metadata are fully rendered as HTML on the server before delivery. This makes the content highly search-optimizable, as search engine crawlers can index all product information without executing JavaScript, significantly improving SEO rankings and discoverability
+
+## Shopify-Handled Features
+
+The platform leverages Shopify's infrastructure for:
+
+- **Payment Processing**: Secure payment handling with support for multiple payment methods
+- **Checkout System**: Complete checkout flow and order processing
+- **Global Order Tracking**: Order management and fulfillment tracking
+- **Shipping Rate Calculation**: Real-time shipping rates based on location and order details
+- **Inventory Management**: Stock levels synchronized from Shopify's inventory system
+
+## Technical Architecture
+
+### Server-Side Rendering (SSR) Optimization
+
+The application uses strategic SSR to ensure all product content, descriptions, and metadata are fully rendered as HTML on the server before delivery. This makes content highly search-optimizable, as search engine crawlers can index all product information without executing JavaScript, significantly improving SEO rankings and discoverability.
+
+### Intelligent Middleware & IP-Based Routing
+
+Custom Next.js middleware implements sophisticated routing logic:
+
+- **IP Geolocation**: Automatically detects user's country from their IP address using external geolocation APIs
+- **Market-Based Filtering**: Products are dynamically filtered based on detected market location and availability
+- **Storefront Routing**: Intelligent path-based routing determines which storefront to serve (e.g., `/HEALTH`, `/FIVESTARFINDS`)
+- **Cookie Memoization**: Detected market and storefront preferences are cached in cookies to minimize repeated geolocation requests
+
+### Real-Time Stock Management
+
+Stock levels are synchronized in real-time from Shopify via webhooks. Products are automatically filtered based on:
+- Current stock availability per market
+- Real-time inventory updates
+- Market-specific product availability rules
+
+The system ensures customers only see products that are in stock and available in their market.
+
+### Backend Admin Dashboard
+
+The comprehensive admin dashboard provides complete control over the platform:
+
+- **Product Management**: Import products from Shopify queue, customize before launch (images, descriptions, pricing, variants), assign to storefronts and categories
+- **Storefront Control**: Manage multiple storefronts from a single interface - assign products, configure branding, and control visibility
+- **CSS & Styling Management**: Storefront-specific styling and CSS customization controlled from the admin interface
+- **Category Management**: Create, edit, and organize product categories across all storefronts
+- **Order Tracking**: Monitor orders, fulfillment status, and customer information
+- **Content Editing**: Edit essential website text without code changes
+- **Analytics & Metrics**: Track performance across storefronts and markets
+
+All changes made in the admin dashboard are immediately reflected across the appropriate storefronts.
+
+## Multi-Storefront Architecture
+
+The platform enables multiple independent storefronts through a shared component architecture:
+
+**Shared Components:**
+- Core React components (ProductCard, CategoryCard, ProductDetailPage, etc.) are shared across all storefronts
+- Layout structure and routing logic are unified
+- Admin dashboard serves as the central control point
+
+**Storefront-Specific Customization:**
+- Each storefront has its own route path (e.g., `/HEALTH`, `/FIVESTARFINDS`)
+- Product catalog is independently controlled - products are assigned to specific storefronts via the admin dashboard
+- CSS and styling are storefront-specific, controlled from the backend admin app
+- Branding assets (logos, banners, colors) are isolated per storefront
+
+**Backend Control:**
+- Products, categories, and storefront assignments are managed entirely through the admin dashboard
+- CSS customizations are persisted in the database and applied dynamically
+- Storefront configuration (name, branding, visibility) is controlled from a single admin interface
+
+This architecture allows rapid creation of new storefronts with minimal code duplication, as all storefronts share the same core application code and are differentiated only by configuration data stored in the database.
 
 ## Production Storefronts
 
