@@ -130,10 +130,11 @@ export async function middleware(request) {
   const isProduction = process.env.NODE_ENV === 'production';
   console.log(`[MIDDLEWARE] Environment: ${process.env.NODE_ENV}, isProduction: ${isProduction}`);
   
-  // If accessing blerinas.com at root path, redirect to blerinas.com/HEALTH (canonical domain)
+  // If accessing blerinas.com at root path, redirect to blerinas.com/HEALTH
   // ONLY in production - skip in development
-  if (isProduction && isBlerinasDomain && pathname === '/') {
-    console.log(`[MIDDLEWARE] 🔄 REDIRECT CHECK 1: isBlerinasDomain && pathname === '/'`);
+  // ONLY redirect blerinas.com, NOT luneralingerie.com
+  if (isProduction && isBlerinasDomain && !isLuneraDomain && pathname === '/') {
+    console.log(`[MIDDLEWARE] 🔄 REDIRECT: blerinas.com root path -> /HEALTH`);
     
     // Construct redirect URL - try multiple approaches
     const protocol = request.nextUrl.protocol || 'https:';
@@ -164,32 +165,6 @@ export async function middleware(request) {
         // Last resort: use string directly
         return NextResponse.redirect(redirectUrlString);
       }
-    }
-  }
-  
-  // If accessing root path on non-lunera domain, redirect to /HEALTH (for blerinas.com)
-  // ONLY in production - skip in development
-  if (isProduction && !isLuneraDomain && pathname === '/') {
-    console.log(`[MIDDLEWARE] 🔄 REDIRECT CHECK 2: !isLuneraDomain && pathname === '/'`);
-    
-    // Construct redirect URL
-    const protocol = request.nextUrl.protocol || 'https:';
-    const redirectUrlString = `${protocol}//blerinas.com/HEALTH${search}`;
-    console.log(`[MIDDLEWARE] Constructed redirect URL string (check 2): "${redirectUrlString}"`);
-    
-    try {
-      const redirectUrl = new URL(redirectUrlString);
-      console.log(`[MIDDLEWARE] ✅ Created new URL object (check 2): ${redirectUrl.toString()}`);
-      
-      const redirectResponse = NextResponse.redirect(redirectUrl);
-      console.log(`[MIDDLEWARE] Redirect response (check 2) location: ${redirectResponse.headers.get('location')}`);
-      return redirectResponse;
-    } catch (urlError) {
-      console.error(`[MIDDLEWARE] ❌ ERROR creating URL object (check 2): ${urlError.message}`);
-      const url = request.nextUrl.clone();
-      url.hostname = 'blerinas.com';
-      url.pathname = '/HEALTH';
-      return NextResponse.redirect(url);
     }
   }
   
