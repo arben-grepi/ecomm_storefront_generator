@@ -887,6 +887,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
   const displayedPrice = selectedVariant?.price ?? product.basePrice ?? 0;
 
   // Gallery images: variant photos first, then main product photos
+  // CRITICAL: Always prioritize default variant's defaultPhoto first
   const galleryImages = useMemo(() => {
     const mainProductImages = Array.isArray(product.images) ? product.images.filter(Boolean) : [];
     
@@ -896,12 +897,18 @@ export default function ProductDetailPage({ category, product, variants, info = 
 
     // Collect all images from variants of the selected group
     // Support both `images` (array) and `image` (string) for backward compatibility
-    // Prioritize the selected variant's images first
+    // CRITICAL: Prioritize defaultPhoto for each variant (especially default variant)
+    const selectedVariantDefaultPhoto = null; // Will be set below
     const selectedVariantImages = [];
     const otherGroupVariantImages = [];
     
     for (const variant of groupVariants) {
       let variantImages = [];
+      
+      // PRIORITY 1: Check for defaultPhoto first (this is the explicitly set default photo for the variant)
+      const variantDefaultPhoto = variant.defaultPhoto || null;
+      
+      // PRIORITY 2: Get other images from variant
       if (Array.isArray(variant.images) && variant.images.length > 0) {
         variantImages = variant.images.filter(Boolean);
       } else if (variant.image) {
@@ -910,17 +917,48 @@ export default function ProductDetailPage({ category, product, variants, info = 
       
       // If this is the selected variant, prioritize its images
       if (selectedVariant && variant.id === selectedVariant.id) {
-        selectedVariantImages.push(...variantImages);
+        // Add defaultPhoto first if it exists, then other images
+        if (variantDefaultPhoto) {
+          selectedVariantImages.push(variantDefaultPhoto);
+        }
+        // Add other images (excluding defaultPhoto if it was already added)
+        variantImages.forEach((img) => {
+          if (img && img !== variantDefaultPhoto) {
+            selectedVariantImages.push(img);
+          }
+        });
       } else {
-        otherGroupVariantImages.push(...variantImages);
+        // For other variants, also prioritize defaultPhoto
+        if (variantDefaultPhoto) {
+          otherGroupVariantImages.push(variantDefaultPhoto);
+        }
+        // Add other images (excluding defaultPhoto if it was already added)
+        variantImages.forEach((img) => {
+          if (img && img !== variantDefaultPhoto) {
+            otherGroupVariantImages.push(img);
+          }
+        });
       }
     }
+    
+    // SPECIAL CASE: If default variant is in the selected group, ensure its defaultPhoto is FIRST
+    // This ensures the default variant's default photo is always shown first when the page loads
+    let defaultVariantDefaultPhoto = null;
+    if (defaultVariant && groupVariants.some(v => v.id === defaultVariant.id)) {
+      defaultVariantDefaultPhoto = defaultVariant.defaultPhoto || null;
+    }
 
-    // Remove duplicates while preserving order: selected variant images first, then other variant images, then main images
+    // Remove duplicates while preserving order: default variant defaultPhoto first, then selected variant images, then other variant images, then main images
     const seen = new Set();
     const combined = [];
     
-    // Add selected variant images first (these should include the main variant photo)
+    // PRIORITY 1: Add default variant's defaultPhoto FIRST (if it exists and is in the selected group)
+    if (defaultVariantDefaultPhoto && !seen.has(defaultVariantDefaultPhoto)) {
+      combined.push(defaultVariantDefaultPhoto);
+      seen.add(defaultVariantDefaultPhoto);
+    }
+    
+    // PRIORITY 2: Add selected variant images (defaultPhoto should already be included above for default variant)
     selectedVariantImages.forEach((img) => {
       if (img && !seen.has(img)) {
         combined.push(img);
@@ -928,7 +966,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
       }
     });
     
-    // Then add other variant images
+    // PRIORITY 3: Then add other variant images
     otherGroupVariantImages.forEach((img) => {
       if (img && !seen.has(img)) {
         combined.push(img);
@@ -936,7 +974,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
       }
     });
     
-    // Finally add main product images
+    // PRIORITY 4: Finally add main product images
     mainProductImages.forEach((img) => {
       if (img && !seen.has(img)) {
         combined.push(img);
@@ -945,7 +983,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
     });
 
     return combined.length > 0 ? combined : mainProductImages;
-  }, [selectedGroup, groupVariants, product.images, hasVariants, selectedVariant]);
+  }, [selectedGroup, groupVariants, product.images, hasVariants, selectedVariant, defaultVariant]);
 
   const [activeImage, setActiveImage] = useState(null);
   const [imageAspectRatio, setImageAspectRatio] = useState(3/4); // Default to 3:4
