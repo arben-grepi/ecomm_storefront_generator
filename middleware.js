@@ -92,8 +92,17 @@ export async function middleware(request) {
   // 🔍 FIRST FILE EXECUTED - Middleware runs on Edge Runtime
   // ⚠️ BREAKPOINTS DON'T WORK HERE - Use console.log for debugging
   const middlewareStartTime = Date.now();
-  const { pathname } = request.nextUrl;
+  const { pathname, search, origin } = request.nextUrl;
   const hostname = request.headers.get('host') || '';
+  
+  // 🔍 DEBUG LOGGING - Domain Redirect Logic
+  console.log('========================================');
+  console.log('[MIDDLEWARE] 🔍 DOMAIN REDIRECT DEBUG');
+  console.log(`[MIDDLEWARE] Hostname: "${hostname}"`);
+  console.log(`[MIDDLEWARE] Pathname: "${pathname}"`);
+  console.log(`[MIDDLEWARE] Origin: "${origin}"`);
+  console.log(`[MIDDLEWARE] Full URL: "${request.nextUrl.toString()}"`);
+  console.log(`[MIDDLEWARE] Request URL: ${request.url}`);
   
   // Minimal logging - only essential information
   const cookieNames = request.cookies.getAll().map(c => c.name).join(', ') || 'none';
@@ -101,6 +110,9 @@ export async function middleware(request) {
   // Domain-based routing: blerinas.com should route to /HEALTH, only luneralingerie.com can access root
   const isBlerinasDomain = hostname.includes('blerinas.com');
   const isLuneraDomain = hostname.includes('luneralingerie.com');
+  
+  console.log(`[MIDDLEWARE] isBlerinasDomain: ${isBlerinasDomain}`);
+  console.log(`[MIDDLEWARE] isLuneraDomain: ${isLuneraDomain}`);
   
   // Skip middleware for API routes, static files, admin routes, and unavailable page
   if (
@@ -110,24 +122,72 @@ export async function middleware(request) {
     pathname.startsWith('/admin') ||
     pathname.includes('.')
   ) {
+    console.log(`[MIDDLEWARE] ⏭️  Skipping middleware (excluded path: ${pathname})`);
     return NextResponse.next();
   }
   
   // If accessing blerinas.com at root path, redirect to blerinas.com/HEALTH (canonical domain)
   if (isBlerinasDomain && pathname === '/') {
-    const url = request.nextUrl.clone();
-    url.hostname = 'blerinas.com'; // Normalize to canonical domain (no www)
-    url.pathname = '/HEALTH';
-    return NextResponse.redirect(url);
+    console.log(`[MIDDLEWARE] 🔄 REDIRECT CHECK 1: isBlerinasDomain && pathname === '/'`);
+    
+    // Construct redirect URL - try multiple approaches
+    const protocol = request.nextUrl.protocol || 'https:';
+    const redirectUrlString = `${protocol}//blerinas.com/HEALTH${search}`;
+    console.log(`[MIDDLEWARE] Constructed redirect URL string: "${redirectUrlString}"`);
+    
+    try {
+      // Try approach 1: Create new URL object
+      const redirectUrl = new URL(redirectUrlString);
+      console.log(`[MIDDLEWARE] ✅ Created new URL object: ${redirectUrl.toString()}`);
+      
+      const redirectResponse = NextResponse.redirect(redirectUrl);
+      console.log(`[MIDDLEWARE] Redirect response status: ${redirectResponse.status}`);
+      console.log(`[MIDDLEWARE] Redirect response location header: ${redirectResponse.headers.get('location')}`);
+      return redirectResponse;
+    } catch (urlError) {
+      console.error(`[MIDDLEWARE] ❌ ERROR creating URL object: ${urlError.message}`);
+      
+      // Fallback: Try modifying the existing URL object
+      try {
+        const url = request.nextUrl.clone();
+        url.hostname = 'blerinas.com';
+        url.pathname = '/HEALTH';
+        console.log(`[MIDDLEWARE] Fallback: Using cloned URL: ${url.toString()}`);
+        return NextResponse.redirect(url);
+      } catch (fallbackError) {
+        console.error(`[MIDDLEWARE] ❌ ERROR with fallback: ${fallbackError.message}`);
+        // Last resort: use string directly
+        return NextResponse.redirect(redirectUrlString);
+      }
+    }
   }
   
   // If accessing root path on non-lunera domain, redirect to /HEALTH (for blerinas.com)
   if (!isLuneraDomain && pathname === '/') {
-    const url = request.nextUrl.clone();
-    url.hostname = 'blerinas.com'; // Normalize to canonical domain (no www)
-    url.pathname = '/HEALTH';
-    return NextResponse.redirect(url);
+    console.log(`[MIDDLEWARE] 🔄 REDIRECT CHECK 2: !isLuneraDomain && pathname === '/'`);
+    
+    // Construct redirect URL
+    const protocol = request.nextUrl.protocol || 'https:';
+    const redirectUrlString = `${protocol}//blerinas.com/HEALTH${search}`;
+    console.log(`[MIDDLEWARE] Constructed redirect URL string (check 2): "${redirectUrlString}"`);
+    
+    try {
+      const redirectUrl = new URL(redirectUrlString);
+      console.log(`[MIDDLEWARE] ✅ Created new URL object (check 2): ${redirectUrl.toString()}`);
+      
+      const redirectResponse = NextResponse.redirect(redirectUrl);
+      console.log(`[MIDDLEWARE] Redirect response (check 2) location: ${redirectResponse.headers.get('location')}`);
+      return redirectResponse;
+    } catch (urlError) {
+      console.error(`[MIDDLEWARE] ❌ ERROR creating URL object (check 2): ${urlError.message}`);
+      const url = request.nextUrl.clone();
+      url.hostname = 'blerinas.com';
+      url.pathname = '/HEALTH';
+      return NextResponse.redirect(url);
+    }
   }
+  
+  console.log(`[MIDDLEWARE] ⏭️  No redirect triggered, continuing...`);
 
   // Extract storefront from URL path
   // Root (/) is LUNERA (default storefront)
