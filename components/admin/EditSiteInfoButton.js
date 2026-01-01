@@ -915,8 +915,11 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                               onChange={(e) => setForm((prev) => ({ ...prev, companyTagline: e.target.value }))}
                               className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                               placeholder="Effortless softness..."
-                              maxLength={100}
+                              maxLength={50}
                             />
+                            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                              {form.companyTagline.length}/50 characters
+                            </p>
                             <div className="flex gap-2 mt-2">
                               <div className="flex-1">
                                 <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">Color</label>

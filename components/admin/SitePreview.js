@@ -141,7 +141,7 @@ export default function SitePreview({
               const wrappedText = preventOrphanedWords(companyTagline);
               return (
                 <span 
-                  className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em] max-sm:!text-[0.8rem]"
+                  className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em] whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] sm:max-w-none max-sm:!text-[0.6rem]"
                   style={{ 
                     color: getColorFromSelection(companyTaglineColor || 'primary'),
                     fontFamily: getFontFromSelection(companyTaglineFont || 'primary'),
