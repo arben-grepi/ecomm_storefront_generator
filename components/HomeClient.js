@@ -437,7 +437,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   const wrappedText = preventOrphanedWords(siteInfo.companyTagline);
                   return (
                     <span 
-                      className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em] whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] sm:max-w-none max-sm:!text-[0.6rem]"
+                      className="rounded-full px-3 py-1 font-medium uppercase tracking-[0.3em] whitespace-nowrap overflow-hidden  max-sm:!text-[0.6rem]"
                       style={{ 
                         color: getColorFromSelection(siteInfo.companyTaglineColor || 'primary'),
                         fontFamily: getFontFromSelection(siteInfo.companyTaglineFont || 'primary'),
