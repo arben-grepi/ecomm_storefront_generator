@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -26,7 +26,7 @@ const formatPrice = (value, currency = 'USD') => {
   }
 };
 
-export default function ThankYouPage() {
+function ThankYouPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [orderData, setOrderData] = useState(null);
@@ -376,6 +376,20 @@ export default function ThankYouPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-slate-500">Loading your order confirmation...</div>
+        </div>
+      </div>
+    }>
+      <ThankYouPageContent />
+    </Suspense>
   );
 }
 
