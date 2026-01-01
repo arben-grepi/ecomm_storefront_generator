@@ -5,7 +5,7 @@ import PrivacyPolicyClient from '@/components/PrivacyPolicyClient';
 
 export default async function PrivacyPolicyPage() {
   const language = 'en';
-  const storefront = 'LUNERA';
+  const storefront = 'HEALTH';
   const headersList = headers();
   const market = await getMarketFromHeaders(headersList);
 
@@ -20,14 +20,4 @@ export default async function PrivacyPolicyPage() {
 
   return <PrivacyPolicyClient info={info} storefront={storefront} />;
 }
-
-
-
-
-
-
-
-
-
-
 

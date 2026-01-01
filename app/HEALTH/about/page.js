@@ -5,7 +5,7 @@ import AboutUsClient from '@/components/AboutUsClient';
 
 export default async function AboutUsPage() {
   const language = 'en';
-  const storefront = 'LUNERA';
+  const storefront = 'HEALTH';
   const headersList = headers();
   const market = await getMarketFromHeaders(headersList);
 
@@ -27,14 +27,4 @@ export default async function AboutUsPage() {
 
   return <AboutUsClient initialProducts={products} info={info} storefront={storefront} />;
 }
-
-
-
-
-
-
-
-
-
-
 
