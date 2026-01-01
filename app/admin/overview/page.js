@@ -311,6 +311,14 @@ function EcommerceOverviewContent() {
     return calculatedMetrics;
   }, [productsWithStock, selectedWebsite]);
 
+  // State for showing more items in the preview
+  const [shopifyPreviewLimit, setShopifyPreviewLimit] = useState(5);
+  
+  // Reset preview limit when selectedWebsite changes
+  useEffect(() => {
+    setShopifyPreviewLimit(5);
+  }, [selectedWebsite]);
+  
   const pendingShopifyPreview = useMemo(() => {
     const items = datasets.shopifyItems.filter((item) => 
       isPendingForStorefront(item, selectedWebsite)
@@ -324,8 +332,20 @@ function EcommerceOverviewContent() {
         item: item, // Store full item for modal
       }))
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-      .slice(0, 5);
+      .slice(0, shopifyPreviewLimit);
+  }, [datasets.shopifyItems, selectedWebsite, shopifyPreviewLimit]);
+  
+  const totalPendingItems = useMemo(() => {
+    return datasets.shopifyItems.filter((item) => 
+      isPendingForStorefront(item, selectedWebsite)
+    ).length;
   }, [datasets.shopifyItems, selectedWebsite]);
+  
+  const hasMorePreviewItems = shopifyPreviewLimit < totalPendingItems;
+  
+  const handleLoadMorePreview = () => {
+    setShopifyPreviewLimit((prev) => prev + 5);
+  };
 
   const quickActions = useMemo(
     () =>
@@ -588,6 +608,14 @@ function EcommerceOverviewContent() {
                     </li>
                   ))}
                 </ul>
+                {hasMorePreviewItems && (
+                  <button
+                    onClick={handleLoadMorePreview}
+                    className="mt-3 w-full rounded-full border border-emerald-200 bg-emerald-50/60 px-4 py-2 text-xs font-semibold text-emerald-600 transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:border-emerald-400"
+                  >
+                    Show next 5 items ({totalPendingItems - shopifyPreviewLimit} remaining)
+                  </button>
+                )}
                 <Link
                   href="/admin/overview/shopifyItems"
                   className="mt-auto inline-flex items-center justify-center rounded-full border border-emerald-200 bg-emerald-50/60 px-4 py-2 text-xs font-semibold text-emerald-600 transition hover:border-emerald-300 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:border-emerald-400"
