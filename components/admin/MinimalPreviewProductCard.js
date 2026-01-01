@@ -66,7 +66,7 @@ export default function MinimalPreviewProductCard({
   return (
     <div className="relative">
       <div className={`group flex w-full flex-col overflow-hidden ${borderRadiusClass} bg-white/90 shadow-sm border-0 transition hover:-translate-y-1 hover:shadow-xl`}>
-        <div className={`${aspectRatioClass} w-full overflow-hidden bg-secondary/70 sm:aspect-[3/4] relative`}>
+        <div className={`${aspectRatioClass} w-full overflow-hidden bg-secondary/70 relative`}>
           <Image
             src="/Blerinas/Blerinas-logo-transparent2.png"
             alt={mockProduct.name}
