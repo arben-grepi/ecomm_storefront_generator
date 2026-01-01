@@ -413,7 +413,6 @@ export default function CheckoutPage() {
                   Includes VAT • Final total shown at checkout
                 </p>
               </div>
-            </div>
 
               <button
                 type="submit"
