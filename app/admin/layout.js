@@ -83,30 +83,16 @@ function AdminLayoutContent({ children }) {
   const handleSignOut = async () => {
     await signOutUser();
     
-    // Get the stored storefront from admin overview (highest priority)
-    const storedStorefront = typeof window !== 'undefined' 
-      ? sessionStorage.getItem('admin_storefront') 
-      : null;
-    
-    // Fallback to stored referrer (from when entering admin)
-    const storedReferrer = typeof window !== 'undefined' 
-      ? sessionStorage.getItem('admin_referrer') 
-      : null;
-    
-    // Clear the stored values after using them
+    // Clear stored values
     if (typeof window !== 'undefined') {
       sessionStorage.removeItem('admin_storefront');
       sessionStorage.removeItem('admin_referrer');
     }
     
-    // Determine redirect path
-    let redirectPath = '/'; // Default to LUNERA (root)
-    
-    // Priority: admin_storefront > admin_referrer > current detection
-    const storefront = storedStorefront || storedReferrer || getStorefront();
-    redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
-    
-    router.push(redirectPath);
+    // Always redirect to root - let middleware handle the domain redirect logic
+    // In production, middleware will redirect blerinas.com to /HEALTH
+    // In development, middleware won't redirect, so it stays at root
+    router.push('/');
   };
 
   if (loading) {

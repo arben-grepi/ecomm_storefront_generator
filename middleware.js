@@ -126,8 +126,13 @@ export async function middleware(request) {
     return NextResponse.next();
   }
   
+  // Only apply domain redirects in production (not in development)
+  const isProduction = process.env.NODE_ENV === 'production';
+  console.log(`[MIDDLEWARE] Environment: ${process.env.NODE_ENV}, isProduction: ${isProduction}`);
+  
   // If accessing blerinas.com at root path, redirect to blerinas.com/HEALTH (canonical domain)
-  if (isBlerinasDomain && pathname === '/') {
+  // ONLY in production - skip in development
+  if (isProduction && isBlerinasDomain && pathname === '/') {
     console.log(`[MIDDLEWARE] 🔄 REDIRECT CHECK 1: isBlerinasDomain && pathname === '/'`);
     
     // Construct redirect URL - try multiple approaches
@@ -163,7 +168,8 @@ export async function middleware(request) {
   }
   
   // If accessing root path on non-lunera domain, redirect to /HEALTH (for blerinas.com)
-  if (!isLuneraDomain && pathname === '/') {
+  // ONLY in production - skip in development
+  if (isProduction && !isLuneraDomain && pathname === '/') {
     console.log(`[MIDDLEWARE] 🔄 REDIRECT CHECK 2: !isLuneraDomain && pathname === '/'`);
     
     // Construct redirect URL
