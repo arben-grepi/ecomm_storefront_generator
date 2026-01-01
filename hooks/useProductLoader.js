@@ -160,7 +160,30 @@ export function useProductLoader({
         });
 
         setManualVariants(convertedVariants);
-        setSelectedVariants(convertedVariants.map((v) => v.id));
+        
+        // Select all variants (all variants in Firestore are selected variants)
+        const allVariantIds = convertedVariants.map((v) => v.id);
+        setSelectedVariants(allVariantIds);
+        
+        // Set default variant ID
+        const defaultVariantIdToSet = productData.defaultVariantId || null;
+        setDefaultVariantId(defaultVariantIdToSet);
+        
+        // CRITICAL: Ensure default variant is in selectedVariants
+        // This handles cases where defaultVariantId might not match any variant IDs
+        if (defaultVariantIdToSet && !allVariantIds.includes(defaultVariantIdToSet)) {
+          console.warn('[useProductLoader] ⚠️ Default variant ID not found in converted variants:', {
+            defaultVariantId: defaultVariantIdToSet,
+            availableVariantIds: allVariantIds,
+            convertedVariants: convertedVariants.map(v => ({ id: v.id, shopifyVariantId: v.shopifyVariantId }))
+          });
+        } else if (defaultVariantIdToSet) {
+          console.log('[useProductLoader] ✅ Default variant found and will be selected:', {
+            defaultVariantId: defaultVariantIdToSet,
+            allVariantIds: allVariantIds,
+            isInSelectedVariants: allVariantIds.includes(defaultVariantIdToSet)
+          });
+        }
 
         // Set form fields
         setDisplayName(productData.name || '');
@@ -175,7 +198,6 @@ export function useProductLoader({
               : ''
           );
         }
-        setDefaultVariantId(productData.defaultVariantId || null);
 
         // Collect ALL images from shopifyItem (product images + all variant images)
         // Then preselect only the images that are currently saved in Firestore
