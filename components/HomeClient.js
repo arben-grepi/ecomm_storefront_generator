@@ -250,7 +250,8 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     allCategoriesTaglineFontSize: rawInfo.allCategoriesTaglineFontSize != null ? parseFloat(rawInfo.allCategoriesTaglineFontSize) || 1 : 1,
     // Product Card styling
     productCardType: rawInfo.productCardType || 'minimal',
-    productCardAspectRatio: rawInfo.productCardAspectRatio || '3:4',
+    // Convert boolean to aspect ratio string for ProductCard component
+    productCardAspectRatio: rawInfo.productCardIsSquare === true ? '1:1' : '3:4',
     productCardColumnsPhone: rawInfo.productCardColumnsPhone != null ? parseInt(rawInfo.productCardColumnsPhone) || 2 : 2,
     productCardColumnsTablet: rawInfo.productCardColumnsTablet != null ? parseInt(rawInfo.productCardColumnsTablet) || 3 : 3,
     productCardColumnsLaptop: rawInfo.productCardColumnsLaptop != null ? parseInt(rawInfo.productCardColumnsLaptop) || 4 : 4,
@@ -528,16 +529,20 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             width: '100%',
           }}
         >
-          <div className="mx-auto flex flex-col items-center gap-6 text-center">
+          <div className="mx-auto flex flex-col items-center gap-6 text-center w-full max-w-full">
             {siteInfo.heroMainHeading && !siteInfo.heroMainHeading.includes('Something went wrong') && (() => {
               const wrappedText = preventOrphanedWords(siteInfo.heroMainHeading);
+              const baseSize = siteInfo.heroMainHeadingFontSize || 4;
               return (
                 <h2 
-                  className="max-sm:!text-[2rem]"
+                  className="w-full max-w-full break-words"
                   style={{ 
                     color: getColorFromSelection(siteInfo.heroMainHeadingColor || 'primary'),
                     fontFamily: getFontFromSelection(siteInfo.heroMainHeadingFont || 'primary'),
-                    fontSize: `clamp(1.25rem, ${siteInfo.heroMainHeadingFontSize || 4}rem, 6rem)`,
+                    fontSize: `clamp(1rem, min(${baseSize}rem, 8vw), 6rem)`,
+                    lineHeight: '1.2',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word',
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />
@@ -545,13 +550,17 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             })()}
             {siteInfo.heroDescription && (() => {
               const wrappedText = preventOrphanedWords(siteInfo.heroDescription);
+              const baseSize = siteInfo.heroDescriptionFontSize || 1;
               return (
                 <p 
-                  className="max-sm:!text-[1rem]"
+                  className="w-full max-w-full break-words"
                   style={{
                     color: getColorFromSelection(siteInfo.heroDescriptionColor || 'secondary'),
                     fontFamily: getFontFromSelection(siteInfo.heroDescriptionFont || 'primary'),
-                    fontSize: `clamp(0.75rem, ${siteInfo.heroDescriptionFontSize || 1}rem, 2rem)`,
+                    fontSize: `clamp(0.75rem, min(${baseSize}rem, 4vw), 2rem)`,
+                    lineHeight: '1.5',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word',
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }} 
                 />

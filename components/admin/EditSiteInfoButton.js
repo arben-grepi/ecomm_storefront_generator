@@ -99,7 +99,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
     categoryCarouselFontSize: 0.875, // rem
     // Product Card styling
     productCardType: 'minimal', // 'minimal' | 'bordered' | 'overlay' | 'compact'
-    productCardAspectRatio: '3:4', // '3:4' | '1:1' | '4:3'
+    productCardIsSquare: false, // true = 1:1, false = 3:4
     productCardNameColor: 'primary',
     productCardNameFont: 'primary',
     productCardNameFontSize: 0.65, // rem
@@ -209,7 +209,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           categoryCarouselFontSize: data.categoryCarouselFontSize != null ? parseFloat(data.categoryCarouselFontSize) || 0.875 : 0.875,
           // Product Card styling
           productCardType: data.productCardType || 'minimal',
-          productCardAspectRatio: data.productCardAspectRatio || '3:4',
+          productCardIsSquare: data.productCardIsSquare === true, // Default to false (3:4) if not set or not boolean
           productCardColumnsPhone: data.productCardColumnsPhone != null ? parseInt(data.productCardColumnsPhone) || 2 : 2,
           productCardColumnsTablet: data.productCardColumnsTablet != null ? parseInt(data.productCardColumnsTablet) || 3 : 3,
           productCardColumnsLaptop: data.productCardColumnsLaptop != null ? parseInt(data.productCardColumnsLaptop) || 4 : 4,
@@ -269,7 +269,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           categoryCarouselFontSize: 0.875,
           // Product Card styling
           productCardType: 'minimal',
-          productCardAspectRatio: '3:4',
+          productCardIsSquare: false,
           productCardColumnsPhone: 2, // 2 or 3 cards on phone
           productCardColumnsTablet: 3, // 3 or 4 cards on tablet
           productCardColumnsLaptop: 4, // 4 or 5 cards on laptop
@@ -396,7 +396,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
         categoryCarouselFontSize: parseFloat(form.categoryCarouselFontSize) || 0.875,
         // Product Card styling
         productCardType: form.productCardType || 'minimal',
-        productCardAspectRatio: form.productCardAspectRatio || '3:4',
+        productCardIsSquare: form.productCardIsSquare === true, // Explicitly convert to boolean
         productCardColumnsPhone: form.productCardColumnsPhone != null ? (parseInt(form.productCardColumnsPhone, 10) || 2) : 2,
         productCardColumnsTablet: form.productCardColumnsTablet != null ? (parseInt(form.productCardColumnsTablet, 10) || 3) : 3,
         productCardColumnsLaptop: form.productCardColumnsLaptop != null ? (parseInt(form.productCardColumnsLaptop, 10) || 4) : 4,
@@ -526,7 +526,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
               footerTextFontSize={form.footerTextFontSize}
               // Product Card styling
               productCardType={form.productCardType || 'minimal'}
-              productCardAspectRatio={form.productCardAspectRatio || '3:4'}
+              productCardIsSquare={form.productCardIsSquare === true}
               productCardColumnsPhone={form.productCardColumnsPhone}
               productCardColumnsTablet={form.productCardColumnsTablet}
               productCardColumnsLaptop={form.productCardColumnsLaptop}
@@ -1214,8 +1214,8 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                                 Image Aspect Ratio
                               </label>
                               <select
-                                value={form.productCardAspectRatio || '3:4'}
-                                onChange={(e) => setForm((prev) => ({ ...prev, productCardAspectRatio: e.target.value }))}
+                                value={form.productCardIsSquare ? '1:1' : '3:4'}
+                                onChange={(e) => setForm((prev) => ({ ...prev, productCardIsSquare: e.target.value === '1:1' }))}
                                 className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                               >
                                 <option value="3:4">3:4 (Portrait)</option>

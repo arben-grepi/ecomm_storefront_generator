@@ -43,7 +43,7 @@ export default function SitePreview({
   footerTextFontSize,
   // Product Card styling
   productCardType,
-  productCardAspectRatio,
+  productCardIsSquare,
   productCardColumnsPhone,
   productCardColumnsTablet,
   productCardColumnsLaptop,
@@ -233,15 +233,20 @@ export default function SitePreview({
               padding: showTextWidthBorder ? 'calc(1rem + 8px) calc(1rem + 8px)' : undefined,
             }}
           >
-            <div className="mx-auto flex flex-col items-center gap-6 text-center">
+            <div className="mx-auto flex flex-col items-center gap-6 text-center w-full max-w-full">
               {heroMainHeading && (() => {
                 const wrappedText = preventOrphanedWords(heroMainHeading);
+                const baseSize = heroMainHeadingFontSize || 4;
                 return (
                   <h2 
+                    className="w-full max-w-full break-words"
                     style={{ 
                       color: getColorFromSelection(heroMainHeadingColor || 'primary'),
                       fontFamily: getFontFromSelection(heroMainHeadingFont || 'primary'),
-                      fontSize: `clamp(1.25rem, ${heroMainHeadingFontSize || 4}rem, 6rem)`,
+                      fontSize: `clamp(1rem, min(${baseSize}rem, 8vw), 6rem)`,
+                      lineHeight: '1.2',
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }}
                   />
@@ -249,12 +254,17 @@ export default function SitePreview({
               })()}
               {heroDescription && (() => {
                 const wrappedText = preventOrphanedWords(heroDescription);
+                const baseSize = heroDescriptionFontSize || 1;
                 return (
                   <p 
+                    className="w-full max-w-full break-words"
                     style={{
                       color: getColorFromSelection(heroDescriptionColor || 'secondary'),
                       fontFamily: getFontFromSelection(heroDescriptionFont || 'primary'),
-                      fontSize: `clamp(0.75rem, ${heroDescriptionFontSize || 1}rem, 2rem)`,
+                      fontSize: `clamp(0.75rem, min(${baseSize}rem, 4vw), 2rem)`,
+                      lineHeight: '1.5',
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
                     }}
                     dangerouslySetInnerHTML={{ __html: wrappedText }} 
                   />
@@ -346,7 +356,7 @@ export default function SitePreview({
                       colorPalette={colorPalette}
                       fontPalette={fontPalette}
                       cardType={productCardType || 'minimal'}
-                      cardAspectRatio={productCardAspectRatio || '3:4'}
+                      cardAspectRatio={productCardIsSquare === true ? '1:1' : '3:4'}
                       cardBorderRadius={productCardBorderRadius || 'medium'}
                       nameColor={productCardNameColor || 'primary'}
                       nameFont={productCardNameFont || 'primary'}
