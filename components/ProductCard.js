@@ -23,6 +23,7 @@ function ProductCard({
   vatFont = 'primary',
   vatFontSize = 0.75,
   fontPalette,
+  cardAspectRatio = '3:4',
   cardBorderRadius = 'medium',
 }) {
   // Border radius mapping
@@ -82,6 +83,11 @@ function ProductCard({
     ? `${basePath}?colorPrimary=${encodeURIComponent(colorPalette.colorPrimary || '')}&colorSecondary=${encodeURIComponent(colorPalette.colorSecondary || '')}&colorTertiary=${encodeURIComponent(colorPalette.colorTertiary || '')}`
     : basePath;
 
+  const aspectRatioClass = {
+    '3:4': 'aspect-[3/4]',
+    '1:1': 'aspect-square',
+  }[cardAspectRatio] || 'aspect-[3/4]';
+
   return (
     <div className="relative">
       <Link
@@ -90,7 +96,7 @@ function ProductCard({
         className={`group flex w-full flex-col overflow-hidden ${borderRadiusClass} bg-white/90 shadow-sm border-0 transition hover:-translate-y-1 hover:shadow-xl`}
         prefetch
       >
-      <div className="aspect-[3/4] w-full overflow-hidden bg-secondary/70 sm:aspect-[3/4] relative">
+      <div className={`${aspectRatioClass} w-full overflow-hidden bg-secondary/70 relative`}>
         {product.image ? (
           <Image
             src={product.image}
