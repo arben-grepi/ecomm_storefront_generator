@@ -436,13 +436,14 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                 </Link>
                 {siteInfo.companyTagline && (() => {
                   const wrappedText = preventOrphanedWords(siteInfo.companyTagline);
+                  const baseSize = siteInfo.companyTaglineFontSize || 0.75;
                   return (
                     <span 
-                      className="rounded-full px-3 py-1 font-medium uppercase tracking-[0.3em] whitespace-nowrap overflow-hidden  max-sm:!text-[0.6rem]"
+                      className="rounded-full px-3 py-1 font-medium uppercase tracking-[0.3em] whitespace-nowrap overflow-hidden"
                       style={{ 
                         color: getColorFromSelection(siteInfo.companyTaglineColor || 'primary'),
                         fontFamily: getFontFromSelection(siteInfo.companyTaglineFont || 'primary'),
-                        fontSize: `clamp(0.4rem, ${siteInfo.companyTaglineFontSize || 0.75}rem, 1.5rem)`,
+                        fontSize: `clamp(0.6rem, ${baseSize * 0.5}vw, ${baseSize}rem)`,
                       }}
                       dangerouslySetInnerHTML={{ __html: wrappedText }}
                     />
@@ -539,7 +540,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   style={{ 
                     color: getColorFromSelection(siteInfo.heroMainHeadingColor || 'primary'),
                     fontFamily: getFontFromSelection(siteInfo.heroMainHeadingFont || 'primary'),
-                    fontSize: `clamp(1rem, min(${baseSize}rem, 8vw), 6rem)`,
+                    fontSize: `${baseSize * 0.8}vw`,
                     lineHeight: '1.2',
                     wordWrap: 'break-word',
                     overflowWrap: 'break-word',
@@ -557,7 +558,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   style={{
                     color: getColorFromSelection(siteInfo.heroDescriptionColor || 'secondary'),
                     fontFamily: getFontFromSelection(siteInfo.heroDescriptionFont || 'primary'),
-                    fontSize: `clamp(0.75rem, min(${baseSize}rem, 4vw), 2rem)`,
+                    fontSize: `${baseSize * 0.5}vw`,
                     lineHeight: '1.5',
                     wordWrap: 'break-word',
                     overflowWrap: 'break-word',

@@ -139,13 +139,14 @@ export default function SitePreview({
             </div>
             {companyTagline && (() => {
               const wrappedText = preventOrphanedWords(companyTagline);
+              const baseSize = companyTaglineFontSize || 0.75;
               return (
                 <span 
-                  className="rounded-full px-4 py-1 font-medium uppercase tracking-[0.3em] whitespace-nowrap overflow-hidden max-sm:!text-[0.6rem]"
+                  className="rounded-full px-3 py-1 font-medium uppercase tracking-[0.3em] whitespace-nowrap overflow-hidden"
                   style={{ 
                     color: getColorFromSelection(companyTaglineColor || 'primary'),
                     fontFamily: getFontFromSelection(companyTaglineFont || 'primary'),
-                    fontSize: `clamp(0.4rem, ${companyTaglineFontSize || 0.75}rem, 1.5rem)`,
+                    fontSize: `clamp(0.6rem, ${baseSize * 0.5}vw, ${baseSize}rem)`,
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />
@@ -223,14 +224,11 @@ export default function SitePreview({
         cropBottom={bannerCropBottom}
       >
           <section 
-            className="px-4 py-10 sm:px-6 sm:py-16 transition-all duration-300"
+            className="px-4 py-10 sm:px-6 sm:py-16"
             style={{ 
               maxWidth: `${textWidth ?? 75}%`,
               margin: '0 auto',
               width: '100%',
-              border: showTextWidthBorder ? `3px solid ${primaryColor}` : '3px solid transparent',
-              borderRadius: showTextWidthBorder ? '8px' : '0px',
-              padding: showTextWidthBorder ? 'calc(1rem + 8px) calc(1rem + 8px)' : undefined,
             }}
           >
             <div className="mx-auto flex flex-col items-center gap-6 text-center w-full max-w-full">
@@ -243,7 +241,7 @@ export default function SitePreview({
                     style={{ 
                       color: getColorFromSelection(heroMainHeadingColor || 'primary'),
                       fontFamily: getFontFromSelection(heroMainHeadingFont || 'primary'),
-                      fontSize: `clamp(1rem, min(${baseSize}rem, 8vw), 6rem)`,
+                      fontSize: `${baseSize * 0.8}vw`,
                       lineHeight: '1.2',
                       wordWrap: 'break-word',
                       overflowWrap: 'break-word',
@@ -261,7 +259,7 @@ export default function SitePreview({
                     style={{
                       color: getColorFromSelection(heroDescriptionColor || 'secondary'),
                       fontFamily: getFontFromSelection(heroDescriptionFont || 'primary'),
-                      fontSize: `clamp(0.75rem, min(${baseSize}rem, 4vw), 2rem)`,
+                      fontSize: `${baseSize * 0.5}vw`,
                       lineHeight: '1.5',
                       wordWrap: 'break-word',
                       overflowWrap: 'break-word',
