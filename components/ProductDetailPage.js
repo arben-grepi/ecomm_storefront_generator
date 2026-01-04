@@ -1354,11 +1354,13 @@ export default function ProductDetailPage({ category, product, variants, info = 
                           }}
                           className={`relative flex items-center gap-2 rounded-xl border-2 px-4 py-2 transition ${
                             isSelected
-                              ? 'bg-white shadow-md'
+                              ? 'shadow-md'
                               : 'bg-white/60'
                           }`}
                           style={{
                             borderColor: isSelected ? (siteInfo.colorPrimary || '#ec4899') : 'rgba(100, 116, 139, 0.7)',
+                            backgroundColor: isSelected ? (siteInfo.colorPrimary || '#ec4899') : undefined,
+                            color: isSelected ? (siteInfo.colorSecondary || '#64748b') : undefined,
                           }}
                           onMouseEnter={(e) => {
                             if (!isSelected) {
@@ -1382,7 +1384,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                               />
                             </div>
                           )}
-                          <span className="text-sm font-semibold" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{filterOutCountries(group) || group}</span>
+                          <span className="text-sm font-semibold" style={{ color: isSelected ? (siteInfo.colorSecondary || '#64748b') : (siteInfo.colorPrimary || '#ec4899') }}>{filterOutCountries(group) || group}</span>
                         </button>
                       );
                     })}
@@ -1418,14 +1420,15 @@ export default function ProductDetailPage({ category, product, variants, info = 
                             disabled={isOutOfStock}
                   className={`flex flex-col items-center justify-center rounded-xl border-2 px-3 py-2 text-sm font-semibold transition ${
                     isSelected
-                      ? 'bg-white shadow-md'
+                      ? 'shadow-md'
                       : isOutOfStock
                       ? 'bg-white/30 cursor-not-allowed'
                       : 'bg-white/60'
                   }`}
                   style={{
                     borderColor: isSelected ? (siteInfo.colorPrimary || '#ec4899') : (isOutOfStock ? 'rgba(100, 116, 139, 0.3)' : 'rgba(100, 116, 139, 0.7)'),
-                    color: isSelected ? (siteInfo.colorPrimary || '#ec4899') : (isOutOfStock ? (siteInfo.colorTertiary || '#94a3b8') : (siteInfo.colorSecondary || '#64748b')),
+                    backgroundColor: isSelected ? (siteInfo.colorPrimary || '#ec4899') : undefined,
+                    color: isSelected ? (siteInfo.colorSecondary || '#64748b') : (isOutOfStock ? (siteInfo.colorTertiary || '#94a3b8') : (siteInfo.colorSecondary || '#64748b')),
                   }}
                   onMouseEnter={(e) => {
                     if (!isOutOfStock && !isSelected) {
