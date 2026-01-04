@@ -249,20 +249,14 @@ async function buildMarketsObjectForWebhook(productId, marketsArray, shippingRat
   for (const market of marketsArray) {
     const marketData = await fetchProductMarketData(productId, market);
     
-    // Get shipping rate: prefer actual Shopify rates, fallback to market config estimate
-    let shippingRate = null;
-    let isEstimate = true;
+    // Get shipping cost: use actual Shopify rates if available, otherwise null
+    let shippingCost = null;
     
-    if (shippingRates && shippingRates[market]) {
-      // Use actual Shopify rate if available
-      shippingRate = shippingRates[market].standard;
-      isEstimate = !shippingRates[market].hasActualRates; // Use flag to determine if it's an estimate
-    } else {
-      // Fallback to market config estimate
-      const marketConfig = getMarketConfig(market);
-      shippingRate = marketConfig.shippingEstimate || '0.00';
-      isEstimate = true;
+    if (shippingRates && shippingRates[market] && shippingRates[market].hasActualRates) {
+      // Use actual Shopify rate (standard rate)
+      shippingCost = shippingRates[market].standard;
     }
+    // If not available, shippingCost remains null (indicates cost is unknown)
     
     // Get delivery estimate from market config
     const marketConfig = getMarketConfig(market);
@@ -271,9 +265,7 @@ async function buildMarketsObjectForWebhook(productId, marketsArray, shippingRat
     if (marketData) {
       marketsObject[market] = {
         ...marketData,
-        shippingRate: shippingRate, // Actual rate or estimate
-        shippingEstimate: shippingRate, // Keep for backward compatibility
-        isShippingEstimate: isEstimate, // Flag to indicate if it's an estimate
+        shippingCost: shippingCost, // Actual cost from Shopify, or null if unknown
         deliveryEstimateDays: deliveryEstimateDays // Delivery time estimate (e.g., "7-10")
       };
     } else {
@@ -282,9 +274,7 @@ async function buildMarketsObjectForWebhook(productId, marketsArray, shippingRat
         available: true,
         currency: 'EUR', // Default currency
         // NOTE: No price here - prices come from variant.price in the webhook payload
-        shippingRate: shippingRate,
-        shippingEstimate: shippingRate, // Keep for backward compatibility
-        isShippingEstimate: isEstimate,
+        shippingCost: shippingCost, // Actual cost from Shopify, or null if unknown
         deliveryEstimateDays: deliveryEstimateDays
       };
     }
@@ -411,7 +401,7 @@ async function getStorefronts(db) {
       const id = coll.id;
       // Storefronts are root folders that have a 'products' subcollection
       // Skip known root collections like 'shopifyItems', 'orders', etc.
-      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents' && id !== 'shippingRates') {
+      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents') {
         // Check if this collection has a 'products' subcollection
         try {
           const itemsSnapshot = await coll.doc('products').collection('items').limit(1).get();

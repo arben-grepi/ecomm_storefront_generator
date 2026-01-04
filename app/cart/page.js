@@ -315,38 +315,11 @@ function CartPageContent() {
   // Get current market from selected country
   const currentMarket = shippingAddress.countryCode || market;
   
-  // Simple: Fetch shipping rate from single document
-  const [shippingRate, setShippingRate] = useState(null);
-  const [loadingShipping, setLoadingShipping] = useState(true);
-  
-  useEffect(() => {
-    const fetchShippingRate = async () => {
-      setLoadingShipping(true);
-      try {
-        const { getShippingRate } = await import('@/lib/shipping-rates');
-        const rate = await getShippingRate(currentMarket);
-        console.log(`[CART] 🚚 Fetched shipping rate for ${currentMarket}: ${rate} EUR`);
-        setShippingRate(rate);
-      } catch (error) {
-        console.error(`[CART] ❌ Failed to fetch shipping rate:`, error);
-        // Fallback to market config
-        const marketConfig = getMarketConfig(currentMarket);
-        setShippingRate(parseFloat(marketConfig.shippingEstimate || '7.00'));
-      } finally {
-        setLoadingShipping(false);
-      }
-    };
-    
-    if (currentMarket) {
-      fetchShippingRate();
-    }
-  }, [currentMarket]);
-  
-  // Use fetched shipping rate or fallback
-  const shippingEstimatePrice = shippingRate || (() => {
-    const marketConfig = getMarketConfig(currentMarket);
-    return parseFloat(marketConfig.shippingEstimate || '7.00');
-  })();
+  // Shipping rate is always 2.90€ flat rate (hardcoded)
+  // Note: Products show actual shipping costs in admin panel for business intelligence,
+  // but customers always pay the same flat rate regardless of their location
+  const CUSTOMER_SHIPPING_PRICE = 2.90;
+  const shippingEstimatePrice = CUSTOMER_SHIPPING_PRICE;
   
   const tax = 0; // TODO: Calculate tax
   const estimatedTotal = useMemo(() => subtotal + shippingEstimatePrice + tax, [subtotal, shippingEstimatePrice, tax]);

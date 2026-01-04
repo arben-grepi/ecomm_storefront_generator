@@ -39,7 +39,7 @@ async function getStorefronts(db) {
       const id = coll.id;
       // Storefronts are root folders that have a 'products' subcollection
       // Skip known root collections like 'shopifyItems', 'orders', etc.
-      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents' && id !== 'shippingRates') {
+      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents') {
         try {
           const itemsSnapshot = await coll.doc('products').collection('items').limit(1).get();
           if (!itemsSnapshot.empty) {

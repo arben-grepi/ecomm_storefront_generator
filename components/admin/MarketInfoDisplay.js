@@ -1,5 +1,29 @@
 'use client';
 
+import { getMarketCurrency, getMarketLocale } from '@/lib/market-utils';
+
+/**
+ * Format shipping cost for display
+ */
+const formatShippingCost = (shippingCost, market) => {
+  if (!shippingCost) return null;
+  
+  const currency = getMarketCurrency(market);
+  const locale = getMarketLocale(market);
+  
+  try {
+    const formatter = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    return formatter.format(parseFloat(shippingCost));
+  } catch {
+    return `${shippingCost} ${currency}`;
+  }
+};
+
 /**
  * MarketInfoDisplay - Displays market availability information (read-only)
  */
@@ -10,7 +34,12 @@ export default function MarketInfoDisplay({ item }) {
   const marketsList = item.marketsObject && typeof item.marketsObject === 'object'
     ? Object.keys(item.marketsObject)
     : (Array.isArray(item.markets) ? item.markets : []);
-  const marketNames = { FI: 'Finland', DE: 'Germany' };
+  const marketNames = { 
+    FI: 'Finland', DE: 'Germany', SE: 'Sweden', NO: 'Norway', 
+    DK: 'Denmark', FR: 'France', IT: 'Italy', ES: 'Spain',
+    NL: 'Netherlands', BE: 'Belgium', AT: 'Austria', CH: 'Switzerland',
+    PL: 'Poland', IE: 'Ireland'
+  };
   
   return (
     <div>
@@ -24,6 +53,8 @@ export default function MarketInfoDisplay({ item }) {
           marketsList.map((market) => {
             const marketData = item.marketsObject?.[market];
             const isAvailable = marketData?.available !== false;
+            const shippingCost = marketData?.shippingCost;
+            const formattedShipping = shippingCost ? formatShippingCost(shippingCost, market) : null;
             
             return (
               <div key={market} className="flex flex-col gap-1">
@@ -35,7 +66,8 @@ export default function MarketInfoDisplay({ item }) {
                   }`}
                 >
                   <span className="whitespace-nowrap">
-                    {market} ({marketNames[market] || market})
+                    {market}
+                    {formattedShipping && ` - ${formattedShipping}`}
                   </span>
                   {isAvailable ? (
                     <svg className="ml-1.5 h-3.5 w-3.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -59,7 +91,8 @@ export default function MarketInfoDisplay({ item }) {
       </div>
       <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
         <strong>Green badge:</strong> Product is assigned and available to customers in this market.<br />
-        <strong>Amber badge:</strong> Product is assigned but not available (check inventory, shipping, or publication settings in Shopify).
+        <strong>Amber badge:</strong> Product is assigned but not available (check inventory, shipping, or publication settings in Shopify).<br />
+        <strong>Shipping cost:</strong> Shows actual shipping cost from Shopify (if available). Customers pay a flat 2.90€ shipping rate.
       </p>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
         Markets are managed in Shopify. To change markets, update the product in Shopify and re-run the import script.

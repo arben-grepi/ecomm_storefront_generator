@@ -13,7 +13,7 @@ export async function GET() {
     }
 
     const storefronts = [];
-    const excludedCollections = ['shopifyItems', 'carts', 'orders', 'users', 'userEvents', 'shippingRates'];
+    const excludedCollections = ['shopifyItems', 'carts', 'orders', 'users', 'userEvents'];
     
     try {
       // List all root-level collections

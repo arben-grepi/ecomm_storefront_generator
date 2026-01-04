@@ -829,7 +829,7 @@ async function fetchProductMarketData(productId, market) {
       return null;
     }
     
-    // Note: shippingEstimate will be added in buildMarketsObject using Admin API rates
+    // Note: shippingCost will be added in buildMarketsObject using Admin API rates
     return {
       available: productData.availableForSale || false,
       price: productData.priceRange?.minVariantPrice?.amount || '0.00',
@@ -843,7 +843,7 @@ async function fetchProductMarketData(productId, market) {
 
 /**
  * Build markets object with market-specific data from Storefront API
- * Format: { FI: { available: true, price: "29.99", currency: "EUR", shippingEstimate: "4.99" }, ... }
+ * Format: { FI: { available: true, price: "29.99", currency: "EUR", shippingCost: "3.80" }, ... }
  */
 async function buildMarketsObject(productId, marketsArray, shippingRates = null) {
   const marketsObject = {};
@@ -852,25 +852,18 @@ async function buildMarketsObject(productId, marketsArray, shippingRates = null)
   for (const market of marketsArray) {
     const marketData = await fetchProductMarketData(productId, market);
     
-    // Get shipping estimate: prefer Admin API rates, fallback to market config
-    let shippingEstimate = '0.00';
-    if (shippingRates && shippingRates[market]) {
+    // Get shipping cost: use actual Shopify rates if available, otherwise null
+    let shippingCost = null;
+    if (shippingRates && shippingRates[market] && shippingRates[market].hasActualRates) {
       // Use standard (lowest) rate from Admin API
-      shippingEstimate = shippingRates[market].standard;
-    } else {
-      // Fallback to market config estimate
-      const libPath = resolveLibPath('market-utils.js');
-      const marketUtilsModule = await import(libPath).catch(() => 
-        import('../lib/market-utils.js').catch(() => null)
-      );
-      const marketConfig = marketUtilsModule?.getMarketConfig?.(market) || {};
-      shippingEstimate = marketConfig.shippingEstimate || '0.00';
+      shippingCost = shippingRates[market].standard;
     }
+    // If not available, shippingCost remains null (indicates cost is unknown)
     
     if (marketData) {
       marketsObject[market] = {
         ...marketData,
-        shippingEstimate: shippingEstimate // Override with Admin API rate if available
+        shippingCost: shippingCost // Actual cost from Shopify, or null if unknown
       };
     } else {
       // Fallback: assume available if we can't fetch data
@@ -878,7 +871,7 @@ async function buildMarketsObject(productId, marketsArray, shippingRates = null)
         available: true,
         price: '0.00',
         currency: 'EUR',
-        shippingEstimate: shippingEstimate
+        shippingCost: shippingCost // Actual cost from Shopify, or null if unknown
       };
     }
   }
