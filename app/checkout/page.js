@@ -51,6 +51,13 @@ export default function CheckoutPage() {
             // Cache it
             const { saveInfoToCache } = await import('@/lib/info-cache');
             saveInfoToCache(storefront, data);
+            
+            // Cache logo as well
+            const { getLogo, saveLogoToCache } = await import('@/lib/logo-cache');
+            const logoPath = getLogo(storefront, data);
+            if (logoPath) {
+              saveLogoToCache(storefront, logoPath);
+            }
           }
         }
       } catch (error) {

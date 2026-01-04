@@ -9,7 +9,8 @@ import SettingsMenu from '@/components/SettingsMenu';
 import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getMarket } from '@/lib/get-market';
-import { getStorefrontTheme, getStorefrontLogo } from '@/lib/storefront-logos';
+import { getStorefrontTheme } from '@/lib/storefront-logos';
+import { getLogo } from '@/lib/logo-cache';
 import { getFirebaseDb } from '@/lib/firebase';
 import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { getDocumentPath } from '@/lib/store-collections';
@@ -1094,7 +1095,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
               <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center sm:hidden">
                 <Image
-                  src={getStorefrontLogo(storefront, siteInfo)}
+                  src={getLogo(storefront, siteInfo)}
                   alt={siteInfo.companyName || storefront}
                   width={240}
                   height={80}

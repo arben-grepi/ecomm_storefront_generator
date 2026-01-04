@@ -6,7 +6,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { doc, getDoc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
-import { getStorefrontLogo, getStorefrontTheme } from '@/lib/storefront-logos';
+import { getStorefrontTheme } from '@/lib/storefront-logos';
+import { getLogo } from '@/lib/logo-cache';
 import { getCachedInfo, saveInfoToCache } from '@/lib/info-cache';
 import AuthButton from '@/components/AuthButton';
 
@@ -198,7 +199,7 @@ function ThankYouPageContent() {
   
   const displayStorefront = orderData?.storefront || 'LUNERA';
   const theme = getStorefrontTheme(displayStorefront, siteInfo);
-  const logoPath = getStorefrontLogo(displayStorefront, siteInfo);
+  const logoPath = getLogo(displayStorefront, siteInfo);
   const primaryColor = siteInfo?.colorPrimary || theme.primaryColor || '#ec4899';
   const primaryColorHover = siteInfo?.colorPrimary ? `${siteInfo.colorPrimary}E6` : (theme.primaryColorHover || `${primaryColor}E6`);
   

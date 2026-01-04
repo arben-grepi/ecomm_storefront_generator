@@ -16,6 +16,7 @@ import { useCart } from '@/lib/cart';
 import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getStorefrontTheme, getStorefrontLogo, getStorefrontBanner } from '@/lib/storefront-logos';
+import { getLogo, saveLogoToCache } from '@/lib/logo-cache';
 import { getTextColorProps } from '@/lib/text-color-utils';
 import { preventOrphanedWords } from '@/lib/text-wrap-utils';
 import dynamic from 'next/dynamic';
@@ -86,11 +87,17 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     }
   }, [storefront]);
 
-  // Cache Info document when received from server
+  // Cache Info document and logo when received from server
   useEffect(() => {
     if (info && storefront && typeof window !== 'undefined' && Object.keys(info).length > 0) {
       const { saveInfoToCache } = require('@/lib/info-cache');
       saveInfoToCache(storefront, info);
+      
+      // Cache logo path when info is available
+      const logoPath = getLogo(storefront, info);
+      if (logoPath) {
+        saveLogoToCache(storefront, logoPath);
+      }
     }
   }, [info, storefront]);
   
@@ -419,7 +426,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               <div className="flex flex-col sm:flex-col">
                 <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center">
                   <Image
-                    src={getStorefrontLogo(storefront, siteInfo)}
+                    src={getLogo(storefront, siteInfo)}
                     alt={siteInfo.companyName || storefront}
                     width={300}
                     height={100}

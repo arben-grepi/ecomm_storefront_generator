@@ -8,7 +8,7 @@ import { useCart } from '@/lib/cart';
 import { getMarket } from '@/lib/get-market';
 import { getMarketConfig } from '@/lib/market-utils';
 import { useStorefront } from '@/lib/storefront-context';
-import { getStorefrontLogo } from '@/lib/storefront-logos';
+import { getLogo } from '@/lib/logo-cache';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import SettingsMenu from '@/components/SettingsMenu';
 import { getFirebaseDb } from '@/lib/firebase';
@@ -272,8 +272,8 @@ function CartPageContent() {
     fetchColors();
   }, [searchParams, storefront]);
   
-  // Get logo path for the current storefront (recalculate when storefront or siteInfo changes)
-  const logoPath = useMemo(() => getStorefrontLogo(storefront, siteInfo), [storefront, siteInfo]);
+  // Get logo path for the current storefront (uses cache first, falls back to calculation)
+  const logoPath = useMemo(() => getLogo(storefront, siteInfo), [storefront, siteInfo]);
   
   // Use colors from URL params instead of static theme
   const theme = useMemo(() => {

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useStorefront } from '@/lib/storefront-context';
 import { getStorefront } from '@/lib/get-storefront';
 import Image from 'next/image';
-import { getStorefrontLogo } from '@/lib/storefront-logos';
+import { getLogo } from '@/lib/logo-cache';
 import { getFirebaseDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { getCachedInfo } from '@/lib/info-cache';
@@ -45,6 +45,13 @@ export default function NotFound() {
           if (infoDoc.exists()) {
             const data = infoDoc.data();
             setInfo(data);
+            
+            // Cache logo as well
+            const { getLogo, saveLogoToCache } = await import('@/lib/logo-cache');
+            const logoPath = getLogo(storefront, data);
+            if (logoPath) {
+              saveLogoToCache(storefront, logoPath);
+            }
           }
         }
       } catch (error) {
@@ -65,7 +72,7 @@ export default function NotFound() {
         <div className="mb-8 flex justify-center">
           <Link href={homePath}>
             <Image
-              src={getStorefrontLogo(storefront, info)}
+              src={getLogo(storefront, info)}
               alt={storefront === 'LUNERA' ? 'Lunera' : storefront}
               width={300}
               height={100}
