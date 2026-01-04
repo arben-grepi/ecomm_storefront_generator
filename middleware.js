@@ -201,6 +201,31 @@ export async function middleware(request) {
       });
     }
   }
+
+  // Track visit (fire and forget - don't wait for response)
+  // This increments the visit counter and logs the country
+  if (storefront && country) {
+    // Use the request URL to build the API route URL
+    const url = new URL(request.url);
+    const apiUrl = `${url.origin}/api/track-visit`;
+    
+    // Fire and forget - don't block the response
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        storefront,
+        country,
+      }),
+    }).catch((error) => {
+      // Silently fail - analytics shouldn't break the app
+      console.warn(`[MIDDLEWARE] ⚠️  Failed to track visit: ${error.message}`);
+    });
+    
+    console.log(`[MIDDLEWARE] 📊 Tracking visit: ${storefront} from ${country}`);
+  }
   
   return response;
 }

@@ -105,6 +105,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Storefront analytics (visit tracking)
+    match /{storefront}/analytics {
+      allow read: if isAdmin();
+      allow write: if true; // Allow middleware/API routes to track visits
+    }
+
+    match /{storefront}/analytics/visits/{visitId} {
+      allow read: if isAdmin();
+      allow create: if true; // Allow middleware/API routes to log visits
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
