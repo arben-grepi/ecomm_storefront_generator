@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { FieldValue } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firestore-server';
+import { deleteAllProductVariants } from '@/lib/delete-deleted-products';
 
 /**
  * Verify Shopify webhook HMAC signature
@@ -28,115 +27,6 @@ function verifyShopifyWebhook(rawBody, hmacHeader) {
   return isValid;
 }
 
-/**
- * Get list of storefronts by checking root-level collections
- */
-async function getStorefronts(db) {
-  const storefronts = [];
-  try {
-    const collections = await db.listCollections();
-    for (const coll of collections) {
-      const id = coll.id;
-      // Storefronts are root folders that have a 'products' subcollection
-      // Skip known root collections like 'shopifyItems', 'orders', etc.
-      if (id !== 'shopifyItems' && id !== 'orders' && id !== 'carts' && id !== 'users' && id !== 'userEvents') {
-        try {
-          const itemsSnapshot = await coll.doc('products').collection('items').limit(1).get();
-          if (!itemsSnapshot.empty) {
-            // It's a storefront (has products)
-            storefronts.push(id);
-          }
-        } catch (e) {
-          // Not a storefront, skip
-        }
-      }
-    }
-  } catch (error) {
-    console.error('Error getting storefronts:', error);
-    return ['LUNERA'];
-  }
-  return storefronts.length > 0 ? storefronts : ['LUNERA'];
-}
-
-/**
- * Mark product as deleted/inactive instead of actually deleting
- * This preserves order history and analytics
- */
-async function handleProductDeletion(db, shopifyProductId) {
-  const shopifyCollection = db.collection('shopifyItems');
-  
-  // Update Shopify item
-  const shopifySnapshot = await shopifyCollection
-    .where('shopifyId', '==', shopifyProductId)
-    .limit(1)
-    .get();
-  
-  let targetStorefronts = null;
-  
-  if (!shopifySnapshot.empty) {
-    const shopifyDoc = shopifySnapshot.docs[0];
-    const shopifyData = shopifyDoc.data();
-    
-    // Get storefronts array from shopifyItems (respects admin decisions)
-    if (shopifyData.storefronts && Array.isArray(shopifyData.storefronts) && shopifyData.storefronts.length > 0) {
-      targetStorefronts = shopifyData.storefronts;
-      console.log(`[Delete Webhook] Product ${shopifyProductId} has explicit storefronts: [${targetStorefronts.join(', ')}]`);
-    }
-    
-    await shopifyDoc.ref.update({
-      status: 'deleted',
-      deletedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-    console.log(`Marked Shopify item ${shopifyDoc.id} as deleted`);
-  }
-
-  // Get all storefronts (for fallback if no explicit storefronts)
-  const allStorefronts = await getStorefronts(db);
-  const storefrontsToUpdate = targetStorefronts || allStorefronts;
-
-  // Update processed products in each storefront - mark as inactive instead of deleting
-  const batch = db.batch();
-  const updatedIds = [];
-
-  for (const storefront of storefrontsToUpdate) {
-    try {
-      const productsCollection = db.collection(storefront).doc('products').collection('items');
-      // Convert to number for query (products store sourceShopifyId as number)
-      const shopifyIdAsNumber = typeof shopifyProductId === 'string' 
-        ? Number(shopifyProductId) 
-        : shopifyProductId;
-      const productSnapshot = await productsCollection
-        .where('sourceShopifyId', '==', shopifyIdAsNumber)
-        .get();
-
-      for (const productDoc of productSnapshot.docs) {
-        batch.update(productDoc.ref, {
-          active: false,
-          deletedAt: FieldValue.serverTimestamp(),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-
-        const variantsCollection = productDoc.ref.collection('variants');
-        const variantsSnapshot = await variantsCollection.get();
-        variantsSnapshot.docs.forEach((variantDoc) => {
-          batch.delete(variantDoc.ref);
-        });
-
-        updatedIds.push({ id: productDoc.id, storefront });
-      }
-    } catch (error) {
-      console.error(`Error updating products in storefront ${storefront}:`, error);
-      // Continue with other storefronts
-    }
-  }
-
-  await batch.commit();
-  console.log(`Marked ${updatedIds.length} processed products as inactive for Shopify product ${shopifyProductId}`);
-
-  return updatedIds;
-}
-
 export async function POST(request) {
   try {
     const rawBody = await request.text();
@@ -158,18 +48,37 @@ export async function POST(request) {
     // Product delete payload contains the product ID
     const shopifyProductId = payload.id;
 
-    console.log(`Received product deletion webhook: product_id=${shopifyProductId}`);
+    console.log(`[Delete Webhook] 🗑️  Received product deletion webhook: product_id=${shopifyProductId}`);
 
-    const db = getAdminDb();
+    // Use existing deletion function that handles:
+    // - Deleting from shopifyItems
+    // - Deleting from all storefronts (products and variants)
+    // - Removing from categories
+    const deletionResult = await deleteAllProductVariants(shopifyProductId, []);
 
-    // Handle product deletion
-    const productIds = await handleProductDeletion(db, shopifyProductId);
+    if (!deletionResult.success) {
+      console.error(`[Delete Webhook] ❌ Failed to delete product ${shopifyProductId}:`, deletionResult.error);
+      return NextResponse.json(
+        { 
+          ok: false, 
+          shopifyProductId,
+          error: deletionResult.error,
+          message: 'Failed to delete product from database'
+        },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[Delete Webhook] ✅ Product ${shopifyProductId} deleted successfully:`);
+    console.log(`[Delete Webhook]    - ShopifyItems: ${deletionResult.shopifyItems.deletedProducts} product(s) deleted`);
+    console.log(`[Delete Webhook]    - Storefronts: ${deletionResult.storefronts.deletedVariants} variant(s), ${deletionResult.storefronts.deletedProducts} product(s) deleted`);
+    console.log(`[Delete Webhook]    - Categories: ${deletionResult.categories.updatedCategories} updated, ${deletionResult.categories.deletedCategories} deleted`);
 
     return NextResponse.json({ 
       ok: true, 
       shopifyProductId,
-      productIds,
-      message: productIds.length > 0 ? 'Products marked as inactive' : 'Products not found in processed products'
+      deletionResult,
+      message: `Product deleted: ${deletionResult.storefronts.deletedProducts} product(s) and ${deletionResult.storefronts.deletedVariants} variant(s) removed from all storefronts`
     });
   } catch (error) {
     console.error('Product deletion webhook processing error:', error);
