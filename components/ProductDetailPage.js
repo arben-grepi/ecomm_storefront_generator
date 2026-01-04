@@ -9,7 +9,6 @@ import SettingsMenu from '@/components/SettingsMenu';
 import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getMarket } from '@/lib/get-market';
-import { getStorefrontTheme } from '@/lib/storefront-logos';
 import { getLogo } from '@/lib/logo-cache';
 import { getFirebaseDb } from '@/lib/firebase';
 import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';

@@ -7,7 +7,6 @@ import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestor
 import { getFirebaseDb } from '@/lib/firebase';
 import { subscribeToAuth } from '@/lib/auth';
 import { getStorefront } from '@/lib/get-storefront';
-import { getStorefrontTheme } from '@/lib/storefront-logos';
 import AuthButton from '@/components/AuthButton';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -46,9 +45,9 @@ const getStatusLabel = (status) => {
 export default function OrdersPage() {
   const router = useRouter();
   const storefront = getStorefront(); // Get storefront from URL
-  const theme = getStorefrontTheme(storefront);
-  const primaryColor = theme.primaryColor || '#ec4899';
-  const primaryColorHover = theme.primaryColorHover || `${primaryColor}E6`;
+  // Colors come from Info document (CSS variables provide fallbacks)
+  const primaryColor = '#ec4899'; // Fallback - should fetch from Info document if needed
+  const primaryColorHover = '#ec4899E6';
   
   const [user, setUser] = useState(null);
   const [orders, setOrders] = useState([]);

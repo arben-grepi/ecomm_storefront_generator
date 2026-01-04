@@ -1,27 +1,35 @@
 /**
  * FIVESTARFINDS STOREFRONT THEME CSS (app/FIVESTARFINDS/globals.css)
  * 
- * This file defines FIVESTARFINDS's theme colors (turquoise/blue).
+ * IMPORTANT: These are FALLBACK values only. The Info document in Firestore is the source of truth.
+ * Colors and fonts from the Info document are applied via inline styles in components.
+ * 
+ * This file defines FIVESTARFINDS's fallback theme colors (turquoise/blue).
  * It's imported in app/FIVESTARFINDS/layout.js and overrides the default colors
  * defined in app/globals.css.
  * 
  * Common styles (body, html, animations) are defined in app/globals.css.
- * This file only contains theme-specific overrides.
+ * This file only contains theme-specific fallback overrides.
+ * 
+ * NOTE: Fonts are NOT defined here. Fonts come from the Info document and are applied
+ * via inline styles in components using getFontFromSelection().
  */
 
-/* FIVESTARFINDS Theme Colors - Turquoise/Blue */
+/* FIVESTARFINDS Theme Colors - Turquoise/Blue (FALLBACKS ONLY) */
 :root {
   /* Primary color (Turquoise - for text, buttons, accents) */
   --primary: #14b8a6; /* Turquoise */
   /* Secondary color (Light turquoise - for backgrounds) */
   --secondary: #f0fdfa; /* Light turquoise */
+  /* Tertiary color (for disabled states, footer text, etc.) */
+  --tertiary: #94a3b8; /* Slate-400 */
 }
 
 /* Map theme colors to Tailwind classes */
 @theme inline {
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
-  /* Use Inter font for FIVESTARFINDS */
-  --font-sans: var(--font-inter);
+  --color-tertiary: var(--tertiary);
+  /* Fonts come from Info document, not CSS variables */
 }
 

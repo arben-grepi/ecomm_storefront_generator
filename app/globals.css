@@ -18,16 +18,23 @@
 /**
  * CSS VARIABLES (Custom Properties)
  * 
- * These are default values that can be overridden by storefront-specific CSS files.
- * Each storefront (LUNERA, FIVESTARFINDS) defines its own --primary and --secondary colors
- * in its own globals.css file, which will override these defaults.
+ * IMPORTANT: These are FALLBACK values only. The Info document in Firestore is the source of truth.
+ * Colors and fonts from the Info document are applied via inline styles in components.
+ * 
+ * These CSS variables are used as:
+ * 1. Fallbacks when Info document doesn't have values
+ * 2. Tailwind utility classes (bg-primary, text-primary, etc.)
+ * 
+ * Storefront-specific CSS files (app/HEALTH/globals.css, app/FIVESTARFINDS/globals.css)
+ * can override these defaults, but Info document values (applied inline) take highest priority.
  */
 :root {
   --background: #ffffff;
   --foreground: #1f2937;
-  /* Default colors - LUNERA theme (root storefront) */
+  /* Default colors - LUNERA theme (root storefront) - FALLBACKS ONLY */
   --primary: #ec4899; /* LUNERA pink */
   --secondary: #fdf2f8; /* LUNERA pink background */
+  --tertiary: #94a3b8; /* Slate-400 - for disabled states, footer text, etc. */
 }
 
 /**
@@ -37,17 +44,19 @@
  * - bg-primary (uses --color-primary)
  * - text-primary (uses --color-primary)
  * - bg-secondary (uses --color-secondary)
+ * - text-tertiary (uses --color-tertiary)
  * 
- * Font variables are set in app/layout.js and applied to the <body> tag.
+ * NOTE: Fonts are NOT defined here because they come from the Info document.
+ * Fonts are applied via inline styles in components using getFontFromSelection().
+ * Next.js font variables (--font-geist-sans, etc.) are available but not used for storefront styling.
  */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
-  /* Font variables are set in app/layout.js via className on <body> */
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-tertiary: var(--tertiary);
+  /* Fonts come from Info document, not CSS variables */
 }
 
 /**

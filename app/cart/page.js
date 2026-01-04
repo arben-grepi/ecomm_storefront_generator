@@ -275,16 +275,7 @@ function CartPageContent() {
   // Get logo path for the current storefront (uses cache first, falls back to calculation)
   const logoPath = useMemo(() => getLogo(storefront, siteInfo), [storefront, siteInfo]);
   
-  // Use colors from URL params instead of static theme
-  const theme = useMemo(() => {
-    const primaryColor = siteInfo.colorPrimary || '#ec4899';
-    return {
-      primaryColor: primaryColor,
-      primaryColorHover: primaryColor, // Could calculate darker version if needed
-      textColor: primaryColor,
-      borderColor: primaryColor,
-    };
-  }, [siteInfo.colorPrimary]);
+  // Colors come from siteInfo (Info document), no separate theme object needed
   
   // Get user's market from cookie (set by middleware) - cached to avoid repeated parsing
   const market = useMemo(() => getMarket(), []);
@@ -565,7 +556,7 @@ function CartPageContent() {
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-16 text-center">
-          <h1 className="mb-4 text-2xl font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Your cart is empty</h1>
+          <h1 className="mb-4 text-2xl font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Your cart is empty</h1>
           
           {cartEmptiedMessage ? (
             <>
@@ -582,11 +573,11 @@ function CartPageContent() {
             href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
             className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
             style={{ 
-              backgroundColor: theme.primaryColor,
-              '--hover-color': theme.primaryColorHover,
+              backgroundColor: siteInfo.colorPrimary || '#ec4899',
+              '--hover-color': siteInfo.colorPrimary ? `${siteInfo.colorPrimary}E6` : '#ec4899E6',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = theme.primaryColorHover}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = theme.primaryColor}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = siteInfo.colorPrimary ? `${siteInfo.colorPrimary}E6` : '#ec4899E6'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = siteInfo.colorPrimary || '#ec4899'}
           >
             Continue Shopping
           </Link>
@@ -622,7 +613,7 @@ function CartPageContent() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-8 text-3xl font-light" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Shopping Cart</h1>
+        <h1 className="mb-8 text-3xl font-light" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Shopping Cart</h1>
 
         {validationError && (
           <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
@@ -635,7 +626,7 @@ function CartPageContent() {
           <div className="lg:col-span-2 space-y-6">
             {/* Shipping Address Form - At the top */}
             <section className="rounded-xl border border-secondary/70 bg-white/90 p-6">
-              <h2 className="mb-2 text-lg font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Shipping Location</h2>
+              <h2 className="mb-2 text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Shipping Location</h2>
               <p className="mb-4 text-sm" style={{ color: '#000000' }}>
                 Select your country to check shipping availability. Full address will be collected on the checkout page.
               </p>
@@ -670,8 +661,8 @@ function CartPageContent() {
                       color: siteInfo.colorSecondary || '#64748b',
                     }}
                     onFocus={(e) => {
-                      e.currentTarget.style.borderColor = siteInfo.colorPrimary || theme.borderColor;
-                      e.currentTarget.style.boxShadow = `0 0 0 2px ${(siteInfo.colorPrimary || theme.borderColor)}33`;
+                      e.currentTarget.style.borderColor = siteInfo.colorPrimary || '#ec4899';
+                      e.currentTarget.style.boxShadow = `0 0 0 2px ${(siteInfo.colorPrimary || '#ec4899')}33`;
                     }}
                     onBlur={(e) => {
                       e.currentTarget.style.borderColor = 'rgba(100, 116, 139, 0.7)';
@@ -690,7 +681,7 @@ function CartPageContent() {
 
             {/* Cart Items */}
             <section className="space-y-4">
-              <h2 className="text-lg font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>Cart Items</h2>
+              <h2 className="text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Cart Items</h2>
               {cart.map((item) => {
                 const itemKey = `${item.productId}-${item.variantId}`;
                 const isUnavailable = unavailableItems.has(itemKey);
@@ -710,7 +701,7 @@ function CartPageContent() {
                     />
                   )}
                   <div className="flex-1">
-                    <h3 className="font-medium" style={{ color: siteInfo.colorPrimary || theme.textColor }}>{item.productName}</h3>
+                    <h3 className="font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{item.productName}</h3>
                     {item.variantName && (
                       <p className="text-sm" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{item.variantName}</p>
                     )}
@@ -726,7 +717,7 @@ function CartPageContent() {
                           borderColor: 'transparent',
                           borderWidth: '1px',
                           borderStyle: 'solid',
-                          color: siteInfo.colorSecondary || theme.textColor,
+                          color: siteInfo.colorSecondary || '#64748b',
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.borderColor = siteInfo.colorSecondary || '#64748b';
@@ -748,7 +739,7 @@ function CartPageContent() {
                           borderColor: 'transparent',
                           borderWidth: '1px',
                           borderStyle: 'solid',
-                          color: siteInfo.colorSecondary || theme.textColor,
+                          color: siteInfo.colorSecondary || '#64748b',
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.borderColor = siteInfo.colorSecondary || '#64748b';
@@ -835,16 +826,16 @@ function CartPageContent() {
                 disabled={processing || validatingShipping}
                 className="mt-6 w-full rounded-full px-6 py-3 font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ 
-                  backgroundColor: theme.primaryColor,
+                  backgroundColor: siteInfo.colorPrimary || '#ec4899',
                 }}
                 onMouseEnter={(e) => {
                   if (!e.currentTarget.disabled) {
-                    e.currentTarget.style.backgroundColor = theme.primaryColorHover;
+                    e.currentTarget.style.backgroundColor = siteInfo.colorPrimary ? `${siteInfo.colorPrimary}E6` : '#ec4899E6';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!e.currentTarget.disabled) {
-                    e.currentTarget.style.backgroundColor = theme.primaryColor;
+                    e.currentTarget.style.backgroundColor = siteInfo.colorPrimary || '#ec4899';
                   }
                 }}
               >
@@ -860,8 +851,8 @@ function CartPageContent() {
                 href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
                 className="mt-3 block w-full rounded-full bg-white px-6 py-3 text-center font-semibold transition hover:bg-slate-50"
                 style={{
-                  borderColor: theme.borderColor,
-                  color: theme.textColor,
+                  borderColor: siteInfo.colorPrimary || '#ec4899',
+                  color: siteInfo.colorPrimary || '#ec4899',
                 }}
               >
                 Continue Shopping

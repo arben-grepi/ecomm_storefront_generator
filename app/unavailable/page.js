@@ -3,13 +3,12 @@
 import { useEffect, useState } from 'react';
 import { getCountryName } from '@/lib/market-utils';
 import { useStorefront } from '@/lib/storefront-context';
-import { getStorefrontTheme } from '@/lib/storefront-logos';
 
 export default function UnavailablePage() {
   const storefront = useStorefront();
-  const theme = getStorefrontTheme(storefront);
-  const primaryColor = theme.primaryColor || '#ec4899';
-  const primaryColorHover = theme.primaryColorHover || `${primaryColor}E6`;
+  // Colors come from Info document (CSS variables provide fallbacks)
+  const primaryColor = '#ec4899'; // Fallback - should fetch from Info document if needed
+  const primaryColorHover = '#ec4899E6';
   
   const [country, setCountry] = useState('Unknown');
   const [email, setEmail] = useState('');

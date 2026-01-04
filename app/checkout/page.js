@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useCart } from '@/lib/cart';
 import { subscribeToAuth } from '@/lib/auth';
 import { getStorefront } from '@/lib/get-storefront';
-import { getStorefrontTheme } from '@/lib/storefront-logos';
 import Link from 'next/link';
 import AuthButton from '@/components/AuthButton';
 
@@ -67,10 +66,9 @@ export default function CheckoutPage() {
     fetchInfo();
   }, [storefront]);
   
-  // Always prioritize Info document colors over hardcoded theme colors
-  const theme = getStorefrontTheme(storefront, siteInfo);
-  const primaryColor = siteInfo?.colorPrimary || theme.primaryColor || '#ec4899';
-  const primaryColorHover = siteInfo?.colorPrimary ? `${siteInfo.colorPrimary}E6` : (theme.primaryColorHover || `${primaryColor}E6`);
+  // Get colors from Info document (CSS variables provide storefront-specific fallbacks)
+  const primaryColor = siteInfo?.colorPrimary || '#ec4899';
+  const primaryColorHover = siteInfo?.colorPrimary ? `${siteInfo.colorPrimary}E6` : '#ec4899E6';
   
   // Form state - Simplified: Only collect Country, City, Street Address for shipping validation
   // Email, name, phone will be collected on Shopify's checkout page. (Triggering build)

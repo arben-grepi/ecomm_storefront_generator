@@ -6,7 +6,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { doc, getDoc, onSnapshot, collection, query, where, orderBy, limit, getDocs, Timestamp } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
-import { getStorefrontTheme } from '@/lib/storefront-logos';
 import { getLogo } from '@/lib/logo-cache';
 import { getCachedInfo, saveInfoToCache } from '@/lib/info-cache';
 import AuthButton from '@/components/AuthButton';
@@ -198,10 +197,9 @@ function ThankYouPageContent() {
   }, [orderData?.storefront]);
   
   const displayStorefront = orderData?.storefront || 'LUNERA';
-  const theme = getStorefrontTheme(displayStorefront, siteInfo);
   const logoPath = getLogo(displayStorefront, siteInfo);
-  const primaryColor = siteInfo?.colorPrimary || theme.primaryColor || '#ec4899';
-  const primaryColorHover = siteInfo?.colorPrimary ? `${siteInfo.colorPrimary}E6` : (theme.primaryColorHover || `${primaryColor}E6`);
+  const primaryColor = siteInfo?.colorPrimary || '#ec4899';
+  const primaryColorHover = siteInfo?.colorPrimary ? `${siteInfo.colorPrimary}E6` : '#ec4899E6';
   
   // Get home URL based on storefront
   const getHomeUrl = (storefront) => {

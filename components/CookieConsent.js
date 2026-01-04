@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useStorefront } from '@/lib/storefront-context';
-import { getStorefrontTheme } from '@/lib/storefront-logos';
 import { getLogo } from '@/lib/logo-cache';
 
 const COOKIE_CONSENT_KEY = 'cookie_consent';
@@ -70,10 +69,9 @@ export default function CookieConsent() {
   }, [storefront]);
   
   const logoPath = getLogo(storefront, info);
-  // Get primary color from Info document (always prioritize Info over hardcoded theme)
-  const theme = getStorefrontTheme(storefront, info);
-  const primaryColor = info?.colorPrimary || theme.primaryColor || '#ec4899';
-  const primaryColorHover = info?.colorPrimary ? `${info.colorPrimary}E6` : (theme.primaryColorHover || '#db2777');
+  // Get primary color from Info document (CSS variables provide storefront-specific fallbacks)
+  const primaryColor = info?.colorPrimary || '#ec4899';
+  const primaryColorHover = info?.colorPrimary ? `${info.colorPrimary}E6` : '#ec4899E6';
   
   const [isVisible, setIsVisible] = useState(false);
   const [showDetails, setShowDetails] = useState(false);

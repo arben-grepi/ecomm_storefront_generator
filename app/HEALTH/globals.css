@@ -1,27 +1,35 @@
 /**
  * HEALTH STOREFRONT THEME CSS (app/HEALTH/globals.css)
  * 
- * This file defines HEALTH's theme colors (green/wellness).
+ * IMPORTANT: These are FALLBACK values only. The Info document in Firestore is the source of truth.
+ * Colors and fonts from the Info document are applied via inline styles in components.
+ * 
+ * This file defines HEALTH's fallback theme colors (green/wellness).
  * It's imported in app/HEALTH/layout.js and overrides the default colors
  * defined in app/globals.css.
  * 
  * Common styles (body, html, animations) are defined in app/globals.css.
- * This file only contains theme-specific overrides.
+ * This file only contains theme-specific fallback overrides.
+ * 
+ * NOTE: Fonts are NOT defined here. Fonts come from the Info document and are applied
+ * via inline styles in components using getFontFromSelection().
  */
 
-/* HEALTH Theme Colors - Green/Wellness */
+/* HEALTH Theme Colors - Green/Wellness (FALLBACKS ONLY) */
 :root {
   /* Primary color (Green - for text, buttons, accents) */
   --primary: #10b981; /* Emerald green */
   /* Secondary color (Light green - for backgrounds) */
   --secondary: #f0fdf4; /* Light green */
+  /* Tertiary color (for disabled states, footer text, etc.) */
+  --tertiary: #94a3b8; /* Slate-400 */
 }
 
 /* Map theme colors to Tailwind classes */
 @theme inline {
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
-  /* Use Inter font for HEALTH */
-  --font-sans: var(--font-inter);
+  --color-tertiary: var(--tertiary);
+  /* Fonts come from Info document, not CSS variables */
 }
 

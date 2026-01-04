@@ -31,7 +31,6 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   // Use storefront from prop (server-provided) or fallback to context
   const storefrontFromContext = useStorefront();
   const storefront = storefrontProp || storefrontFromContext;
-  const theme = getStorefrontTheme(storefront); // Get theme for cart badge
   
   // Get category from URL parameter if present (needed before hooks)
   const searchParams = useSearchParams();

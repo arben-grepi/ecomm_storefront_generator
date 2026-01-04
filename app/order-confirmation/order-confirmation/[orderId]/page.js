@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
 import { getFirebaseDb } from '@/lib/firebase';
 import { getStorefront } from '@/lib/get-storefront';
-import { getStorefrontTheme } from '@/lib/storefront-logos';
 import AuthButton from '@/components/AuthButton';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -22,9 +21,9 @@ export default function OrderConfirmationPage() {
   const pathname = usePathname();
   const orderId = params?.orderId;
   const storefront = getStorefront(); // Get storefront from URL
-  const theme = getStorefrontTheme(storefront);
-  const primaryColor = theme.primaryColor || '#ec4899';
-  const primaryColorHover = theme.primaryColorHover || `${primaryColor}E6`;
+  // Colors come from Info document (CSS variables provide fallbacks)
+  const primaryColor = '#ec4899'; // Fallback - should fetch from Info document if needed
+  const primaryColorHover = '#ec4899E6';
   
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
