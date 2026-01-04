@@ -1,8 +1,6 @@
 import { notFound } from 'next/navigation';
-import { headers } from 'next/headers';
 import { Suspense } from 'react';
 import { getServerSideProductDetail, getServerSideInfo } from '@/lib/firestore-server';
-import { getStorefrontFromHeaders } from '@/lib/get-storefront-server';
 import ProductDetailPage from '@/components/ProductDetailPage';
 
 /**
@@ -22,10 +20,9 @@ export default async function ProductPage({ params }) {
     notFound();
   }
 
-  // Get storefront from headers (cookie set by middleware) to match client-side
-  const headersList = await headers();
-  let storefront = await getStorefrontFromHeaders(headersList, 'LUNERA');
-  
+  // Determine storefront and product slug directly from URL segments
+  // (No need to check cookie - URL segments are the source of truth for product pages)
+  let storefront = 'LUNERA';
   let productSlug = null;
   const excludedSegments = ['admin', 'api', 'cart', 'orders', 'checkout', 'unavailable', 'order-confirmation', 'thank-you'];
   
