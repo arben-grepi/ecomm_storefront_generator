@@ -1,5 +1,7 @@
 # Multi-Storefront E-commerce Platform
 
+<img src="docs/screenshots/2Storefronts.png" alt="Multi-Storefront View" width="50%" height="auto" />
+
 A Next.js multi-storefront e-commerce platform using Shopify as a headless backend and single source of truth. The system generates multiple independent storefronts, imports products from Shopify into an internal database, and serves market-specific catalogs.
 
 After import, products go through a processing phase where they are assigned to storefronts and categories, configured with images, and prepared for launch with customer-facing content.
@@ -25,6 +27,15 @@ The platform leverages Shopify's infrastructure for:
 
 - **Payment Processing**: Secure payment handling with support for multiple payment methods
 - **Checkout System**: Complete checkout flow and order processing
+
+<img src="docs/screenshots/NextJsCheckoutPage.png" alt="Next.js Checkout Page" width="50%" height="auto" />
+
+*Checkout initiates in the Next.js app, then redirects to Shopify for secure payment processing*
+
+<img src="docs/screenshots/ShopifyCheckout.png" alt="Shopify Checkout" width="50%" height="auto" />
+
+*Final payment and order processing handled by Shopify*
+
 - **Global Order Tracking**: Order management and fulfillment tracking
 - **Shipping Rate Calculation**: Real-time shipping rates based on location and order details
 - **Inventory Management**: Stock levels synchronized from Shopify's inventory system
@@ -55,6 +66,8 @@ Custom Next.js middleware implements sophisticated routing logic:
 
 ### Backend Admin Dashboard
 
+<img src="docs/screenshots/AdminPortal.png" alt="Admin Portal Overview" width="50%" height="auto" />
+
 The comprehensive admin dashboard provides complete control over the platform:
 
 - **Product Management**: Import products from Shopify queue, customize before launch (images, descriptions, pricing, variants), assign to storefronts and categories
@@ -66,6 +79,17 @@ The comprehensive admin dashboard provides complete control over the platform:
 - **Analytics & Metrics**: Track performance across storefronts and markets
 
 All changes made in the admin dashboard are immediately reflected across the appropriate storefronts.
+
+**Admin Dashboard Features:**
+
+<img src="docs/screenshots/AdminImportProducts.png" alt="Product Import" width="50%" height="auto" />  
+*Import products from Shopify into the staging area*
+
+<img src="docs/screenshots/AdminEditProducts.png" alt="Edit Products" width="50%" height="auto" />  
+*Customize products before launching to storefronts*
+
+<img src="docs/screenshots/AdminEditSiteInfo.png" alt="Site Customization" width="50%" height="auto" />  
+*Configure colors, fonts, content, and styling without code changes*
 
 ## Multi-Storefront Architecture
 
