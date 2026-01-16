@@ -189,7 +189,11 @@ export function useProductLoader({
         setDisplayName(productData.name || '');
         setDisplayDescription(productData.description || '');
         setBulletPoints(productData.bulletPoints || []);
-        setCategoryId(productData.categoryId || productData.categoryIds?.[0] || '');
+        // Load all categories (support both categoryId and categoryIds)
+        const loadedCategoryIds = Array.isArray(productData.categoryIds) && productData.categoryIds.length > 0
+          ? productData.categoryIds
+          : (productData.categoryId ? [productData.categoryId] : []);
+        setCategoryId(loadedCategoryIds); // setCategoryId now accepts array
         // Base price is read-only (comes from Shopify), so setBasePriceInput is optional
         if (setBasePriceInput) {
           setBasePriceInput(

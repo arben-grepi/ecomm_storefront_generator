@@ -50,8 +50,13 @@ export function useProductSaver({
    * Validate product data before saving
    */
   const validateProductData = () => {
-    if (!db || !categoryId) {
-      setToastMessage({ type: 'error', text: 'Please select a category.' });
+    // Use categoryIds if provided, otherwise fall back to categoryId (for backward compatibility)
+    const finalCategoryIds = categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0
+      ? categoryIds
+      : (categoryId ? [categoryId] : []);
+    
+    if (!db || finalCategoryIds.length === 0) {
+      setToastMessage({ type: 'error', text: 'Please select at least one category.' });
       return false;
     }
 
@@ -343,12 +348,15 @@ export function useProductSaver({
         ? (existingProduct?.publishedToOnlineStore !== undefined ? existingProduct.publishedToOnlineStore : true)
         : true);
 
-    const categoryIds = categoryId ? [categoryId] : [];
+    // Use categoryIds if provided, otherwise fall back to categoryId (for backward compatibility)
+    const finalCategoryIds = categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0
+      ? categoryIds
+      : (categoryId ? [categoryId] : []);
 
     return {
       name: displayName,
       slug,
-      categoryIds,
+      categoryIds: finalCategoryIds,
       basePrice: parsedBasePrice,
       defaultVariantPrice, // Price from default variant (for product card display)
       description: displayDescription,
@@ -696,125 +704,130 @@ export function useProductSaver({
    * Silently creates category in storefronts where it doesn't exist
    */
   const updateCategories = async (productRefs, selectedStorefronts) => {
-    if (!categoryId || productRefs.length === 0) return;
+    // Use categoryIds if provided, otherwise fall back to categoryId (for backward compatibility)
+    const finalCategoryIds = categoryIds && Array.isArray(categoryIds) && categoryIds.length > 0
+      ? categoryIds
+      : (categoryId ? [categoryId] : []);
+    
+    if (finalCategoryIds.length === 0 || productRefs.length === 0) return;
 
     console.log('[useProductSaver] updateCategories:', {
-      categoryId,
+      categoryIds: finalCategoryIds,
       selectedStorefronts,
       productRefsCount: productRefs.length,
     });
 
-    // First, try to find category data in selected storefronts
-    let categoryData = null;
-    let categoryFoundInStorefront = null;
-    
-    for (const storefront of selectedStorefronts) {
-      try {
-        const categoryDoc = await getDoc(doc(db, ...getDocumentPath('categories', categoryId, storefront)));
-        if (categoryDoc.exists()) {
-          categoryData = categoryDoc.data();
-          categoryFoundInStorefront = storefront;
-          console.log('[useProductSaver] Found category in storefront:', storefront, categoryData);
-          break;
-        }
-      } catch (e) {
-        // Category doesn't exist in this storefront, continue
-      }
-    }
-
-    // If not found in selected storefronts, try all available storefronts
-    if (!categoryData) {
-      const allStorefrontsToCheck = [...new Set([selectedWebsite, ...availableWebsites])];
-      for (const storefront of allStorefrontsToCheck) {
+    // Process each category
+    for (const currentCategoryId of finalCategoryIds) {
+      // First, try to find category data in selected storefronts
+      let categoryData = null;
+      let categoryFoundInStorefront = null;
+      
+      for (const storefront of selectedStorefronts) {
         try {
-          const categoryDoc = await getDoc(doc(db, ...getDocumentPath('categories', categoryId, storefront)));
+          const categoryDoc = await getDoc(doc(db, ...getDocumentPath('categories', currentCategoryId, storefront)));
           if (categoryDoc.exists()) {
             categoryData = categoryDoc.data();
             categoryFoundInStorefront = storefront;
-            console.log('[useProductSaver] Found category in other storefront:', storefront, categoryData);
+            console.log('[useProductSaver] Found category in storefront:', storefront, categoryData);
             break;
           }
         } catch (e) {
           // Category doesn't exist in this storefront, continue
         }
       }
-    }
 
-    if (!categoryData) {
-      console.warn(`[useProductSaver] Category ${categoryId} not found in any storefront. Cannot create category automatically.`);
-      setToastMessage({ 
-        type: 'error', 
-        text: `Category not found. Please ensure the category exists in at least one storefront.` 
-      });
-      return;
-    }
-
-    // Now ensure category exists in all selected storefronts
-    for (const storefront of selectedStorefronts) {
-      const categoryRef = doc(db, ...getDocumentPath('categories', categoryId, storefront));
-      const categoryDoc = await getDoc(categoryRef);
-      
-      if (!categoryDoc.exists()) {
-        // Category doesn't exist in this storefront - create it silently
-        const categorySlug = categoryData.slug || slugify(categoryData.name || 'Unnamed Category') || categoryId;
-        const newCategoryData = {
-          name: categoryData.name || 'Unnamed Category',
-          slug: categorySlug,
-          description: categoryData.description || '',
-          imageUrl: categoryData.imageUrl || null,
-          active: categoryData.active !== false,
-          storefronts: selectedStorefronts,
-          previewProductIds: [],
-          metrics: {
-            totalViews: 0,
-            lastViewedAt: null,
-          },
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-        
-        console.log('[useProductSaver] Creating category in storefront:', storefront, newCategoryData);
-        await setDoc(categoryRef, newCategoryData);
-        console.log('[useProductSaver] ✅ Category created silently in storefront:', storefront);
-      } else {
-        // Category exists - update storefronts list if needed
-        const existingData = categoryDoc.data();
-        const existingStorefronts = Array.isArray(existingData.storefronts) ? existingData.storefronts : [];
-        const needsUpdate = !selectedStorefronts.every(sf => existingStorefronts.includes(sf));
-        
-        if (needsUpdate) {
-          const updatedStorefronts = [...new Set([...existingStorefronts, ...selectedStorefronts])];
-          console.log('[useProductSaver] Updating category storefronts:', {
-            storefront,
-            existingStorefronts,
-            updatedStorefronts,
-          });
-          await updateDoc(categoryRef, {
-            storefronts: updatedStorefronts,
-            updatedAt: serverTimestamp(),
-          });
+      // If not found in selected storefronts, try all available storefronts
+      if (!categoryData) {
+        const allStorefrontsToCheck = [...new Set([selectedWebsite, ...availableWebsites])];
+        for (const storefront of allStorefrontsToCheck) {
+          try {
+            const categoryDoc = await getDoc(doc(db, ...getDocumentPath('categories', currentCategoryId, storefront)));
+            if (categoryDoc.exists()) {
+              categoryData = categoryDoc.data();
+              categoryFoundInStorefront = storefront;
+              console.log('[useProductSaver] Found category in other storefront:', storefront, categoryData);
+              break;
+            }
+          } catch (e) {
+            // Category doesn't exist in this storefront, continue
+          }
         }
       }
 
-      // Add product to category's previewProductIds
-      const currentCategoryDoc = await getDoc(categoryRef);
-      const currentData = currentCategoryDoc.exists() ? currentCategoryDoc.data() : {};
-      const currentPreviewIds = Array.isArray(currentData.previewProductIds) ? currentData.previewProductIds : [];
-      
-      const productIdsToAdd = productRefs
-        .filter(ref => ref.storefront === storefront)
-        .map(ref => ref.id)
-        .filter(id => !currentPreviewIds.includes(id));
-      
-      if (productIdsToAdd.length > 0) {
-        console.log('[useProductSaver] Adding products to category preview:', {
-          storefront,
-          productIdsToAdd,
-        });
-        await updateDoc(categoryRef, {
-          previewProductIds: arrayUnion(...productIdsToAdd),
-          updatedAt: serverTimestamp(),
-        });
+      if (!categoryData) {
+        console.warn(`[useProductSaver] Category ${currentCategoryId} not found in any storefront. Skipping this category.`);
+        continue; // Skip this category and continue with others
+      }
+
+      // Now ensure category exists in all selected storefronts
+      for (const storefront of selectedStorefronts) {
+        const categoryRef = doc(db, ...getDocumentPath('categories', currentCategoryId, storefront));
+        const categoryDoc = await getDoc(categoryRef);
+        
+        if (!categoryDoc.exists()) {
+          // Category doesn't exist in this storefront - create it silently
+          const categorySlug = categoryData.slug || slugify(categoryData.name || 'Unnamed Category') || currentCategoryId;
+          const newCategoryData = {
+            name: categoryData.name || 'Unnamed Category',
+            slug: categorySlug,
+            description: categoryData.description || '',
+            imageUrl: categoryData.imageUrl || null,
+            active: categoryData.active !== false,
+            storefronts: selectedStorefronts,
+            previewProductIds: [],
+            metrics: {
+              totalViews: 0,
+              lastViewedAt: null,
+            },
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          };
+          
+          console.log('[useProductSaver] Creating category in storefront:', storefront, newCategoryData);
+          await setDoc(categoryRef, newCategoryData);
+          console.log('[useProductSaver] ✅ Category created silently in storefront:', storefront);
+        } else {
+          // Category exists - update storefronts list if needed
+          const existingData = categoryDoc.data();
+          const existingStorefronts = Array.isArray(existingData.storefronts) ? existingData.storefronts : [];
+          const needsUpdate = !selectedStorefronts.every(sf => existingStorefronts.includes(sf));
+          
+          if (needsUpdate) {
+            const updatedStorefronts = [...new Set([...existingStorefronts, ...selectedStorefronts])];
+            console.log('[useProductSaver] Updating category storefronts:', {
+              storefront,
+              existingStorefronts,
+              updatedStorefronts,
+            });
+            await updateDoc(categoryRef, {
+              storefronts: updatedStorefronts,
+              updatedAt: serverTimestamp(),
+            });
+          }
+        }
+
+        // Add product to category's previewProductIds
+        const currentCategoryDoc = await getDoc(categoryRef);
+        const currentData = currentCategoryDoc.exists() ? currentCategoryDoc.data() : {};
+        const currentPreviewIds = Array.isArray(currentData.previewProductIds) ? currentData.previewProductIds : [];
+        
+        const productIdsToAdd = productRefs
+          .filter(ref => ref.storefront === storefront)
+          .map(ref => ref.id)
+          .filter(id => !currentPreviewIds.includes(id));
+        
+        if (productIdsToAdd.length > 0) {
+          console.log('[useProductSaver] Adding products to category preview:', {
+            storefront,
+            categoryId: currentCategoryId,
+            productIdsToAdd,
+          });
+          await updateDoc(categoryRef, {
+            previewProductIds: arrayUnion(...productIdsToAdd),
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
     }
   };
@@ -885,12 +898,10 @@ export function useProductSaver({
     }
 
     // Update category information if available
-    // Note: We store the category ID from the first storefront where the product exists
+    // Note: We store the first category ID for backward compatibility
     // This is informational - webhooks don't use this for category matching
-    if (categoryId) {
-      // Try to preserve existing matchedCategorySlug if it exists
-      // Otherwise, we could look it up, but for now we'll just note that category was set
-      updateData.lastCategoryId = categoryId;
+    if (finalCategoryIds.length > 0) {
+      updateData.lastCategoryId = finalCategoryIds[0];
     }
 
     await setDoc(shopifyItemRef, updateData, { merge: true });
@@ -899,7 +910,7 @@ export function useProductSaver({
       storefronts: selectedStorefronts,
       added: newStorefronts,
       removed: removedStorefronts,
-      categoryId,
+      categoryIds: finalCategoryIds,
     });
   };
 

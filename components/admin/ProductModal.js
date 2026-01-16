@@ -8,6 +8,7 @@ import { getCollectionPath, getDocumentPath } from '@/lib/store-collections';
 import { useWebsite } from '@/lib/website-context';
 import Toast from '@/components/admin/Toast';
 import CategorySelector from '@/components/admin/CategorySelector';
+import MultiCategorySelector from '@/components/admin/MultiCategorySelector';
 import ImageManager from '@/components/admin/ImageManager';
 import ProductFormFields from '@/components/admin/ProductFormFields';
 import StorefrontSelector from '@/components/admin/StorefrontSelector';
@@ -48,7 +49,7 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
   const db = getFirebaseDb();
   const { selectedWebsite, availableWebsites, loading: websitesLoading } = useWebsite();
-  const [categoryId, setCategoryId] = useState(initialCategoryId || '');
+  const [categoryIds, setCategoryIds] = useState(initialCategoryId ? [initialCategoryId] : []);
   const [loading, setLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
   const [storefrontSelections, setStorefrontSelections] = useState([]);
@@ -460,7 +461,14 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     setDisplayName,
     setDisplayDescription,
     setBulletPoints,
-    setCategoryId,
+    setCategoryId: (idOrIds) => {
+      // Handle both single categoryId (backward compatibility) and categoryIds array
+      if (Array.isArray(idOrIds)) {
+        setCategoryIds(idOrIds);
+      } else {
+        setCategoryIds(idOrIds ? [idOrIds] : []);
+      }
+    },
     setDefaultVariantId,
     setSelectedImages,
     setVariantImages,
@@ -709,7 +717,8 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
     displayName,
     displayDescription,
     bulletPoints,
-    categoryId,
+    categoryId: categoryIds.length > 0 ? categoryIds[0] : '', // For backward compatibility
+    categoryIds: categoryIds, // New: array of category IDs
     selectedImages,
     selectedVariants,
     defaultVariantId,
@@ -995,9 +1004,9 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
                       Category
                     </label>
                     <div className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 shadow-sm transition focus-within:border-emerald-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:focus-within:border-emerald-500">
-                      <CategorySelector 
-                        value={categoryId} 
-                        onChange={setCategoryId}
+                      <MultiCategorySelector 
+                        value={categoryIds} 
+                        onChange={setCategoryIds}
                         storefronts={storefrontSelections.length > 0 ? storefrontSelections : availableWebsites.length > 0 ? availableWebsites : undefined}
                       />
                     </div>
