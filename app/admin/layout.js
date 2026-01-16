@@ -15,9 +15,17 @@ function AdminLayoutContent({ children }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Check if we already have a stored referrer (don't overwrite it)
-    const existingReferrer = sessionStorage.getItem('admin_referrer');
-    if (existingReferrer) {
+    // Check if we already have a stored storefront (don't overwrite it)
+    // Check both admin_storefront (set by overview page) and admin_referrer (set by layout)
+    const existingStorefront = sessionStorage.getItem('admin_storefront') || sessionStorage.getItem('admin_referrer');
+    if (existingStorefront) {
+      // Ensure both are set for consistency
+      if (!sessionStorage.getItem('admin_storefront')) {
+        sessionStorage.setItem('admin_storefront', existingStorefront);
+      }
+      if (!sessionStorage.getItem('admin_referrer')) {
+        sessionStorage.setItem('admin_referrer', existingStorefront);
+      }
       return; // Already captured, don't overwrite
     }
 
@@ -28,8 +36,9 @@ function AdminLayoutContent({ children }) {
     if (storefrontCookie) {
       const storefront = storefrontCookie.split('=')[1];
       if (storefront) {
-        // Store the storefront we came from
+        // Store the storefront we came from (store in both for consistency)
         sessionStorage.setItem('admin_referrer', storefront);
+        sessionStorage.setItem('admin_storefront', storefront);
         return;
       }
     }
@@ -46,7 +55,9 @@ function AdminLayoutContent({ children }) {
         const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart', 'orders'];
         if (segments.length > 0 && !excludedSegments.includes(segments[0].toLowerCase())) {
           const storefront = segments[0].toUpperCase();
+          // Store in both for consistency
           sessionStorage.setItem('admin_referrer', storefront);
+          sessionStorage.setItem('admin_storefront', storefront);
           return;
         }
       } catch (e) {
@@ -54,13 +65,15 @@ function AdminLayoutContent({ children }) {
       }
     }
 
-    // Last fallback: use current storefront detection
-    const currentStorefront = getStorefront();
+    // Last fallback: use current storefront detection or selectedWebsite from context
+    const currentStorefront = selectedWebsite || getStorefront();
     if (currentStorefront && currentStorefront !== 'FIVESTARFINDS') {
       sessionStorage.setItem('admin_referrer', currentStorefront);
+      sessionStorage.setItem('admin_storefront', currentStorefront);
     } else {
       // Default to FIVESTARFINDS if we can't determine
       sessionStorage.setItem('admin_referrer', 'FIVESTARFINDS');
+      sessionStorage.setItem('admin_storefront', 'FIVESTARFINDS');
     }
   }, []);
 
@@ -83,16 +96,29 @@ function AdminLayoutContent({ children }) {
   const handleSignOut = async () => {
     await signOutUser();
     
-    // Clear stored values
+    // Get the stored storefront BEFORE clearing sessionStorage
+    let storefront = null;
     if (typeof window !== 'undefined') {
+      // Try admin_storefront first (set by admin overview page)
+      storefront = sessionStorage.getItem('admin_storefront');
+      
+      // Fallback to admin_referrer (set by admin layout on entry)
+      if (!storefront) {
+        storefront = sessionStorage.getItem('admin_referrer');
+      }
+      
+      // Clear stored values after reading them
       sessionStorage.removeItem('admin_storefront');
       sessionStorage.removeItem('admin_referrer');
     }
     
-    // Always redirect to root - let middleware handle the domain redirect logic
-    // In production, middleware will redirect blerinas.com to /HEALTH
-    // In development, middleware won't redirect, so it stays at root
-    router.push('/');
+    // Redirect to the storefront we came from, or default to FIVESTARFINDS
+    if (storefront && storefront !== 'FIVESTARFINDS') {
+      router.push(`/${storefront}`);
+    } else {
+      // FIVESTARFINDS is the default storefront (root redirects to /FIVESTARFINDS)
+      router.push('/FIVESTARFINDS');
+    }
   };
 
   if (loading) {
