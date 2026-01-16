@@ -138,6 +138,20 @@ export function useShopifyItemInitializer({
           generateProductContent(title, truncatedBodyHtml)
             .then((content) => {
               const duration = Date.now() - startTime;
+              
+              // Handle case where service is unavailable (returns null)
+              if (content === null) {
+                console.log('[useShopifyItemInitializer] ℹ️ AI content generation service unavailable (not configured)', { 
+                  duration: `${duration}ms`
+                });
+                
+                if (setIsGeneratingAIContent) {
+                  setIsGeneratingAIContent(false);
+                }
+                // Continue without generated content - user can fill manually
+                return;
+              }
+              
               console.log('[useShopifyItemInitializer] ✅ AI content generated successfully', { 
                 duration: `${duration}ms`,
                 hasDisplayName: !!content.displayName,

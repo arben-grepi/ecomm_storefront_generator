@@ -20,7 +20,7 @@
  */
 
 // Import HEALTH theme CSS (green theme)
-// This overrides the default LUNERA theme colors from app/globals.css
+// This overrides the default theme colors from app/globals.css
 import "./globals.css";
 import { getServerSideInfo } from '@/lib/firestore-server';
 

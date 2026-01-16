@@ -5,12 +5,14 @@ import ProductDetailPage from '@/components/ProductDetailPage';
 
 /**
  * Catch-all route for products
- * Handles both root (LUNERA) and storefront products
+ * Handles storefront products only (all products are under storefront paths)
  * 
  * Routes:
- * - /product-slug (LUNERA - root, single segment)
  * - /FIVESTARFINDS/product-slug (storefront product, two segments)
- * - /LINGERIE/product-slug (storefront product, two segments)
+ * - /HEALTH/product-slug (storefront product, two segments)
+ * 
+ * Note: Single segment URLs are not valid product routes - they should be storefront home pages.
+ * Root (/) redirects to /FIVESTARFINDS via middleware.
  */
 export default async function ProductPage({ params }) {
   const resolved = await params;
@@ -21,18 +23,19 @@ export default async function ProductPage({ params }) {
   }
 
   // Determine storefront and product slug directly from URL segments
-  // (No need to check cookie - URL segments are the source of truth for product pages)
-  let storefront = 'LUNERA';
+  // All product URLs must have format: /{storefront}/{product-slug}
+  let storefront = 'FIVESTARFINDS';
   let productSlug = null;
   const excludedSegments = ['admin', 'api', 'cart', 'orders', 'checkout', 'unavailable', 'order-confirmation', 'thank-you'];
   
   if (slugArray.length === 1) {
-    // Single segment: /product-slug (root/LUNERA product)
+    // Single segment: should not be a product (should be a storefront home page)
+    // Treat as FIVESTARFINDS product for backwards compatibility, but this shouldn't happen
     const segment = slugArray[0];
     if (excludedSegments.includes(segment.toLowerCase())) {
       notFound();
     }
-    storefront = 'LUNERA';
+    storefront = 'FIVESTARFINDS';
     productSlug = segment;
   } else if (slugArray.length === 2) {
     // Two segments: /storefront/product-slug

@@ -9,7 +9,7 @@ export async function GET() {
   try {
     const adminDb = getAdminDb();
     if (!adminDb) {
-      return NextResponse.json({ storefronts: ['LUNERA'] }, { status: 200 });
+      return NextResponse.json({ storefronts: ['FIVESTARFINDS'] }, { status: 200 });
     }
 
     const storefronts = [];
@@ -37,8 +37,8 @@ export async function GET() {
           }
         } catch (infoError) {
           // Info document doesn't exist or can't be accessed - not a storefront
-          // Always include LUNERA as default storefront even if Info doesn't exist
-          if (id === 'LUNERA') {
+          // Always include FIVESTARFINDS as default storefront even if Info doesn't exist
+          if (id === 'FIVESTARFINDS') {
             storefronts.push(id);
           }
         }
@@ -46,12 +46,12 @@ export async function GET() {
     } catch (error) {
       console.error('Error listing collections:', error);
       // Fallback to default
-      return NextResponse.json({ storefronts: ['LUNERA'] }, { status: 200 });
+      return NextResponse.json({ storefronts: ['FIVESTARFINDS'] }, { status: 200 });
     }
 
-    // Ensure at least LUNERA is included
+    // Ensure at least FIVESTARFINDS is included
     if (storefronts.length === 0) {
-      storefronts.push('LUNERA');
+      storefronts.push('FIVESTARFINDS');
     }
 
     // Sort alphabetically
@@ -60,7 +60,7 @@ export async function GET() {
     return NextResponse.json({ storefronts }, { status: 200 });
   } catch (error) {
     console.error('Error fetching storefronts:', error);
-    return NextResponse.json({ storefronts: ['LUNERA'] }, { status: 200 });
+    return NextResponse.json({ storefronts: ['FIVESTARFINDS'] }, { status: 200 });
   }
 }
 

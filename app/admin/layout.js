@@ -56,11 +56,11 @@ function AdminLayoutContent({ children }) {
 
     // Last fallback: use current storefront detection
     const currentStorefront = getStorefront();
-    if (currentStorefront && currentStorefront !== 'LUNERA') {
+    if (currentStorefront && currentStorefront !== 'FIVESTARFINDS') {
       sessionStorage.setItem('admin_referrer', currentStorefront);
     } else {
-      // Default to LUNERA if we can't determine
-      sessionStorage.setItem('admin_referrer', 'LUNERA');
+      // Default to FIVESTARFINDS if we can't determine
+      sessionStorage.setItem('admin_referrer', 'FIVESTARFINDS');
     }
   }, []);
 

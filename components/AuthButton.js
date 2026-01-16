@@ -65,8 +65,8 @@ export default function AuthButton() {
         sessionStorage.removeItem('admin_storefront');
       }
       
-      // LUNERA is the default storefront at root path
-      const redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
+      // FIVESTARFINDS is the default storefront (root redirects to /FIVESTARFINDS)
+      const redirectPath = storefront === 'FIVESTARFINDS' ? '/FIVESTARFINDS' : `/${storefront}`;
       router.push(redirectPath);
     } catch (error) {
       console.error('Sign out error:', error);

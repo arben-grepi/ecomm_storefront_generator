@@ -54,7 +54,7 @@ function transformShopifyOrder(shopifyOrder) {
   // Support both old format (storefront) and new format (_storefront)
   const storefront = shopifyOrder.note_attributes?.find(
     (attr) => attr.name === '_storefront' || attr.name === 'storefront'
-  )?.value || 'LUNERA'; // Default to LUNERA if not found
+  )?.value || 'FIVESTARFINDS'; // Default to FIVESTARFINDS if not found
 
   // Extract market from note_attributes (set via customAttributes in checkoutCreate)
   // Support both old format (storefront_market) and new format (_market)

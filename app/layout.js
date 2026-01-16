@@ -5,13 +5,14 @@
  * It runs on the SERVER (Node.js runtime), so you CAN debug it with breakpoints.
  * 
  * IMPORTANT: This file is executed for EVERY page request, before any route-specific layouts.
- * Execution order: middleware.js → app/layout.js → app/page.js (LUNERA storefront at root)
+ * Execution order: middleware.js → app/layout.js → app/{storefront}/page.js
+ * Root (/) redirects to /FIVESTARFINDS via middleware.
  */
 
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 // Import shared global CSS (common styles for all pages)
-// Root uses LUNERA theme (pink) as default
-// Other storefronts import their own theme CSS in their layouts:
+// Default theme colors are fallbacks only (actual colors come from Firestore Info documents).
+// Storefronts import their own theme CSS in their layouts:
 // - app/FIVESTARFINDS/layout.js imports app/FIVESTARFINDS/globals.css (turquoise theme)
 import "./globals.css";
 // PageTransitionBar removed - wasn't working/visible. Can be re-added if needed.
@@ -50,11 +51,11 @@ const inter = Inter({
 /**
  * METADATA (SEO & Browser Information)
  * 
- * Root layout now serves LUNERA as the default storefront.
- * Metadata is generated dynamically from the LUNERA Info document.
+ * Root layout metadata uses FIVESTARFINDS as the default storefront.
+ * Metadata is generated dynamically from the FIVESTARFINDS Info document.
  */
 export async function generateMetadata() {
-  const storefront = 'LUNERA';
+  const storefront = 'FIVESTARFINDS';
   const info = await getServerSideInfo('en', storefront);
   
   // Generate metadata from Info document
@@ -99,7 +100,7 @@ export async function generateMetadata() {
  */
 export default function RootLayout({ children }) {
   // 🔍 ROOT LAYOUT - Set breakpoint here in Cursor (Node.js debugger will work)
-  // Root layout now serves LUNERA as the default storefront
+  // Root layout wraps all pages. Root (/) redirects to /FIVESTARFINDS via middleware.
   
   return (
     <html lang="en" data-scroll-behavior="smooth">

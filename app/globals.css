@@ -4,9 +4,10 @@
  * This file contains styles that apply to ALL pages across the entire application.
  * It's imported in the root layout (app/layout.js).
  * 
- * Root uses LUNERA theme (pink) as default.
- * Other storefront-specific theme colors are defined in:
+ * Default theme colors (fallbacks only - actual colors come from Firestore Info documents).
+ * Storefront-specific theme colors are defined in:
  * - app/FIVESTARFINDS/globals.css (turquoise theme)
+ * - app/HEALTH/globals.css (storefront-specific theme)
  * 
  * Other storefront layouts import their own theme CSS, which overrides the CSS variables
  * defined here.
@@ -31,9 +32,9 @@
 :root {
   --background: #ffffff;
   --foreground: #1f2937;
-  /* Default colors - LUNERA theme (root storefront) - FALLBACKS ONLY */
-  --primary: #ec4899; /* LUNERA pink */
-  --secondary: #fdf2f8; /* LUNERA pink background */
+  /* Default colors - FALLBACKS ONLY (actual colors come from Firestore Info documents) */
+  --primary: #06b6d4; /* Turquoise (FIVESTARFINDS default) */
+  --secondary: #ecfeff; /* Turquoise background */
   --tertiary: #94a3b8; /* Slate-400 - for disabled states, footer text, etc. */
 }
 

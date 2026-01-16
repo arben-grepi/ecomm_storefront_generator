@@ -12,6 +12,7 @@
     "seed:content": "node scripts/create-editable-content.js",
     "shopify:import": "node scripts/import-shopify-products.js",
     "shopify:check-storefront": "node scripts/check-storefront-api-config.js",
+    "shopify:cleanup-storefronts": "node scripts/cleanup-shopify-items-storefronts.js",
     "stock:recalculate": "node scripts/recalculate-product-stock.js",
     "stock:sync-from-shopify": "node scripts/sync-stock-from-shopify.js"
   },

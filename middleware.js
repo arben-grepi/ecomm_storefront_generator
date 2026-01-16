@@ -107,35 +107,39 @@ export async function middleware(request) {
   }
 
   // Extract storefront from URL path
-  // Root (/) is LUNERA (default storefront)
-  // Other storefronts are at /FIVESTARFINDS, etc.
-  // Product URLs: /product-slug (LUNERA) or /storefront/product-slug
+  // Root (/) redirects to FIVESTARFINDS (default storefront)
+  // All storefronts are at /{storefrontName}
+  // Product URLs: /{storefrontName}/product-slug
   const segments = pathname.split('/').filter(Boolean);
   const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart', 'orders', 'checkout'];
   let storefront = null;
+  
+  // Redirect root (/) to FIVESTARFINDS
+  if (segments.length === 0 || pathname === '/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/FIVESTARFINDS';
+    return NextResponse.redirect(url);
+  }
   
   // Check if we're on the cart page - if so, use existing storefront cookie or default
   if (pathname === '/cart' || pathname.startsWith('/cart/')) {
     // On cart page, preserve the existing storefront cookie (don't change it)
     const existingStorefront = request.cookies.get('storefront')?.value;
-    storefront = existingStorefront || 'LUNERA';
-  } else if (segments.length === 0 || pathname === '/') {
-    // Root path (/) is LUNERA (default storefront)
-    storefront = 'LUNERA';
+    storefront = existingStorefront || 'FIVESTARFINDS';
   } else if (segments.length === 1 && !excludedSegments.includes(segments[0].toLowerCase())) {
-    // Single segment - could be storefront home (e.g., /FIVESTARFINDS) or product (e.g., /product-slug)
-    // If it's all uppercase and no hyphens, treat as storefront; otherwise treat as product (LUNERA)
+    // Single segment - must be a storefront home (e.g., /FIVESTARFINDS)
+    // All single segments are treated as storefronts (no root products)
     const firstSegment = segments[0];
     const isLikelyStorefront = firstSegment === firstSegment.toUpperCase() && !firstSegment.includes('-');
-    storefront = isLikelyStorefront ? firstSegment.toUpperCase() : 'LUNERA';
+    storefront = isLikelyStorefront ? firstSegment.toUpperCase() : 'FIVESTARFINDS';
   } else if (segments.length >= 2 && !excludedSegments.includes(segments[0].toLowerCase())) {
     // Two or more segments (e.g., /FIVESTARFINDS/product-slug)
     // First segment is a storefront name
     storefront = segments[0].toUpperCase();
   } else {
-    // For excluded paths (order-confirmation, orders, etc.), use existing cookie or default to LUNERA
+    // For excluded paths (order-confirmation, orders, etc.), use existing cookie or default to FIVESTARFINDS
     const existingStorefront = request.cookies.get('storefront')?.value;
-    storefront = existingStorefront || 'LUNERA';
+    storefront = existingStorefront || 'FIVESTARFINDS';
   } 
 
   // Check if market is already set in cookie (memoization - skip detection if already set)
