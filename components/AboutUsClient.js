@@ -1,14 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useStorefront } from '@/lib/storefront-context';
-import { getDisplayImageUrl } from '@/lib/image-utils';
 import { getCachedInfo, saveInfoToCache } from '@/lib/info-cache';
 import { getFirebaseDb } from '@/lib/firebase';
-import { getCollectionPath } from '@/lib/store-collections';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import SettingsMenu from '@/components/SettingsMenu';
 import InstagramLogo from '@/components/InstagramLogo';
 import { getLogo } from '@/lib/logo-cache';
@@ -78,17 +75,6 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
     fetchColors();
   }, [db, storefront, info]);
 
-  // Get top product by views - show only the single top product
-  const topProduct = useMemo(() => {
-    if (!initialProducts || initialProducts.length === 0) return null;
-    // Sort by totalViews and take top 1
-    const sorted = [...initialProducts].sort((a, b) => {
-      const aViews = a.metrics?.totalViews || a.viewCount || 0;
-      const bViews = b.metrics?.totalViews || b.viewCount || 0;
-      return bViews - aViews;
-    });
-    return sorted[0];
-  }, [initialProducts]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
@@ -115,42 +101,8 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
       </header>
 
       {/* Main Content */}
-      <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left: Top Product - Hidden on mobile */}
-          <div className="order-2 lg:order-1 hidden lg:block">
-            {topProduct ? (
-              <div className="relative w-full overflow-hidden rounded-lg" style={{ aspectRatio: '1 / 1' }}>
-                {(() => {
-                  const imageUrl = topProduct.images?.[0] || topProduct.image || '';
-                  // Use full quality image URL (remove any size parameters) for better quality
-                  const fullQualityUrl = imageUrl ? imageUrl.split('?')[0] : '';
-                  return fullQualityUrl ? (
-                    <Image
-                      src={fullQualityUrl}
-                      alt={topProduct.name || 'Product'}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      quality={95}
-                      priority
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-zinc-200 flex items-center justify-center">
-                      <span className="text-zinc-400 text-xs">No image</span>
-                    </div>
-                  );
-                })()}
-              </div>
-            ) : (
-              <div className="w-full bg-zinc-200 rounded-lg flex items-center justify-center" style={{ aspectRatio: '1 / 1' }}>
-                <span className="text-zinc-400">No products available</span>
-              </div>
-            )}
-          </div>
-
-          {/* Right: Text Content */}
-          <div className="order-1 lg:order-2 space-y-6">
+      <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="space-y-6">
             <h1 
               className="text-4xl sm:text-5xl font-semibold"
               style={{ color: siteInfo.colorPrimary || '#ec4899' }}
@@ -220,7 +172,6 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
                 )}
               </div>
             </div>
-          </div>
         </div>
       </main>
     </div>
