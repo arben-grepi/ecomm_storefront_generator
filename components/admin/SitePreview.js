@@ -154,6 +154,7 @@ export default function SitePreview({
                     color: getColorFromSelection(companyTaglineColor || 'primary'),
                     fontFamily: getFontFromSelection(companyTaglineFont || 'primary'),
                     fontSize: `clamp(0.6rem, ${baseSize * 0.5}vw, ${baseSize}rem)`,
+                    marginLeft: '1%',
                   }}
                   dangerouslySetInnerHTML={{ __html: wrappedText }}
                 />

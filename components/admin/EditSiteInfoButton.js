@@ -74,7 +74,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
     companyTagline: '',
     companyTaglineColor: 'primary',
     companyTaglineFont: 'primary',
-    companyTaglineFontSize: 0.75, // rem
+    companyTaglineFontSize: 1.3, // rem
     heroMainHeading: '',
     heroMainHeadingColor: 'primary',
     heroMainHeadingFont: 'primary',
@@ -192,7 +192,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           companyTagline: data.companyTagline || '',
           companyTaglineColor: data.companyTaglineColor || 'primary',
           companyTaglineFont: data.companyTaglineFont || 'primary',
-          companyTaglineFontSize: data.companyTaglineFontSize != null ? parseFloat(data.companyTaglineFontSize) || 0.75 : 0.75,
+          companyTaglineFontSize: data.companyTaglineFontSize != null ? Math.max(parseFloat(data.companyTaglineFontSize), 1.3) : 1.3,
           heroMainHeading: data.heroMainHeading || '',
           heroMainHeadingColor: data.heroMainHeadingColor || 'primary',
           heroMainHeadingFont: data.heroMainHeadingFont || 'primary',
@@ -259,7 +259,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           companyTagline: '',
           companyTaglineColor: 'primary',
           companyTaglineFont: 'primary',
-          companyTaglineFontSize: 0.75,
+          companyTaglineFontSize: 1.3,
           heroMainHeading: '',
           heroMainHeadingColor: 'primary',
           heroMainHeadingFont: 'primary',
@@ -334,7 +334,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
       companyTagline: '',
       companyTaglineColor: 'primary',
       companyTaglineFont: 'primary',
-      companyTaglineFontSize: 0.75,
+      companyTaglineFontSize: 1.3,
       heroMainHeading: '',
       heroMainHeadingColor: 'primary',
       heroMainHeadingFont: 'primary',
@@ -400,7 +400,7 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
         companyTagline: form.companyTagline.trim() || '',
         companyTaglineColor: form.companyTaglineColor || 'primary',
         companyTaglineFont: form.companyTaglineFont || 'primary',
-        companyTaglineFontSize: parseFloat(form.companyTaglineFontSize) || 0.75,
+        companyTaglineFontSize: Math.max(parseFloat(form.companyTaglineFontSize) || 1.3, 1.3),
         heroMainHeading: form.heroMainHeading.trim() || '',
         heroMainHeadingColor: form.heroMainHeadingColor || 'primary',
         heroMainHeadingFont: form.heroMainHeadingFont || 'primary',
@@ -994,11 +994,11 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                               </label>
                               <input
                                 type="range"
-                                min="0.5"
+                                min="1.3"
                                 max="1.5"
                                 step="0.05"
                                 value={form.companyTaglineFontSize}
-                                onChange={(e) => setForm((prev) => ({ ...prev, companyTaglineFontSize: parseFloat(e.target.value) || 0.75 }))}
+                                onChange={(e) => setForm((prev) => ({ ...prev, companyTaglineFontSize: parseFloat(e.target.value) || 1.3 }))}
                                 className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
                               />
                             </div>

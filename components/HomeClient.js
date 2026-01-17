@@ -241,7 +241,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       ? ''
       : rawInfo.heroMainHeading || '',
     // Parse all font sizes
-    companyTaglineFontSize: rawInfo.companyTaglineFontSize != null ? parseFloat(rawInfo.companyTaglineFontSize) || 0.75 : 0.75,
+    companyTaglineFontSize: rawInfo.companyTaglineFontSize != null ? Math.max(parseFloat(rawInfo.companyTaglineFontSize), 1.3) : 1.3,
     heroMainHeadingFontSize: rawInfo.heroMainHeadingFontSize != null ? parseFloat(rawInfo.heroMainHeadingFontSize) || 4 : 4,
     heroDescriptionFontSize: rawInfo.heroDescriptionFontSize != null ? parseFloat(rawInfo.heroDescriptionFontSize) || 1 : 1,
     // Banner settings
@@ -442,7 +442,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                 </Link>
                 {siteInfo.companyTagline && (() => {
                   const wrappedText = preventOrphanedWords(siteInfo.companyTagline);
-                  const baseSize = siteInfo.companyTaglineFontSize || 0.75;
+                  const baseSize = siteInfo.companyTaglineFontSize || 1.3;
                   return (
                     <span 
                       className="rounded-full px-3 py-1 font-medium uppercase tracking-[0.3em] whitespace-nowrap overflow-hidden"
@@ -450,6 +450,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                         color: getColorFromSelection(siteInfo.companyTaglineColor || 'primary'),
                         fontFamily: getFontFromSelection(siteInfo.companyTaglineFont || 'primary'),
                         fontSize: `clamp(0.6rem, ${baseSize * 0.5}vw, ${baseSize}rem)`,
+                        marginLeft: '1%',
                       }}
                       dangerouslySetInnerHTML={{ __html: wrappedText }}
                     />
