@@ -7,6 +7,7 @@
  *   export FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
  *   node scripts/create-editable-content.js --storefront LUNERA
  *   node scripts/create-editable-content.js --storefront FIVESTARFINDS
+ *   node scripts/create-editable-content.js --storefront LEATHER
  *
  * If FIREBASE_* env vars are not supplied, the script falls back to Application
  * Default Credentials (e.g., gcloud auth application-default login).
@@ -157,9 +158,80 @@ const STOREFRONT_CONTENT = {
     fontSecondary: 'inherit',
     fontTertiary: 'inherit',
   },
+  LEATHER: {
+    // Company branding
+    companyName: 'Leather',
+    companyTagline: 'Old School Clothes & Accessories for Men',
+    companyTaglineColor: 'primary',
+    companyTaglineFont: 'primary',
+    companyTaglineFontSize: 0.75,
+    logoPath: null, // Optional: null means use static mapping
+
+    // Hero Section
+    heroMainHeading: 'Premium Leather Products',
+    heroMainHeadingColor: 'primary',
+    heroMainHeadingFont: 'primary',
+    heroMainHeadingFontSize: 4,
+    heroDescription:
+      'Discover timeless old school style with our curated collection of leather jackets, wallets, and accessories for men. Quality craftsmanship meets classic design.',
+    heroDescriptionColor: 'secondary',
+    heroDescriptionFont: 'primary',
+    heroDescriptionFontSize: 1,
+    heroBannerImage: '/banners/leather-banner.jpg',
+    heroBannerTextWidth: 75,
+    heroBannerCropTop: 0,
+    heroBannerCropBottom: 0,
+
+    // Category Carousel styling
+    categoryCarouselColor: 'primary',
+    categoryCarouselFont: 'primary',
+    categoryCarouselFontSize: 0.875,
+
+    // All Categories Tagline
+    allCategoriesTagline: '',
+    allCategoriesTaglineColor: 'secondary',
+    allCategoriesTaglineFont: 'primary',
+    allCategoriesTaglineFontSize: 1,
+
+    // Product Card styling
+    productCardType: 'minimal',
+    productCardAspectRatio: '3:4',
+    productCardColumnsPhone: 2,
+    productCardColumnsTablet: 3,
+    productCardColumnsLaptop: 4,
+    productCardColumnsDesktop: 5,
+    productCardGap: 1,
+    productCardBorderRadius: 'medium',
+    productCardNameColor: 'primary',
+    productCardNameFont: 'primary',
+    productCardNameFontSize: 0.65,
+    productCardPriceColor: 'primary',
+    productCardPriceFont: 'primary',
+    productCardPriceFontSize: 1,
+    productCardVatText: 'Includes VAT',
+    productCardVatColor: 'secondary',
+    productCardVatFont: 'primary',
+    productCardVatFontSize: 0.75,
+
+    // Footer
+    footerText: '© 2024 Leather. Premium leather products for men.',
+    footerTextColor: 'tertiary',
+    footerTextFont: 'primary',
+    footerTextFontSize: 0.875,
+
+    // Color palette (hex values) - brown/tan theme for leather
+    colorPrimary: '#92400e', // Brown-700 - classic leather brown
+    colorSecondary: '#fef3c7', // Amber-100 - light tan/cream
+    colorTertiary: '#94a3b8', // Slate-400
+
+    // Global Font palette
+    fontPrimary: 'inherit',
+    fontSecondary: 'inherit',
+    fontTertiary: 'inherit',
+  },
 };
 
-// Only LUNERA and FIVESTARFINDS are supported
+// Supported storefronts: LUNERA, FIVESTARFINDS, LEATHER
 
 function parseArgs() {
   const args = process.argv.slice(2);
@@ -242,8 +314,8 @@ async function ensureInfoDoc(db, storefront) {
 async function main() {
   const { storefront, projectId } = parseArgs();
 
-  // Validate storefront - only allow LUNERA or FIVESTARFINDS
-  const allowedStorefronts = ['LUNERA', 'FIVESTARFINDS'];
+  // Validate storefront - allow LUNERA, FIVESTARFINDS, or LEATHER
+  const allowedStorefronts = ['LUNERA', 'FIVESTARFINDS', 'LEATHER'];
   if (!storefront) {
     console.error('❌  Storefront name is required. Provide via --storefront <NAME>.');
     console.error(`   Allowed values: ${allowedStorefronts.join(', ')}`);

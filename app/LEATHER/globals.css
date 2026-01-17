@@ -1,0 +1,35 @@
+/**
+ * LEATHER STOREFRONT THEME CSS (app/LEATHER/globals.css)
+ * 
+ * IMPORTANT: These are FALLBACK values only. The Info document in Firestore is the source of truth.
+ * Colors and fonts from the Info document are applied via inline styles in components.
+ * 
+ * This file defines LEATHER's fallback theme colors (brown/tan - classic leather).
+ * It's imported in app/LEATHER/layout.js and overrides the default colors
+ * defined in app/globals.css.
+ * 
+ * Common styles (body, html, animations) are defined in app/globals.css.
+ * This file only contains theme-specific fallback overrides.
+ * 
+ * NOTE: Fonts are NOT defined here. Fonts come from the Info document and are applied
+ * via inline styles in components using getFontFromSelection().
+ */
+
+/* LEATHER Theme Colors - Brown/Tan (FALLBACKS ONLY) */
+:root {
+  /* Primary color (Brown - for text, buttons, accents) */
+  --primary: #92400e; /* Brown-700 - classic leather brown */
+  /* Secondary color (Light tan - for backgrounds) */
+  --secondary: #fef3c7; /* Amber-100 - light tan/cream */
+  /* Tertiary color (for disabled states, footer text, etc.) */
+  --tertiary: #94a3b8; /* Slate-400 */
+}
+
+/* Map theme colors to Tailwind classes */
+@theme inline {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-tertiary: var(--tertiary);
+  /* Fonts come from Info document, not CSS variables */
+}
+
