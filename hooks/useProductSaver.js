@@ -26,6 +26,7 @@ export function useProductSaver({
   displayDescription,
   bulletPoints,
   categoryId,
+  categoryIds,
   selectedImages,
   selectedVariants,
   defaultVariantId,
