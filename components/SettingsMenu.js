@@ -111,14 +111,14 @@ export default function SettingsMenu({ secondaryColor = '#64748b', primaryColor 
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-secondary/20 transition-colors"
         aria-label="Settings"
-        style={{ color: secondaryColor }}
+        style={{ color: primaryColor }}
       >
         <svg
           className="w-6 h-6"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
-          style={{ color: secondaryColor }}
+          style={{ color: primaryColor }}
         >
           <path
             strokeLinecap="round"
