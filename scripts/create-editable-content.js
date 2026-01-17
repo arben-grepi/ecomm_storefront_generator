@@ -88,6 +88,14 @@ const STOREFRONT_CONTENT = {
     fontPrimary: 'inherit',
     fontSecondary: 'inherit',
     fontTertiary: 'inherit',
+
+    // Instagram and Email
+    instagramUrl: '',
+    instagramBgColor: 'primary',
+    showInstagram: false,
+    emailAddress: '',
+    emailColor: 'primary',
+    showEmail: false,
   },
   FIVESTARFINDS: {
     // Company branding
@@ -157,6 +165,14 @@ const STOREFRONT_CONTENT = {
     fontPrimary: 'inherit',
     fontSecondary: 'inherit',
     fontTertiary: 'inherit',
+
+    // Instagram and Email
+    instagramUrl: '',
+    instagramBgColor: 'primary',
+    showInstagram: false,
+    emailAddress: '',
+    emailColor: 'primary',
+    showEmail: false,
   },
   LEATHER: {
     // Company branding
@@ -228,6 +244,14 @@ const STOREFRONT_CONTENT = {
     fontPrimary: 'inherit',
     fontSecondary: 'inherit',
     fontTertiary: 'inherit',
+
+    // Instagram and Email
+    instagramUrl: '',
+    instagramBgColor: 'primary',
+    showInstagram: false,
+    emailAddress: '',
+    emailColor: 'primary',
+    showEmail: false,
   },
 };
 

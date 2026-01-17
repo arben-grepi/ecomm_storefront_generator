@@ -199,11 +199,17 @@ function CartPageContent() {
     }
   }, [storefront]);
   
-  // Get colors from URL parameters (passed from homepage) or fetch from Firestore
+  // Get colors and social links from URL parameters (passed from homepage) or fetch from Firestore
   const [siteInfo, setSiteInfo] = useState({
     colorPrimary: '#ec4899',
     colorSecondary: '#64748b',
     colorTertiary: '#94a3b8',
+    instagramUrl: '',
+    instagramBgColor: 'primary',
+    showInstagram: false,
+    emailAddress: '',
+    emailColor: 'primary',
+    showEmail: false,
   });
   
   // Get colors from URL params if available, otherwise fetch from Firestore
@@ -220,6 +226,12 @@ function CartPageContent() {
             colorPrimary: colorPrimary ? decodeURIComponent(colorPrimary) : '#ec4899',
             colorSecondary: colorSecondary ? decodeURIComponent(colorSecondary) : '#64748b',
             colorTertiary: colorTertiary ? decodeURIComponent(colorTertiary) : '#94a3b8',
+            instagramUrl: '',
+            instagramBgColor: 'primary',
+            showInstagram: false,
+            emailAddress: '',
+            emailColor: 'primary',
+            showEmail: false,
           });
           return; // URL params take precedence
         }
@@ -237,6 +249,12 @@ function CartPageContent() {
                 colorPrimary: cachedInfo.colorPrimary || '#ec4899',
                 colorSecondary: cachedInfo.colorSecondary || '#64748b',
                 colorTertiary: cachedInfo.colorTertiary || '#94a3b8',
+                instagramUrl: cachedInfo.instagramUrl || '',
+                instagramBgColor: cachedInfo.instagramBgColor || 'primary',
+                showInstagram: cachedInfo.showInstagram === true,
+                emailAddress: cachedInfo.emailAddress || '',
+                emailColor: cachedInfo.emailColor || 'primary',
+                showEmail: cachedInfo.showEmail === true,
               });
               return; // Use cached data
             }
@@ -252,6 +270,12 @@ function CartPageContent() {
                 colorPrimary: data.colorPrimary || '#ec4899',
                 colorSecondary: data.colorSecondary || '#64748b',
                 colorTertiary: data.colorTertiary || '#94a3b8',
+                instagramUrl: data.instagramUrl || '',
+                instagramBgColor: data.instagramBgColor || 'primary',
+                showInstagram: data.showInstagram === true,
+                emailAddress: data.emailAddress || '',
+                emailColor: data.emailColor || 'primary',
+                showEmail: data.showEmail === true,
               };
               setSiteInfo(infoData);
               
@@ -551,7 +575,13 @@ function CartPageContent() {
             </Link>
             <SettingsMenu 
             secondaryColor={siteInfo.colorSecondary || '#64748b'} 
-            primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+            primaryColor={siteInfo.colorPrimary || '#ec4899'}
+            instagramUrl={siteInfo.instagramUrl || ''}
+            instagramBgColor={siteInfo.instagramBgColor || 'primary'}
+            showInstagram={siteInfo.showInstagram === true}
+            emailAddress={siteInfo.emailAddress || ''}
+            emailColor={siteInfo.emailColor || 'primary'}
+            showEmail={siteInfo.showEmail === true}
           />
           </div>
         </header>

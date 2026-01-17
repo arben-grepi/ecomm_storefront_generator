@@ -15,23 +15,35 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
   const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
   const db = getFirebaseDb();
 
-  // Get site info for colors
+  // Get site info for colors and social links
   const [siteInfo, setSiteInfo] = useState({
     colorPrimary: info?.colorPrimary || '#ec4899',
     colorSecondary: info?.colorSecondary || '#64748b',
     colorTertiary: info?.colorTertiary || '#94a3b8',
+    instagramUrl: info?.instagramUrl || '',
+    instagramBgColor: info?.instagramBgColor || 'primary',
+    showInstagram: info?.showInstagram === true,
+    emailAddress: info?.emailAddress || '',
+    emailColor: info?.emailColor || 'primary',
+    showEmail: info?.showEmail === true,
   });
 
   // Fetch colors if not provided
   useEffect(() => {
-    if (info?.colorPrimary) {
-      setSiteInfo({
-        colorPrimary: info.colorPrimary || '#ec4899',
-        colorSecondary: info.colorSecondary || '#64748b',
-        colorTertiary: info.colorTertiary || '#94a3b8',
-      });
-      return;
-    }
+      if (info?.colorPrimary) {
+        setSiteInfo({
+          colorPrimary: info.colorPrimary || '#ec4899',
+          colorSecondary: info.colorSecondary || '#64748b',
+          colorTertiary: info.colorTertiary || '#94a3b8',
+          instagramUrl: info.instagramUrl || '',
+          instagramBgColor: info.instagramBgColor || 'primary',
+          showInstagram: info.showInstagram === true,
+          emailAddress: info.emailAddress || '',
+          emailColor: info.emailColor || 'primary',
+          showEmail: info.showEmail === true,
+        });
+        return;
+      }
 
     const fetchColors = async () => {
       try {
@@ -42,6 +54,12 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
             colorPrimary: cachedInfo.colorPrimary || '#ec4899',
             colorSecondary: cachedInfo.colorSecondary || '#64748b',
             colorTertiary: cachedInfo.colorTertiary || '#94a3b8',
+            instagramUrl: cachedInfo.instagramUrl || '',
+            instagramBgColor: cachedInfo.instagramBgColor || 'primary',
+            showInstagram: cachedInfo.showInstagram === true,
+            emailAddress: cachedInfo.emailAddress || '',
+            emailColor: cachedInfo.emailColor || 'primary',
+            showEmail: cachedInfo.showEmail === true,
           });
           return;
         }
@@ -56,6 +74,12 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
               colorPrimary: data.colorPrimary || '#ec4899',
               colorSecondary: data.colorSecondary || '#64748b',
               colorTertiary: data.colorTertiary || '#94a3b8',
+              instagramUrl: data.instagramUrl || '',
+              instagramBgColor: data.instagramBgColor || 'primary',
+              showInstagram: data.showInstagram === true,
+              emailAddress: data.emailAddress || '',
+              emailColor: data.emailColor || 'primary',
+              showEmail: data.showEmail === true,
             };
             setSiteInfo(infoData);
             saveInfoToCache(storefront, data);
@@ -87,7 +111,13 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
           </Link>
           <SettingsMenu 
             secondaryColor={siteInfo.colorSecondary || '#64748b'} 
-            primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+            primaryColor={siteInfo.colorPrimary || '#ec4899'}
+            instagramUrl={siteInfo.instagramUrl || ''}
+            instagramBgColor={siteInfo.instagramBgColor || 'primary'}
+            showInstagram={siteInfo.showInstagram === true}
+            emailAddress={siteInfo.emailAddress || ''}
+            emailColor={siteInfo.emailColor || 'primary'}
+            showEmail={siteInfo.showEmail === true}
           />
         </div>
       </header>

@@ -41,6 +41,13 @@ export default function SitePreview({
   footerTextColor,
   footerTextFont,
   footerTextFontSize,
+  // Instagram and Email
+  instagramUrl = '',
+  instagramBgColor = 'primary',
+  showInstagram = false,
+  emailAddress = '',
+  emailColor = 'primary',
+  showEmail = false,
   // Product Card styling
   productCardType,
   productCardIsSquare,
@@ -393,27 +400,36 @@ export default function SitePreview({
             );
           })()}
           {/* Social Links - Horizontal Layout */}
-          <div className="flex flex-row items-center justify-center gap-6 flex-wrap">
-            <a
-              href="https://www.instagram.com/lunerashop.co?igsh=MTd3d3pxdWZ6MWpsbw%3D%3D"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 transition-opacity hover:opacity-80"
-              style={{ color: getColorFromSelection(footerTextColor || 'tertiary') }}
-            >
-              <InstagramLogo size="w-6 h-6" bgColor={primaryColor} />
-            </a>
-            <a
-              href="mailto:lunera.shop@outlook.com"
-              className="flex items-center gap-2 transition-opacity hover:opacity-80 text-sm"
-              style={{ color: getColorFromSelection(footerTextColor || 'tertiary') }}
-            >
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span>lunera.shop@outlook.com</span>
-            </a>
-          </div>
+          {(showInstagram || showEmail) && (
+            <div className="flex flex-row items-center justify-center gap-6 flex-wrap">
+              {showInstagram && instagramUrl && (
+                <a
+                  href={instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 transition-opacity hover:opacity-80"
+                  style={{ color: getColorFromSelection(footerTextColor || 'tertiary') }}
+                >
+                  <InstagramLogo 
+                    size="w-6 h-6" 
+                    bgColor={getColorFromSelection(instagramBgColor || 'primary')} 
+                  />
+                </a>
+              )}
+              {showEmail && emailAddress && (
+                <a
+                  href={`mailto:${emailAddress}`}
+                  className="flex items-center gap-2 transition-opacity hover:opacity-80 text-sm"
+                  style={{ color: getColorFromSelection(emailColor || 'primary') }}
+                >
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span>{emailAddress}</span>
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </footer>
 

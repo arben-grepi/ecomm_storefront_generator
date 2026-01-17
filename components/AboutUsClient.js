@@ -15,25 +15,37 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
   const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
   const db = getFirebaseDb();
 
-  // Get site info for colors and email
+  // Get site info for colors, email, and Instagram
   const [siteInfo, setSiteInfo] = useState({
     colorPrimary: info?.colorPrimary || '#ec4899',
     colorSecondary: info?.colorSecondary || '#64748b',
     colorTertiary: info?.colorTertiary || '#94a3b8',
     email: info?.email || null,
+    instagramUrl: info?.instagramUrl || '',
+    instagramBgColor: info?.instagramBgColor || 'primary',
+    showInstagram: info?.showInstagram === true,
+    emailAddress: info?.emailAddress || '',
+    emailColor: info?.emailColor || 'primary',
+    showEmail: info?.showEmail === true,
   });
 
   // Fetch colors if not provided
   useEffect(() => {
-    if (info?.colorPrimary) {
-      setSiteInfo({
-        colorPrimary: info.colorPrimary || '#ec4899',
-        colorSecondary: info.colorSecondary || '#64748b',
-        colorTertiary: info.colorTertiary || '#94a3b8',
-        email: info.email || null,
-      });
-      return;
-    }
+      if (info?.colorPrimary) {
+        setSiteInfo({
+          colorPrimary: info.colorPrimary || '#ec4899',
+          colorSecondary: info.colorSecondary || '#64748b',
+          colorTertiary: info.colorTertiary || '#94a3b8',
+          email: info.email || null,
+          instagramUrl: info.instagramUrl || '',
+          instagramBgColor: info.instagramBgColor || 'primary',
+          showInstagram: info.showInstagram === true,
+          emailAddress: info.emailAddress || '',
+          emailColor: info.emailColor || 'primary',
+          showEmail: info.showEmail === true,
+        });
+        return;
+      }
 
     const fetchColors = async () => {
       try {
@@ -45,6 +57,12 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
             colorSecondary: cachedInfo.colorSecondary || '#64748b',
             colorTertiary: cachedInfo.colorTertiary || '#94a3b8',
             email: cachedInfo.email || null,
+            instagramUrl: cachedInfo.instagramUrl || '',
+            instagramBgColor: cachedInfo.instagramBgColor || 'primary',
+            showInstagram: cachedInfo.showInstagram === true,
+            emailAddress: cachedInfo.emailAddress || '',
+            emailColor: cachedInfo.emailColor || 'primary',
+            showEmail: cachedInfo.showEmail === true,
           });
           return;
         }
@@ -62,6 +80,12 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
               colorSecondary: data.colorSecondary || '#64748b',
               colorTertiary: data.colorTertiary || '#94a3b8',
               email: data.email || null,
+              instagramUrl: data.instagramUrl || '',
+              instagramBgColor: data.instagramBgColor || 'primary',
+              showInstagram: data.showInstagram === true,
+              emailAddress: data.emailAddress || '',
+              emailColor: data.emailColor || 'primary',
+              showEmail: data.showEmail === true,
             };
             setSiteInfo(infoData);
             saveInfoToCache(storefront, data);
@@ -96,6 +120,12 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
             secondaryColor={siteInfo.colorSecondary || '#64748b'} 
             primaryColor={siteInfo.colorPrimary || '#ec4899'}
             email={siteInfo.email || null}
+            instagramUrl={siteInfo.instagramUrl || ''}
+            instagramBgColor={siteInfo.instagramBgColor || 'primary'}
+            showInstagram={siteInfo.showInstagram === true}
+            emailAddress={siteInfo.emailAddress || ''}
+            emailColor={siteInfo.emailColor || 'primary'}
+            showEmail={siteInfo.showEmail === true}
           />
         </div>
       </header>
@@ -125,52 +155,75 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
               <p>
                 We hope you love our products as much as we love them, and we love you! Your support means everything to us, and we're grateful to be part of your journey.
               </p>
-              <div className="pt-4 border-t" style={{ borderColor: `${siteInfo.colorSecondary || '#64748b'}33` }}>
-                <p className="mb-4">
-                  Stay up to date on our newest products and exclusive offers. Follow us on Instagram to be the first to know about new arrivals, styling tips, and special promotions.
-                </p>
-                <div className="flex items-center gap-4">
-                  <a
-                    href="https://www.instagram.com/lunerashop.co?igsh=MTd3d3pxdWZ6MWpsbw%3D%3D"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center w-8 h-8 rounded-full transition-transform duration-200 hover:scale-110 flex-shrink-0"
-                    style={{ 
-                      backgroundColor: siteInfo.colorPrimary || '#ec4899',
-                    }}
-                    aria-label="Follow us on Instagram"
-                  >
-                    <InstagramLogo size="w-9 h-9" bgColor="transparent" bgOpacity={1} />
-                  </a>
-                  <p 
-                    className="text-sm"
-                    style={{ color: siteInfo.colorSecondary || '#64748b' }}
-                  >
-                    Follow us on Instagram to see the latest catalog
-                  </p>
+              {(siteInfo.showInstagram || siteInfo.showEmail) && (
+                <div className="pt-4 border-t" style={{ borderColor: `${siteInfo.colorSecondary || '#64748b'}33` }}>
+                  {siteInfo.showInstagram && siteInfo.instagramUrl && (
+                    <>
+                      <p className="mb-4">
+                        Stay up to date on our newest products and exclusive offers. Follow us on Instagram to be the first to know about new arrivals, styling tips, and special promotions.
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <a
+                          href={siteInfo.instagramUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-center w-8 h-8 rounded-full transition-transform duration-200 hover:scale-110 flex-shrink-0"
+                          style={{ 
+                            backgroundColor: siteInfo.instagramBgColor === 'primary' 
+                              ? (siteInfo.colorPrimary || '#ec4899')
+                              : siteInfo.instagramBgColor === 'secondary'
+                              ? (siteInfo.colorSecondary || '#64748b')
+                              : (siteInfo.colorTertiary || '#94a3b8'),
+                          }}
+                          aria-label="Follow us on Instagram"
+                        >
+                          <InstagramLogo size="w-9 h-9" bgColor="transparent" bgOpacity={1} />
+                        </a>
+                        <p 
+                          className="text-sm"
+                          style={{ color: siteInfo.colorSecondary || '#64748b' }}
+                        >
+                          Follow us on Instagram to see the latest catalog
+                        </p>
+                      </div>
+                    </>
+                  )}
+                  {siteInfo.showEmail && siteInfo.emailAddress && (
+                    <a
+                      href={`mailto:${siteInfo.emailAddress}`}
+                      className="inline-flex items-center gap-3 px-6 py-3 rounded-lg transition-all font-medium border-2 mt-3"
+                      style={{ 
+                        borderColor: siteInfo.emailColor === 'primary' 
+                          ? (siteInfo.colorPrimary || '#ec4899')
+                          : siteInfo.emailColor === 'secondary'
+                          ? (siteInfo.colorSecondary || '#64748b')
+                          : (siteInfo.colorTertiary || '#94a3b8'),
+                        color: siteInfo.emailColor === 'primary' 
+                          ? (siteInfo.colorPrimary || '#ec4899')
+                          : siteInfo.emailColor === 'secondary'
+                          ? (siteInfo.colorSecondary || '#64748b')
+                          : (siteInfo.colorTertiary || '#94a3b8'),
+                      }}
+                      onMouseEnter={(e) => {
+                        const hoverColor = siteInfo.emailColor === 'primary' 
+                          ? (siteInfo.colorPrimary || '#ec4899')
+                          : siteInfo.emailColor === 'secondary'
+                          ? (siteInfo.colorSecondary || '#64748b')
+                          : (siteInfo.colorTertiary || '#94a3b8');
+                        e.currentTarget.style.backgroundColor = `${hoverColor}10`;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>{siteInfo.emailAddress}</span>
+                    </a>
+                  )}
                 </div>
-                {siteInfo.email && (
-                  <a
-                    href={`mailto:${siteInfo.email}`}
-                    className="inline-flex items-center gap-3 px-6 py-3 rounded-lg transition-all font-medium border-2 mt-3"
-                    style={{ 
-                      borderColor: siteInfo.colorPrimary || '#ec4899',
-                      color: siteInfo.colorPrimary || '#ec4899',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = `${siteInfo.colorPrimary || '#ec4899'}10`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <span>{siteInfo.email}</span>
-                  </a>
-                )}
-              </div>
+              )}
             </div>
         </div>
       </main>

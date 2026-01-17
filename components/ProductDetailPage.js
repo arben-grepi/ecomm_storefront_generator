@@ -1167,7 +1167,13 @@ export default function ProductDetailPage({ category, product, variants, info = 
             )}
             <SettingsMenu 
               secondaryColor={siteInfo.colorSecondary || '#64748b'} 
-              primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+              primaryColor={siteInfo.colorPrimary || '#ec4899'}
+              instagramUrl={siteInfo.instagramUrl || ''}
+              instagramBgColor={siteInfo.instagramBgColor || 'primary'}
+              showInstagram={siteInfo.showInstagram === true}
+              emailAddress={siteInfo.emailAddress || ''}
+              emailColor={siteInfo.emailColor || 'primary'}
+              showEmail={siteInfo.showEmail === true}
             />
           </div>
         </div>

@@ -114,6 +114,13 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
     footerTextColor: 'tertiary',
     footerTextFont: 'primary',
     footerTextFontSize: 0.875, // rem
+    // Instagram and Email
+    instagramUrl: '',
+    instagramBgColor: 'primary', // 'primary' | 'secondary' | 'tertiary'
+    showInstagram: false,
+    emailAddress: '',
+    emailColor: 'primary', // 'primary' | 'secondary' | 'tertiary'
+    showEmail: false,
     // Color palette (hex values)
     colorPrimary: '#ec4899',
     colorSecondary: '#64748b',
@@ -230,6 +237,13 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           footerTextColor: data.footerTextColor || 'tertiary',
           footerTextFont: data.footerTextFont || 'primary',
           footerTextFontSize: data.footerTextFontSize != null ? parseFloat(data.footerTextFontSize) || 0.875 : 0.875,
+          // Instagram and Email
+          instagramUrl: data.instagramUrl || '',
+          instagramBgColor: data.instagramBgColor || 'primary',
+          showInstagram: data.showInstagram === true,
+          emailAddress: data.emailAddress || '',
+          emailColor: data.emailColor || 'primary',
+          showEmail: data.showEmail === true,
           // Color palette (hex values)
           colorPrimary: data.colorPrimary || '#ec4899',
           colorSecondary: data.colorSecondary || '#64748b',
@@ -290,6 +304,13 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
           footerTextColor: 'tertiary',
           footerTextFont: 'primary',
           footerTextFontSize: 0.875,
+          // Instagram and Email
+          instagramUrl: '',
+          instagramBgColor: 'primary',
+          showInstagram: false,
+          emailAddress: '',
+          emailColor: 'primary',
+          showEmail: false,
           // Color palette (hex values)
           colorPrimary: '#ec4899',
           colorSecondary: '#64748b',
@@ -334,6 +355,13 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
       footerTextColor: 'tertiary',
       footerTextFont: 'primary',
       footerTextFontSize: 0.875,
+      // Instagram and Email
+      instagramUrl: '',
+      instagramBgColor: 'primary',
+      showInstagram: false,
+      emailAddress: '',
+      emailColor: 'primary',
+      showEmail: false,
       // Color palette (hex values)
       colorPrimary: '#ec4899',
       colorSecondary: '#64748b',
@@ -417,6 +445,13 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
         footerTextColor: form.footerTextColor || 'tertiary',
         footerTextFont: form.footerTextFont || 'primary',
         footerTextFontSize: parseFloat(form.footerTextFontSize) || 0.875,
+        // Instagram and Email
+        instagramUrl: form.instagramUrl.trim() || '',
+        instagramBgColor: form.instagramBgColor || 'primary',
+        showInstagram: form.showInstagram === true,
+        emailAddress: form.emailAddress.trim() || '',
+        emailColor: form.emailColor || 'primary',
+        showEmail: form.showEmail === true,
         // Color palette (hex values) - validate and ensure they're valid
         colorPrimary: validateHexColor(form.colorPrimary, '#ec4899'),
         colorSecondary: validateHexColor(form.colorSecondary, '#64748b'),
@@ -524,6 +559,13 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
               footerTextColor={form.footerTextColor}
               footerTextFont={form.footerTextFont}
               footerTextFontSize={form.footerTextFontSize}
+              // Instagram and Email
+              instagramUrl={form.instagramUrl}
+              instagramBgColor={form.instagramBgColor}
+              showInstagram={form.showInstagram}
+              emailAddress={form.emailAddress}
+              emailColor={form.emailColor}
+              showEmail={form.showEmail}
               // Product Card styling
               productCardType={form.productCardType || 'minimal'}
               productCardIsSquare={form.productCardIsSquare === true}
@@ -1523,6 +1565,105 @@ export default function EditSiteInfoButton({ className = '', open: controlledOpe
                                 className="w-full h-2 bg-zinc-200 rounded-lg appearance-none cursor-pointer dark:bg-zinc-700"
                               />
                             </div>
+                          </div>
+                        </div>
+
+                        {/* Instagram and Email Section */}
+                        <div className="space-y-3 pt-4 border-t border-zinc-200/50 dark:border-zinc-700">
+                          <h3 className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 mb-2">Social Links</h3>
+                          
+                          {/* Instagram */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id="showInstagram"
+                                checked={form.showInstagram}
+                                onChange={(e) => setForm((prev) => ({ ...prev, showInstagram: e.target.checked }))}
+                                className="rounded border-zinc-200 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-700"
+                              />
+                              <label htmlFor="showInstagram" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                                Show Instagram
+                              </label>
+                            </div>
+                            {form.showInstagram && (
+                              <>
+                                <div>
+                                  <label htmlFor="instagramUrl" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                    Instagram URL
+                                  </label>
+                                  <input
+                                    id="instagramUrl"
+                                    type="url"
+                                    value={form.instagramUrl}
+                                    onChange={(e) => setForm((prev) => ({ ...prev, instagramUrl: e.target.value }))}
+                                    className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                    placeholder="https://www.instagram.com/..."
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                    Instagram Background Color
+                                  </label>
+                                  <select
+                                    value={form.instagramBgColor || 'primary'}
+                                    onChange={(e) => setForm((prev) => ({ ...prev, instagramBgColor: e.target.value }))}
+                                    className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                  >
+                                    <option value="primary">Primary</option>
+                                    <option value="secondary">Secondary</option>
+                                    <option value="tertiary">Tertiary</option>
+                                  </select>
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Email */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                id="showEmail"
+                                checked={form.showEmail}
+                                onChange={(e) => setForm((prev) => ({ ...prev, showEmail: e.target.checked }))}
+                                className="rounded border-zinc-200 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-700"
+                              />
+                              <label htmlFor="showEmail" className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                                Show Email
+                              </label>
+                            </div>
+                            {form.showEmail && (
+                              <>
+                                <div>
+                                  <label htmlFor="emailAddress" className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                    Email Address
+                                  </label>
+                                  <input
+                                    id="emailAddress"
+                                    type="email"
+                                    value={form.emailAddress}
+                                    onChange={(e) => setForm((prev) => ({ ...prev, emailAddress: e.target.value }))}
+                                    className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                    placeholder="contact@example.com"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                    Email Color
+                                  </label>
+                                  <select
+                                    value={form.emailColor || 'primary'}
+                                    onChange={(e) => setForm((prev) => ({ ...prev, emailColor: e.target.value }))}
+                                    className="w-full rounded border border-zinc-200 px-2.5 py-1.5 text-xs focus:border-emerald-400 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                                  >
+                                    <option value="primary">Primary</option>
+                                    <option value="secondary">Secondary</option>
+                                    <option value="tertiary">Tertiary</option>
+                                  </select>
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>

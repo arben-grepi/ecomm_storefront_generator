@@ -9,7 +9,17 @@ import Link from 'next/link';
 import { useStorefront } from '@/lib/storefront-context';
 import InstagramLogo from '@/components/InstagramLogo';
 
-export default function SettingsMenu({ secondaryColor = '#64748b', primaryColor = '#ec4899', email = null }) {
+export default function SettingsMenu({ 
+  secondaryColor = '#64748b', 
+  primaryColor = '#ec4899', 
+  email = null,
+  instagramUrl = '',
+  instagramBgColor = 'primary',
+  showInstagram = false,
+  emailAddress = '',
+  emailColor = 'primary',
+  showEmail = false,
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -102,7 +112,16 @@ export default function SettingsMenu({ secondaryColor = '#64748b', primaryColor 
   );
 
   const aboutUsPath = storefront === 'LUNERA' ? '/about' : `/${storefront}/about`;
-  const instagramUrl = 'https://www.instagram.com/lunerashop.co?igsh=MTd3d3pxdWZ6MWpsbw%3D%3D';
+  
+  // Helper to get color from selection
+  const getColorFromSelection = (colorSelection) => {
+    switch (colorSelection) {
+      case 'primary': return primaryColor;
+      case 'secondary': return secondaryColor;
+      case 'tertiary': return '#94a3b8'; // Default tertiary
+      default: return primaryColor;
+    }
+  };
 
   return (
     <>
@@ -235,29 +254,38 @@ export default function SettingsMenu({ secondaryColor = '#64748b', primaryColor 
               </div>
 
               {/* Footer with Instagram and Email */}
-              <div className="border-t p-6" style={{ borderColor: `${secondaryColor}30` }}>
-                <div className="flex items-center justify-center gap-6">
-                  <a
-                    href={instagramUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="transition-transform duration-200 hover:scale-110"
-                    aria-label="Instagram"
-                  >
-                    <InstagramLogo size="w-6 h-6" />
-                  </a>
-                  <a
-                    href="mailto:lunera.shop@outlook.com"
-                    className="transition-transform duration-200 hover:scale-110"
-                    aria-label="Email"
-                    style={{ color: secondaryColor }}
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </a>
+              {(showInstagram || showEmail) && (
+                <div className="border-t p-6" style={{ borderColor: `${secondaryColor}30` }}>
+                  <div className="flex items-center justify-center gap-6">
+                    {showInstagram && instagramUrl && (
+                      <a
+                        href={instagramUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="transition-transform duration-200 hover:scale-110"
+                        aria-label="Instagram"
+                      >
+                        <InstagramLogo 
+                          size="w-6 h-6" 
+                          bgColor={getColorFromSelection(instagramBgColor || 'primary')}
+                        />
+                      </a>
+                    )}
+                    {showEmail && emailAddress && (
+                      <a
+                        href={`mailto:${emailAddress}`}
+                        className="transition-transform duration-200 hover:scale-110"
+                        aria-label="Email"
+                        style={{ color: getColorFromSelection(emailColor || 'primary') }}
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </nav>
         </>,
