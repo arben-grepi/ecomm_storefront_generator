@@ -242,6 +242,17 @@ export default function CheckoutPage() {
 
       console.log(`[Checkout] Redirecting to Shopify checkout - URL: ${checkoutUrl}, Market: ${shippingAddress.countryCode || shippingAddress.country || 'unknown'}`);
       
+      // Set sessionStorage flag to intercept return from checkout
+      // This allows us to redirect to custom thank-you page after Shopify checkout
+      try {
+        sessionStorage.setItem('checkout_initiated', 'true');
+        sessionStorage.setItem('storefront_id', storefront);
+        sessionStorage.setItem('checkout_timestamp', Date.now().toString());
+      } catch (storageError) {
+        console.warn('[Checkout] Failed to set checkout flag:', storageError);
+        // Non-critical, continue with redirect
+      }
+      
       // Redirect to Shopify's hosted checkout
       // Shopify will handle payment, shipping selection, and order confirmation
       window.location.href = checkoutUrl;

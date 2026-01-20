@@ -202,10 +202,8 @@ function ThankYouPageContent() {
   const primaryColorHover = siteInfo?.colorPrimary ? `${siteInfo.colorPrimary}E6` : '#ec4899E6';
   
   // Get home URL based on storefront
+  // All storefronts use blerinas.com/{storefront} format
   const getHomeUrl = (storefront) => {
-    if (storefront === 'LUNERA') {
-      return 'https://luneralingerie.com';
-    }
     return `https://blerinas.com/${storefront}`;
   };
   

@@ -195,11 +195,14 @@ export async function POST(request) {
     // Get market from cookie or shipping address
     const market = shippingAddress.countryCode || shippingAddress.country || 'DE';
     
-    // Add market and storefront to custom attributes (for webhook routing)
+    // Add market, storefront, and storefront_return to custom attributes (for webhook routing)
+    // storefront_return is used by Shopify to redirect customers back to the correct storefront after checkout
+    const storefrontReturnPath = `blerinas/${storefront}`;
     const attributesWithMarket = [
       ...customAttributes,
       { key: '_market', value: market }, // Market identifier (FI, DE, etc.)
       { key: '_storefront', value: storefront }, // Storefront identifier (LUNERA, GIFTSHOP, etc.)
+      { key: 'storefront_return', value: storefrontReturnPath }, // Return path for post-checkout redirect (blerinas/{storefront})
     ];
 
     // Create cart via Storefront API (Cart API replaces deprecated Checkout API)
@@ -266,21 +269,18 @@ export async function POST(request) {
         const thankYouUrl = `${baseUrl}/thank-you`;
         
         // Determine the return URL for "Continue Shopping" button (different from thank-you redirect)
-        // Root (LUNERA) goes to luneralingerie.com, others go to blerinas.com/{STOREFRONT}
-        let returnToUrl;
-        if (storefront === 'LUNERA') {
-          // LUNERA uses its own domain
-          returnToUrl = 'https://luneralingerie.com';
-        } else {
-          // Other storefronts use blerinas.com with storefront path
-          const returnToPath = `/${storefront}`;
-          // Use blerinas.com for other storefronts, not the request origin
-          const blerinasBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.blerinas.com';
-          returnToUrl = `${blerinasBaseUrl}${returnToPath}`;
-        }
+        // All storefronts use blerinas.com/{storefront} format
+        const returnToPath = `/${storefront}`;
+        const blerinasBaseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.blerinas.com';
+        const returnToUrl = `${blerinasBaseUrl}${returnToPath}`;
         
         // Add return_to parameter to the checkout URL (for "Continue Shopping" button)
         url.searchParams.set('return_to', returnToUrl);
+        
+        // Add storefront return path parameter for Shopify to use for dynamic redirects (if needed)
+        // Format: blerinas/{storefront} (e.g., blerinas/LUNERA, blerinas/FIVESTARFINDS)
+        // Note: This is also passed as customAttribute for webhook, URL param is backup
+        url.searchParams.set('storefront_return', storefrontReturnPath);
         
         // Note: Shopify will redirect to thank-you page automatically after checkout completion
         // The thank-you page will read confirmation number from URL params or use localStorage session

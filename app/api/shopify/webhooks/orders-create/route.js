@@ -64,7 +64,12 @@ function transformShopifyOrder(shopifyOrder) {
   const marketFromCountry = shopifyOrder.shipping_address?.country_code?.toUpperCase();
   const market = marketFromAttributes || marketFromCountry || 'DE'; // Default to DE if not found
   
-  console.log(`[Order Webhook] Order ${shopifyOrder.id} (${shopifyOrder.order_number || shopifyOrder.name}) - Storefront: ${storefront}, Market: ${market} (from attributes: ${marketFromAttributes || 'none'}, from country: ${marketFromCountry || 'none'})`);
+  // Extract storefront_return from note_attributes (for post-checkout redirect)
+  const storefrontReturn = shopifyOrder.note_attributes?.find(
+    (attr) => attr.name === 'storefront_return'
+  )?.value || null;
+  
+  console.log(`[Order Webhook] Order ${shopifyOrder.id} (${shopifyOrder.order_number || shopifyOrder.name}) - Storefront: ${storefront}, Market: ${market} (from attributes: ${marketFromAttributes || 'none'}, from country: ${marketFromCountry || 'none'}), Storefront Return: ${storefrontReturn || 'none'}`);
 
   // Transform line items
   const items = (shopifyOrder.line_items || []).map((item) => ({
@@ -121,6 +126,7 @@ function transformShopifyOrder(shopifyOrder) {
     email: shopifyOrder.email || null,
     storefront: storefront, // Extract from note_attributes
     market: market, // Extract from note_attributes or shipping address country
+    storefrontReturn: storefrontReturn, // Extract from note_attributes (for post-checkout redirect)
     status: orderStatus,
     items,
     totals: {
@@ -209,6 +215,7 @@ async function syncOrderToFirestore(db, shopifyOrder) {
             orderNumber: updateData.orderNumber,
             confirmationNumber: updateData.confirmationNumber,
             storefront: updateData.storefront,
+            storefrontReturn: updateData.storefrontReturn, // For post-checkout redirect
             market: updateData.market,
             email: updateData.email,
             total: updateData.totals.grandTotal,
@@ -250,6 +257,7 @@ async function syncOrderToFirestore(db, shopifyOrder) {
             orderNumber: orderData.orderNumber,
             confirmationNumber: orderData.confirmationNumber,
             storefront: orderData.storefront,
+            storefrontReturn: orderData.storefrontReturn, // For post-checkout redirect
             market: orderData.market,
             email: orderData.email,
             customerName: shopifyOrder.customer?.first_name || shopifyOrder.shipping_address?.first_name || '',

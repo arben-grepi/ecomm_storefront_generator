@@ -514,6 +514,17 @@ function CartPageContent() {
         // Non-critical, continue with redirect
       }
 
+      // Set sessionStorage flag to intercept return from checkout
+      // This allows us to redirect to custom thank-you page after Shopify checkout
+      try {
+        sessionStorage.setItem('checkout_initiated', 'true');
+        sessionStorage.setItem('storefront_id', storefront);
+        sessionStorage.setItem('checkout_timestamp', Date.now().toString());
+      } catch (storageError) {
+        console.warn('Failed to set checkout flag:', storageError);
+        // Non-critical, continue with redirect
+      }
+
       // Redirect to Shopify checkout
       window.location.href = checkoutUrl;
     } catch (err) {

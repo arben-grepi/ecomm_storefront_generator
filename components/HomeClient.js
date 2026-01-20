@@ -117,6 +117,108 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     return () => cancelAnimationFrame(timer);
   }, []);
 
+  // Intercept return from Shopify checkout and redirect to custom thank-you page
+  useEffect(() => {
+    if (!hasMounted || typeof window === 'undefined' || !storefront) return;
+
+    const checkForCheckoutReturn = async () => {
+      try {
+        // Check if user just completed checkout
+        const checkoutInitiated = sessionStorage.getItem('checkout_initiated');
+        const storedStorefront = sessionStorage.getItem('storefront_id');
+        const checkoutTimestamp = sessionStorage.getItem('checkout_timestamp');
+
+        if (!checkoutInitiated || storedStorefront !== storefront) {
+          return; // No checkout flag or different storefront
+        }
+
+        // Clear flag immediately to prevent multiple redirects
+        sessionStorage.removeItem('checkout_initiated');
+        sessionStorage.removeItem('storefront_id');
+        sessionStorage.removeItem('checkout_timestamp');
+
+        // Check if checkout was recent (within last 10 minutes)
+        const timestamp = checkoutTimestamp ? parseInt(checkoutTimestamp, 10) : 0;
+        const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+        if (timestamp < tenMinutesAgo) {
+          console.log('[HomeClient] Checkout flag expired, skipping redirect');
+          return;
+        }
+
+        // Fetch recent order from Firestore using checkout session
+        const { getFirebaseDb } = await import('@/lib/firebase');
+        const { collection, query, where, orderBy, limit, getDocs, Timestamp } = await import('firebase/firestore');
+        
+        const db = getFirebaseDb();
+        if (!db) {
+          console.warn('[HomeClient] Firebase not available for order lookup');
+          return;
+        }
+
+        // Try to get checkout session from localStorage
+        const checkoutSessionStr = localStorage.getItem('checkout_session');
+        if (!checkoutSessionStr) {
+          console.log('[HomeClient] No checkout session found');
+          return;
+        }
+
+        const checkoutSession = JSON.parse(checkoutSessionStr);
+        if (!checkoutSession.storefront || !checkoutSession.timestamp) {
+          console.log('[HomeClient] Invalid checkout session');
+          return;
+        }
+
+        // Poll for order created after checkout session timestamp
+        const sessionTimestamp = Timestamp.fromMillis(checkoutSession.timestamp);
+        const confirmationsRef = collection(db, 'orderConfirmations');
+        const q = query(
+          confirmationsRef,
+          where('storefront', '==', storefront),
+          where('createdAt', '>=', sessionTimestamp),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        );
+
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          const orderDoc = snapshot.docs[0];
+          const orderData = orderDoc.data();
+          
+          if (orderData.confirmationNumber) {
+            console.log('[HomeClient] Found recent order, redirecting to thank-you page');
+            // Clean up checkout session
+            localStorage.removeItem('checkout_session');
+            // Redirect to thank-you page
+            router.push(`/thank-you?confirmation=${orderData.confirmationNumber}`);
+            return;
+          }
+        }
+
+        // If no order found yet, wait a bit and try again (webhook might still be processing)
+        console.log('[HomeClient] No order found yet, will retry in 2 seconds');
+        setTimeout(async () => {
+          const retrySnapshot = await getDocs(q);
+          if (!retrySnapshot.empty) {
+            const orderDoc = retrySnapshot.docs[0];
+            const orderData = orderDoc.data();
+            if (orderData.confirmationNumber) {
+              console.log('[HomeClient] Found order on retry, redirecting to thank-you page');
+              localStorage.removeItem('checkout_session');
+              router.push(`/thank-you?confirmation=${orderData.confirmationNumber}`);
+            }
+          }
+        }, 2000);
+      } catch (error) {
+        console.error('[HomeClient] Error checking for checkout return:', error);
+        // Don't block the page if there's an error
+      }
+    };
+
+    // Only check once after mount
+    const timeout = setTimeout(checkForCheckoutReturn, 500);
+    return () => clearTimeout(timeout);
+  }, [hasMounted, storefront, router]);
+
   // Use real-time data if available (after hydration), otherwise use initial server data
   const categories = realtimeCategories.length > 0 ? realtimeCategories : initialCategories;
   // When a category is selected, always use the hook's products (they're already filtered)
