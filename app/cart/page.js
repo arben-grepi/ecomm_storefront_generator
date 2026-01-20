@@ -117,7 +117,7 @@ function CartPageContent() {
     }
     
     // Fourth priority: Context
-    if (storefrontFromContext && storefrontFromContext !== 'LUNERA') {
+    if (storefrontFromContext) {
       if (typeof window !== 'undefined') {
         saveStorefrontToCache(storefrontFromContext);
       }
@@ -125,7 +125,7 @@ function CartPageContent() {
     }
     
     // Default fallback
-    return 'LUNERA';
+    return 'FIVESTARFINDS';
   });
   
   // Check for storefront changes from URL parameter (highest priority)

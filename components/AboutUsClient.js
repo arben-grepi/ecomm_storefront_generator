@@ -12,7 +12,7 @@ import { getLogo } from '@/lib/logo-cache';
 
 export default function AboutUsClient({ initialProducts = [], info = null, storefront: storefrontProp = null }) {
   const storefrontFromContext = useStorefront();
-  const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
+  const storefront = storefrontProp || storefrontFromContext || 'FIVESTARFINDS';
   const db = getFirebaseDb();
 
   // Get site info for colors, email, and Instagram

@@ -161,7 +161,7 @@ async function syncOrderToFirestore(db, shopifyOrder) {
     const storefrontAttr = noteAttributes.find(
       (attr) => attr.name === '_storefront' || attr.name === 'storefront'
     );
-    const storefront = storefrontAttr?.value || 'LUNERA';
+    const storefront = storefrontAttr?.value || 'FIVESTARFINDS';
     
     console.log(`[Order Webhook] Extracted storefront: "${storefront}" (from attribute: ${storefrontAttr?.name || 'none'})`);
     console.log(`[Order Webhook] Order ID: ${shopifyOrder.id}, Order Number: ${shopifyOrder.order_number || shopifyOrder.name}`);
@@ -293,7 +293,7 @@ async function syncOrderToFirestore(db, shopifyOrder) {
     try {
       const storefront = shopifyOrder.note_attributes?.find(
         (attr) => attr.name === '_storefront' || attr.name === 'storefront'
-      )?.value || 'LUNERA';
+      )?.value || 'FIVESTARFINDS';
       console.error(`[Order Webhook] Failed operation context:`, {
         storefront,
         collectionPath: `${storefront}/orders/items`,

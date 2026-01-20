@@ -29,7 +29,7 @@ export default function SitePreview({
   heroDescriptionColor,
   heroDescriptionFont,
   heroDescriptionFontSize,
-  storefront = 'LUNERA',
+  storefront = 'FIVESTARFINDS',
   categoryCarouselColor,
   categoryCarouselFont,
   categoryCarouselFontSize,

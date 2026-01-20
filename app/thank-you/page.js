@@ -196,7 +196,7 @@ function ThankYouPageContent() {
     fetchSiteInfo();
   }, [orderData?.storefront]);
   
-  const displayStorefront = orderData?.storefront || 'LUNERA';
+  const displayStorefront = orderData?.storefront || 'FIVESTARFINDS';
   const logoPath = getLogo(displayStorefront, siteInfo);
   const primaryColor = siteInfo?.colorPrimary || '#ec4899';
   const primaryColorHover = siteInfo?.colorPrimary ? `${siteInfo.colorPrimary}E6` : '#ec4899E6';

@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCart } from '@/lib/cart';
 import { subscribeToAuth } from '@/lib/auth';
-import { getStorefront } from '@/lib/get-storefront';
+import { useStorefront } from '@/lib/storefront-context';
+import { saveStorefrontToCache } from '@/lib/get-storefront';
 import Link from 'next/link';
 import AuthButton from '@/components/AuthButton';
 
@@ -15,9 +16,126 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 const formatPrice = (value) => currencyFormatter.format(value ?? 0);
 
-export default function CheckoutPage() {
+// Helper function to get storefront from cookie (reusable)
+function getStorefrontFromCookie() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return null;
+  }
+  const cookies = document.cookie.split(';').map(c => c.trim());
+  const storefrontCookie = cookies.find(c => c.startsWith('storefront='));
+  if (storefrontCookie) {
+    const sf = storefrontCookie.split('=')[1];
+    return sf || null;
+  }
+  return null;
+}
+
+function CheckoutPageContent() {
   const router = useRouter();
-  const storefront = getStorefront(); // Get storefront from URL
+  const searchParams = useSearchParams();
+  const storefrontFromContext = useStorefront();
+  
+  // Get storefront using same logic as cart page
+  // Priority: URL param > Cookie > Context > localStorage > Default
+  const [storefront, setStorefront] = useState(() => {
+    // First priority: URL parameter (explicitly passed when navigating to checkout)
+    let urlStorefront = null;
+    
+    try {
+      if (searchParams) {
+        urlStorefront = searchParams.get('storefront');
+      }
+    } catch (e) {
+      // searchParams might not be available during initial render
+    }
+    
+    // Fallback: read from window.location if searchParams not available
+    if (!urlStorefront && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      urlStorefront = urlParams.get('storefront');
+    }
+    
+    if (urlStorefront) {
+      const decoded = decodeURIComponent(urlStorefront);
+      if (decoded && typeof window !== 'undefined') {
+        saveStorefrontToCache(decoded);
+        return decoded;
+      }
+    }
+    
+    // Second priority: Cookie (set by middleware)
+    if (typeof window !== 'undefined') {
+      const cookieStorefront = getStorefrontFromCookie();
+      if (cookieStorefront) {
+        saveStorefrontToCache(cookieStorefront);
+        return cookieStorefront;
+      }
+      
+      // Third priority: localStorage cache
+      const cached = localStorage.getItem('ecommerce_storefront');
+      if (cached) {
+        return cached;
+      }
+    }
+    
+    // Fourth priority: Context
+    if (storefrontFromContext) {
+      if (typeof window !== 'undefined') {
+        saveStorefrontToCache(storefrontFromContext);
+      }
+      return storefrontFromContext;
+    }
+    
+    // Default fallback
+    return 'FIVESTARFINDS';
+  });
+  
+  // Check for storefront changes from URL parameter
+  useEffect(() => {
+    if (!searchParams) return;
+    
+    const urlStorefront = searchParams.get('storefront');
+    if (urlStorefront) {
+      const decoded = decodeURIComponent(urlStorefront);
+      if (decoded && decoded !== storefront) {
+        setStorefront(decoded);
+        saveStorefrontToCache(decoded);
+      }
+    }
+  }, [searchParams, storefront]);
+  
+  // Also check cookie periodically (for cases where URL param is missing)
+  useEffect(() => {
+    if (!searchParams) return;
+    
+    const urlStorefront = searchParams.get('storefront');
+    // Only check cookie if URL param is not present
+    if (urlStorefront) {
+      return; // URL param takes precedence
+    }
+    
+    const checkStorefront = () => {
+      const cookieStorefront = getStorefrontFromCookie();
+      if (cookieStorefront && cookieStorefront !== storefront) {
+        setStorefront(cookieStorefront);
+        saveStorefrontToCache(cookieStorefront);
+      }
+    };
+    
+    // Check immediately and periodically
+    checkStorefront();
+    const interval = setInterval(checkStorefront, 500);
+    
+    return () => clearInterval(interval);
+  }, [storefront, searchParams]);
+  
+  // Also save to cache whenever storefront changes
+  useEffect(() => {
+    if (storefront && typeof window !== 'undefined') {
+      saveStorefrontToCache(storefront);
+    }
+  }, [storefront]);
+  
   const [siteInfo, setSiteInfo] = useState(null);
   const { cart, getCartTotal, clearCart, loading: cartLoading } = useCart();
   const [user, setUser] = useState(null);
@@ -92,7 +210,9 @@ export default function CheckoutPage() {
   // Redirect if cart is empty
   useEffect(() => {
     if (!cartLoading && cart.length === 0) {
-      router.push(`/${storefront}`);
+      // Redirect to correct storefront (not root)
+      const redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
+      router.push(redirectPath);
     }
   }, [cart, cartLoading, router, storefront]);
 
@@ -277,7 +397,10 @@ export default function CheckoutPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
-          <Link href={`/${storefront}`} className="text-xl font-light text-primary tracking-wide">
+          <Link 
+            href={storefront === 'LUNERA' ? '/' : `/${storefront}`} 
+            className="text-xl font-light text-primary tracking-wide"
+          >
             {storefront}
           </Link>
           <AuthButton />
@@ -456,10 +579,37 @@ export default function CheckoutPage() {
                   `Proceed to Checkout - ${formatPrice(estimatedTotal)}`
                 )}
               </button>
+
+              {/* Continue Shopping */}
+              <Link
+                href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
+                className="mt-3 block w-full rounded-full bg-white px-6 py-3 text-center font-semibold transition hover:bg-slate-50"
+                style={{
+                  borderColor: primaryColor,
+                  color: primaryColor,
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
+                }}
+              >
+                Continue Shopping
+              </Link>
             </div>
           </div>
         </form>
       </main>
     </div>
+  );
+}
+
+// Wrap CheckoutPageContent in Suspense to handle useSearchParams
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-slate-500">Loading...</div>
+      </div>
+    }>
+      <CheckoutPageContent />
+    </Suspense>
   );
 }

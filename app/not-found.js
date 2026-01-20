@@ -12,7 +12,7 @@ import { getCachedInfo } from '@/lib/info-cache';
 
 export default function NotFound() {
   const storefrontFromContext = useStorefront();
-  const [storefront, setStorefront] = useState('LUNERA');
+  const [storefront, setStorefront] = useState('FIVESTARFINDS');
   const [mounted, setMounted] = useState(false);
   const [info, setInfo] = useState(null);
 
