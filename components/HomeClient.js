@@ -195,18 +195,67 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
         }
 
         // If no order found yet, wait a bit and try again (webhook might still be processing)
-        console.log('[HomeClient] No order found yet, will retry in 2 seconds');
+        // Shopify webhooks typically arrive within 1-3 seconds, but can take up to 5-10 seconds during high traffic
+        console.log('[HomeClient] No order found yet, will retry with exponential backoff');
+        
+        // Retry 1: After 2 seconds
         setTimeout(async () => {
-          const retrySnapshot = await getDocs(q);
-          if (!retrySnapshot.empty) {
-            const orderDoc = retrySnapshot.docs[0];
-            const orderData = orderDoc.data();
-            if (orderData.confirmationNumber) {
-              console.log('[HomeClient] Found order on retry, redirecting to thank-you page');
-              localStorage.removeItem('checkout_session');
-              router.push(`/thank-you?confirmation=${orderData.confirmationNumber}`);
+          try {
+            const retrySnapshot = await getDocs(q);
+            if (!retrySnapshot.empty) {
+              const orderDoc = retrySnapshot.docs[0];
+              const orderData = orderDoc.data();
+              if (orderData.confirmationNumber) {
+                console.log('[HomeClient] Found order on first retry (2s), redirecting to thank-you page');
+                localStorage.removeItem('checkout_session');
+                router.push(`/thank-you?confirmation=${orderData.confirmationNumber}`);
+                return;
+              }
             }
+          } catch (retryError) {
+            console.error('[HomeClient] Error on first retry:', retryError);
           }
+          
+          // Retry 2: After 5 more seconds (7s total)
+          setTimeout(async () => {
+            try {
+              const retrySnapshot2 = await getDocs(q);
+              if (!retrySnapshot2.empty) {
+                const orderDoc = retrySnapshot2.docs[0];
+                const orderData = orderDoc.data();
+                if (orderData.confirmationNumber) {
+                  console.log('[HomeClient] Found order on second retry (7s), redirecting to thank-you page');
+                  localStorage.removeItem('checkout_session');
+                  router.push(`/thank-you?confirmation=${orderData.confirmationNumber}`);
+                  return;
+                }
+              }
+            } catch (retryError2) {
+              console.error('[HomeClient] Error on second retry:', retryError2);
+            }
+            
+            // Retry 3: After 10 more seconds (17s total)
+            setTimeout(async () => {
+              try {
+                const retrySnapshot3 = await getDocs(q);
+                if (!retrySnapshot3.empty) {
+                  const orderDoc = retrySnapshot3.docs[0];
+                  const orderData = orderDoc.data();
+                  if (orderData.confirmationNumber) {
+                    console.log('[HomeClient] Found order on third retry (17s), redirecting to thank-you page');
+                    localStorage.removeItem('checkout_session');
+                    router.push(`/thank-you?confirmation=${orderData.confirmationNumber}`);
+                  } else {
+                    console.warn('[HomeClient] Order found but no confirmation number after 17s, user may need to refresh');
+                  }
+                } else {
+                  console.warn('[HomeClient] No order found after 17s - webhook may be delayed or failed');
+                }
+              } catch (retryError3) {
+                console.error('[HomeClient] Error on third retry:', retryError3);
+              }
+            }, 10000);
+          }, 5000);
         }, 2000);
       } catch (error) {
         console.error('[HomeClient] Error checking for checkout return:', error);
