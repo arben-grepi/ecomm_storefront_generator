@@ -362,6 +362,20 @@ function CheckoutPageContent() {
 
       console.log(`[Checkout] Redirecting to Shopify checkout - URL: ${checkoutUrl}, Market: ${shippingAddress.countryCode || shippingAddress.country || 'unknown'}`);
       
+      // Store checkout session in localStorage for thank-you page
+      try {
+        const checkoutSession = {
+          cartId: checkoutData.cartId || null,
+          storefront: storefront,
+          market: shippingAddress.countryCode || shippingAddress.country || 'DE',
+          timestamp: Date.now(),
+        };
+        localStorage.setItem('checkout_session', JSON.stringify(checkoutSession));
+      } catch (sessionError) {
+        console.warn('[Checkout] Failed to store checkout session:', sessionError);
+        // Non-critical, continue with redirect
+      }
+      
       // Set sessionStorage flag to intercept return from checkout
       // This allows us to redirect to custom thank-you page after Shopify checkout
       try {
