@@ -1174,6 +1174,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
               emailAddress={siteInfo.emailAddress || ''}
               emailColor={siteInfo.emailColor || 'primary'}
               showEmail={siteInfo.showEmail === true}
+              storefront={storefront}
             />
           </div>
         </div>

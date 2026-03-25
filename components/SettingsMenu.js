@@ -12,20 +12,23 @@ import InstagramLogo from '@/components/InstagramLogo';
 export default function SettingsMenu({ 
   secondaryColor = '#64748b', 
   primaryColor = '#ec4899', 
-  email = null,
   instagramUrl = '',
   instagramBgColor = 'primary',
   showInstagram = false,
   emailAddress = '',
   emailColor = 'primary',
   showEmail = false,
+  storefront: storefrontProp = null,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const storefront = useStorefront();
+  const storefrontFromContext = useStorefront();
+  // Always prefer the explicitly passed prop — prevents cross-tab contamination
+  // when the user has multiple storefronts open simultaneously
+  const storefront = storefrontProp || storefrontFromContext;
 
   useEffect(() => {
     setMounted(true);
@@ -112,6 +115,8 @@ export default function SettingsMenu({
   );
 
   const aboutUsPath = storefront === 'LUNERA' ? '/about' : `/${storefront}/about`;
+  const homePath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
+  const privacyPath = storefront === 'LUNERA' ? '/privacy' : `/${storefront}/privacy`;
   
   // Helper to get color from selection
   const getColorFromSelection = (colorSelection) => {
@@ -183,7 +188,7 @@ export default function SettingsMenu({
                 {/* Navigation Links */}
                 <div className="space-y-2 px-4">
                   <Link
-                    href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
+                    href={homePath}
                     onClick={() => setIsOpen(false)}
                     className="block px-4 py-3 rounded-lg transition-all text-sm border-2 border-transparent hover:border-opacity-50"
                     style={{ color: secondaryColor }}
@@ -203,7 +208,7 @@ export default function SettingsMenu({
                     About Us
                   </Link>
                   <Link
-                    href={storefront === 'LUNERA' ? '/privacy' : `/${storefront}/privacy`}
+                    href={privacyPath}
                     onClick={() => setIsOpen(false)}
                     className="block px-4 py-3 rounded-lg transition-all text-sm border-2 border-transparent hover:border-opacity-50"
                     style={{ color: secondaryColor }}

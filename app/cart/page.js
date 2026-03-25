@@ -593,6 +593,7 @@ function CartPageContent() {
             emailAddress={siteInfo.emailAddress || ''}
             emailColor={siteInfo.emailColor || 'primary'}
             showEmail={siteInfo.showEmail === true}
+            storefront={storefront}
           />
           </div>
         </header>
@@ -648,7 +649,8 @@ function CartPageContent() {
           </Link>
           <SettingsMenu 
             secondaryColor={siteInfo.colorSecondary || '#64748b'} 
-            primaryColor={siteInfo.colorPrimary || '#ec4899'} 
+            primaryColor={siteInfo.colorPrimary || '#ec4899'}
+            storefront={storefront}
           />
         </div>
       </header>

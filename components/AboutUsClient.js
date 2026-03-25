@@ -10,39 +10,39 @@ import SettingsMenu from '@/components/SettingsMenu';
 import InstagramLogo from '@/components/InstagramLogo';
 import { getLogo } from '@/lib/logo-cache';
 
-export default function AboutUsClient({ initialProducts = [], info = null, storefront: storefrontProp = null }) {
+export default function AboutUsClient({ info = null, storefront: storefrontProp = null }) {
   const storefrontFromContext = useStorefront();
   const storefront = storefrontProp || storefrontFromContext || 'FIVESTARFINDS';
   const db = getFirebaseDb();
 
-  // Get site info for colors, email, and Instagram
   const [siteInfo, setSiteInfo] = useState({
     colorPrimary: info?.colorPrimary || '#ec4899',
     colorSecondary: info?.colorSecondary || '#64748b',
     colorTertiary: info?.colorTertiary || '#94a3b8',
-    email: info?.email || null,
     instagramUrl: info?.instagramUrl || '',
     instagramBgColor: info?.instagramBgColor || 'primary',
     showInstagram: info?.showInstagram === true,
     emailAddress: info?.emailAddress || '',
     emailColor: info?.emailColor || 'primary',
     showEmail: info?.showEmail === true,
+    aboutUsText: info?.aboutUsText || '',
+    companyName: info?.companyName || storefront,
   });
 
-  // Fetch colors if not provided
   useEffect(() => {
       if (info?.colorPrimary) {
         setSiteInfo({
           colorPrimary: info.colorPrimary || '#ec4899',
           colorSecondary: info.colorSecondary || '#64748b',
           colorTertiary: info.colorTertiary || '#94a3b8',
-          email: info.email || null,
           instagramUrl: info.instagramUrl || '',
           instagramBgColor: info.instagramBgColor || 'primary',
           showInstagram: info.showInstagram === true,
           emailAddress: info.emailAddress || '',
           emailColor: info.emailColor || 'primary',
           showEmail: info.showEmail === true,
+          aboutUsText: info.aboutUsText || '',
+          companyName: info.companyName || storefront,
         });
         return;
       }
@@ -56,13 +56,14 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
             colorPrimary: cachedInfo.colorPrimary || '#ec4899',
             colorSecondary: cachedInfo.colorSecondary || '#64748b',
             colorTertiary: cachedInfo.colorTertiary || '#94a3b8',
-            email: cachedInfo.email || null,
             instagramUrl: cachedInfo.instagramUrl || '',
             instagramBgColor: cachedInfo.instagramBgColor || 'primary',
             showInstagram: cachedInfo.showInstagram === true,
             emailAddress: cachedInfo.emailAddress || '',
             emailColor: cachedInfo.emailColor || 'primary',
             showEmail: cachedInfo.showEmail === true,
+            aboutUsText: cachedInfo.aboutUsText || '',
+            companyName: cachedInfo.companyName || storefront,
           });
           return;
         }
@@ -70,7 +71,6 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
         // Fetch from Firestore
         if (db) {
           const { doc, getDoc } = await import('firebase/firestore');
-          // Info document is at: {storefront}/Info
           const infoRef = doc(db, storefront, 'Info');
           const infoSnap = await getDoc(infoRef);
           if (infoSnap.exists()) {
@@ -79,13 +79,14 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
               colorPrimary: data.colorPrimary || '#ec4899',
               colorSecondary: data.colorSecondary || '#64748b',
               colorTertiary: data.colorTertiary || '#94a3b8',
-              email: data.email || null,
               instagramUrl: data.instagramUrl || '',
               instagramBgColor: data.instagramBgColor || 'primary',
               showInstagram: data.showInstagram === true,
               emailAddress: data.emailAddress || '',
               emailColor: data.emailColor || 'primary',
               showEmail: data.showEmail === true,
+              aboutUsText: data.aboutUsText || '',
+              companyName: data.companyName || storefront,
             };
             setSiteInfo(infoData);
             saveInfoToCache(storefront, data);
@@ -119,13 +120,13 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
           <SettingsMenu 
             secondaryColor={siteInfo.colorSecondary || '#64748b'} 
             primaryColor={siteInfo.colorPrimary || '#ec4899'}
-            email={siteInfo.email || null}
             instagramUrl={siteInfo.instagramUrl || ''}
             instagramBgColor={siteInfo.instagramBgColor || 'primary'}
             showInstagram={siteInfo.showInstagram === true}
             emailAddress={siteInfo.emailAddress || ''}
             emailColor={siteInfo.emailColor || 'primary'}
             showEmail={siteInfo.showEmail === true}
+            storefront={storefront}
           />
         </div>
       </header>
@@ -143,18 +144,15 @@ export default function AboutUsClient({ initialProducts = [], info = null, store
               className="text-lg leading-relaxed space-y-4"
               style={{ color: siteInfo.colorSecondary || '#64748b' }}
             >
-              <p>
-                We are combining the sexy, confident, brave and elegancy to wear you. At LUNERA, we believe that what you wear should reflect who you are - bold, beautiful, and unapologetically yourself.
-              </p>
-              <p>
-                Wear, feel and be sexy with LUNERA. Our carefully curated collection is designed to make you feel confident and empowered in your own skin. Every piece is thoughtfully selected to celebrate your unique style and personality.
-              </p>
-              <p>
-                We guarantee quality and delivery. Your satisfaction is our priority, and we stand behind every product we offer. From the moment you browse our collection to the day your order arrives, we're committed to providing you with an exceptional experience.
-              </p>
-              <p>
-                We hope you love our products as much as we love them, and we love you! Your support means everything to us, and we're grateful to be part of your journey.
-              </p>
+              {siteInfo.aboutUsText ? (
+                siteInfo.aboutUsText.split('\n').filter(Boolean).map((paragraph, i) => (
+                  <p key={i}>{paragraph}</p>
+                ))
+              ) : (
+                <p className="italic opacity-60">
+                  About us content coming soon. Check back later!
+                </p>
+              )}
               {(siteInfo.showInstagram || siteInfo.showEmail) && (
                 <div className="pt-4 border-t" style={{ borderColor: `${siteInfo.colorSecondary || '#64748b'}33` }}>
                   {siteInfo.showInstagram && siteInfo.instagramUrl && (

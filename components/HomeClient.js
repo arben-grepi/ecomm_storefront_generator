@@ -662,16 +662,16 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                   );
                 })()}
                 <div className="ml-2">
-                  <SettingsMenu 
-                    secondaryColor={siteInfo.colorSecondary || '#64748b'} 
+                  <SettingsMenu
+                    secondaryColor={siteInfo.colorSecondary || '#64748b'}
                     primaryColor={siteInfo.colorPrimary || '#ec4899'}
-                    email={siteInfo.email || null}
                     instagramUrl={siteInfo.instagramUrl || ''}
                     instagramBgColor={siteInfo.instagramBgColor || 'primary'}
                     showInstagram={siteInfo.showInstagram === true}
                     emailAddress={siteInfo.emailAddress || ''}
                     emailColor={siteInfo.emailColor || 'primary'}
                     showEmail={siteInfo.showEmail === true}
+                    storefront={storefront}
                   />
                 </div>
               </div>

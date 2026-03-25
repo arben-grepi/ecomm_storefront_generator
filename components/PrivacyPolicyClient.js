@@ -15,7 +15,7 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
   const storefront = storefrontProp || storefrontFromContext || 'FIVESTARFINDS';
   const db = getFirebaseDb();
 
-  // Get site info for colors and social links
+  // Get site info for colors, social links, and privacy policy sections
   const [siteInfo, setSiteInfo] = useState({
     colorPrimary: info?.colorPrimary || '#ec4899',
     colorSecondary: info?.colorSecondary || '#64748b',
@@ -26,9 +26,9 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
     emailAddress: info?.emailAddress || '',
     emailColor: info?.emailColor || 'primary',
     showEmail: info?.showEmail === true,
+    privacyPolicySections: info?.privacyPolicySections || [],
   });
 
-  // Fetch colors if not provided
   useEffect(() => {
       if (info?.colorPrimary) {
         setSiteInfo({
@@ -41,6 +41,7 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
           emailAddress: info.emailAddress || '',
           emailColor: info.emailColor || 'primary',
           showEmail: info.showEmail === true,
+          privacyPolicySections: info.privacyPolicySections || [],
         });
         return;
       }
@@ -60,6 +61,7 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
             emailAddress: cachedInfo.emailAddress || '',
             emailColor: cachedInfo.emailColor || 'primary',
             showEmail: cachedInfo.showEmail === true,
+            privacyPolicySections: cachedInfo.privacyPolicySections || [],
           });
           return;
         }
@@ -80,6 +82,7 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
               emailAddress: data.emailAddress || '',
               emailColor: data.emailColor || 'primary',
               showEmail: data.showEmail === true,
+              privacyPolicySections: data.privacyPolicySections || [],
             };
             setSiteInfo(infoData);
             saveInfoToCache(storefront, data);
@@ -101,7 +104,7 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
           <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center">
             <Image
               src={getLogo(storefront, siteInfo)}
-              alt={siteInfo.companyName || storefront}
+              alt={storefront}
               width={300}
               height={100}
               className="h-12 w-auto sm:h-16 object-contain flex-shrink-0"
@@ -118,6 +121,7 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
             emailAddress={siteInfo.emailAddress || ''}
             emailColor={siteInfo.emailColor || 'primary'}
             showEmail={siteInfo.showEmail === true}
+            storefront={storefront}
           />
         </div>
       </header>
@@ -136,85 +140,35 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
             className="prose prose-lg max-w-none space-y-6"
             style={{ color: siteInfo.colorSecondary || '#64748b' }}
           >
-            <section>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                Information We Collect
-              </h2>
-              <p>
-                We collect information that you provide directly to us, including when you create an account, place an order, or contact us. This may include your name, email address, shipping address, payment information, and phone number.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                How We Use Your Information
-              </h2>
-              <p>
-                We use the information we collect to process your orders, communicate with you about your purchases, send you marketing communications (with your consent), improve our services, and comply with legal obligations.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                Information Sharing
-              </h2>
-              <p>
-                We do not sell your personal information. We may share your information with service providers who assist us in operating our business (such as payment processors and shipping companies), and as required by law.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                Data Security
-              </h2>
-              <p>
-                We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                Your Rights
-              </h2>
-              <p>
-                You have the right to access, update, or delete your personal information at any time. You may also opt out of marketing communications by following the unsubscribe instructions in our emails or by contacting us directly.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                Cookies and Tracking
-              </h2>
-              <p>
-                We use cookies and similar tracking technologies to enhance your browsing experience, analyze site traffic, and understand where our visitors are coming from. You can control cookies through your browser settings.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                Changes to This Policy
-              </h2>
-              <p>
-                We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last Updated" date.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                Contact Us
-              </h2>
-              <p>
-                If you have any questions about this Privacy Policy, please contact us at{' '}
-                <a 
-                  href="mailto:lunera.shop@outlook.com" 
-                  className="underline hover:opacity-80"
-                  style={{ color: siteInfo.colorPrimary || '#ec4899' }}
-                >
-                  lunera.shop@outlook.com
-                </a>
-                .
-              </p>
-            </section>
+            {siteInfo.privacyPolicySections && siteInfo.privacyPolicySections.length > 0 ? (
+              siteInfo.privacyPolicySections.map((section, i) => (
+                <section key={i}>
+                  {section.heading && (
+                    <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
+                      {section.heading}
+                    </h2>
+                  )}
+                  <p>
+                    {section.text}
+                    {section.heading === 'Contact Us' && siteInfo.emailAddress && (
+                      <>
+                        {' '}
+                        <a
+                          href={`mailto:${siteInfo.emailAddress}`}
+                          className="underline hover:opacity-80"
+                          style={{ color: siteInfo.colorPrimary || '#ec4899' }}
+                        >
+                          {siteInfo.emailAddress}
+                        </a>
+                        .
+                      </>
+                    )}
+                  </p>
+                </section>
+              ))
+            ) : (
+              <p className="italic opacity-60">Privacy policy content coming soon.</p>
+            )}
 
             <div className="pt-6 border-t" style={{ borderColor: `${siteInfo.colorSecondary || '#64748b'}33` }}>
               <p className="text-sm" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
