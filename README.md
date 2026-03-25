@@ -1,4 +1,4 @@
-# Multi-Storefront E-commerce Platform
+er# Multi-Storefront E-commerce Platform
 
 <img src="docs/screenshots/2Storefronts.png" alt="Multi-Storefront View" width="50%" height="auto" />
 
@@ -112,8 +112,8 @@ This architecture allows rapid creation of new storefronts with minimal code dup
 ## Production Storefronts
 
 Currently live storefronts:
-- **HEALTH**: [https://blerinas.com/HEALTH](https://blerinas.com/HEALTH)
-- **FIVESTARFINDS**: [https://blerinas.com/FIVESTARFINDS](https://blerinas.com/FIVESTARFINDS)
+- **HEALTH**: [blerinas.com/HEALTH](https://www.blerinas.com/HEALTH)
+- **FIVESTARFINDS**: [blerinas.com/FIVESTARFINDS](https://www.blerinas.com/FIVESTARFINDS)
 
 
 
