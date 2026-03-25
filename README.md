@@ -112,8 +112,8 @@ This architecture allows rapid creation of new storefronts with minimal code dup
 ## Production Storefronts
 
 Currently live storefronts:
-- **HEALTH**: [blerinas.com/HEALTH](www.blerinas.com/HEALTH)
-- **FIVESTARFINDS**: [blerinas.com/FIVESTARFINDS](www.blerinas.com/FIVESTARFINDS)
+- **HEALTH**: [blerinas.com/HEALTH](https://www.blerinas.com/HEALTH)
+- **FIVESTARFINDS**: [blerinas.com/FIVESTARFINDS](https://www.blerinas.com/FIVESTARFINDS)
 
 
 
