@@ -1,4 +1,4 @@
-er# Multi-Storefront E-commerce Platform
+# Multi-Storefront E-commerce Platform
 
 <img src="docs/screenshots/2Storefronts.png" alt="Multi-Storefront View" width="50%" height="auto" />
 
