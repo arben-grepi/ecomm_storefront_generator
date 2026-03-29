@@ -2,15 +2,17 @@
 
 <img src="docs/screenshots/2Storefronts.png" alt="Multi-Storefront View" width="50%" height="auto" />
 
-A Next.js multi-storefront e-commerce platform using Shopify as a headless backend and single source of truth. The system generates multiple independent storefronts, imports products from Shopify into an internal database, and serves market-specific catalogs.
+This platform is built for Shopify e-commerce businesses that run multiple storefronts across different niches or product catalogs.
 
-After import, products go through a processing phase where they are assigned to storefronts and categories, configured with images, and prepared for launch with customer-facing content.
+Instead of managing multiple Shopify accounts, a single Shopify store is used as the central backend and source of truth. All products are imported from Shopify into a Firebase database and then distributed to multiple Next.js storefronts.
 
-## AI-Powered Content Generation
+Each storefront can represent a different brand or market, allowing the same product catalog to be reused and organized into separate, independent stores.
 
-The platform integrates with an AI microservice that automatically generates optimized product display names, marketing-ready descriptions, and bullet points from raw Shopify product data during the import process. This reduces manual content creation time significantly.
+Multi-Storefront & AI Workflow
 
-For detailed information about the AI system implementation, see the [CreateNameAndDescription repository](https://github.com/arben-grepi/CreateNameAndDescription).
+After import, products are assigned to storefronts, categorized, and prepared for display.
+
+An integrated AI service automatically generates brand-specific product names, descriptions, and bullet points, making it easy to adapt the same products for different storefronts with minimal manual work.
 
 ## Platform Features
 
