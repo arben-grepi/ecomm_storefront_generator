@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getOrder } from '@/lib/shopify-api';
+import { getShopifyUserMessage, isShopifyUnavailableError } from '@/lib/shopify-errors';
 
 /**
  * Get order from Shopify Admin API (fallback for order confirmation page)
@@ -12,7 +13,7 @@ export async function GET(request) {
 
     if (!orderId) {
       return NextResponse.json(
-        { error: 'Order ID is required' },
+        { error: 'Order ID is required', message: 'Order ID is required' },
         { status: 400 }
       );
     }
@@ -22,7 +23,7 @@ export async function GET(request) {
 
     if (!order) {
       return NextResponse.json(
-        { error: 'Order not found' },
+        { error: 'Order not found', message: 'Order not found' },
         { status: 404 }
       );
     }
@@ -32,10 +33,10 @@ export async function GET(request) {
     console.error('Failed to fetch order from Shopify:', error);
     return NextResponse.json(
       {
-        error: 'Failed to fetch order',
-        message: error.message || 'Unknown error',
+        error: isShopifyUnavailableError(error) ? 'shopify_unavailable' : 'Failed to fetch order',
+        message: getShopifyUserMessage(error, 'Failed to fetch order. Please try again later.'),
       },
-      { status: 500 }
+      { status: isShopifyUnavailableError(error) ? 503 : 500 }
     );
   }
 }

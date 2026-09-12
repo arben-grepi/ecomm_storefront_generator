@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createCart, updateCartBuyerIdentity, verifyStorefrontVariantAccessibility } from '@/lib/shopify-storefront-api';
 import { getStorefrontFromRequest } from '@/lib/get-storefront-server';
+import { getShopifyUserMessage, isShopifyUnavailableError } from '@/lib/shopify-errors';
 
 /**
  * Create a Shopify checkout session via Storefront API
@@ -155,9 +156,26 @@ export async function POST(request) {
       const inaccessibleCount = verificationResult.inaccessibleVariants.length;
       const reasons = verificationResult.inaccessibleVariants.map(v => v.reason);
       const hasNotIndexed = reasons.includes('not_indexed');
+      const hasVerificationFailed = reasons.includes('verification_failed');
       
       console.warn(`[API] ⚠️  ${inaccessibleCount} variant(s) not accessible in Storefront API:`, verificationResult.inaccessibleVariants);
       
+      if (hasVerificationFailed) {
+        return NextResponse.json(
+          {
+            error: 'checkout_unavailable',
+            message: 'Checkout is temporarily unavailable. Please try again later.',
+            details: verificationResult.inaccessibleVariants.map(v => ({
+              variantId: v.variantId,
+              reason: v.reason,
+              message: v.message,
+            })),
+            retryAfter: 30,
+          },
+          { status: 503 }
+        );
+      }
+
       if (hasNotIndexed) {
         // Variants not yet indexed - return helpful error message
         return NextResponse.json(
@@ -235,6 +253,16 @@ export async function POST(request) {
         );
       }
       console.error(`[API] ❌ Cart creation failed (${cartCreateDuration}ms):`, error);
+      if (isShopifyUnavailableError(error)) {
+        return NextResponse.json(
+          {
+            error: 'checkout_unavailable',
+            message: getShopifyUserMessage(error, 'Checkout is temporarily unavailable. Please try again later.'),
+            retryAfter: 30,
+          },
+          { status: 503 }
+        );
+      }
       throw error; // Re-throw other errors
     }
     
@@ -316,12 +344,13 @@ export async function POST(request) {
       stack: error.stack,
       name: error.name,
     });
+    const message = getShopifyUserMessage(error, 'Failed to create checkout. Please try again later.');
     return NextResponse.json(
       {
-        error: 'Failed to create checkout',
-        message: error.message || 'Unknown error',
+        error: isShopifyUnavailableError(error) ? 'checkout_unavailable' : 'Failed to create checkout',
+        message,
       },
-      { status: 500 }
+      { status: isShopifyUnavailableError(error) ? 503 : 500 }
     );
   }
 }

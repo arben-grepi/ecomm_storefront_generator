@@ -379,11 +379,18 @@ function CartPageContent() {
         }),
       });
 
-      if (!validationResponse.ok) {
-        throw new Error('Pre-checkout validation failed');
+      let validation;
+      try {
+        validation = await validationResponse.json();
+      } catch {
+        throw new Error('Pre-checkout validation failed. Please try again.');
       }
 
-      const validation = await validationResponse.json();
+      // Prefer API error messages so users see why validation failed
+      if (!validationResponse.ok && !validation?.errors?.length && !validation?.error) {
+        throw new Error('Pre-checkout validation failed. Please try again.');
+      }
+
       setValidatingShipping(false);
       
       // Track unavailable items for visual display and removal
@@ -531,6 +538,7 @@ function CartPageContent() {
       // Redirect to Shopify checkout
       window.location.href = checkoutUrl;
     } catch (err) {
+      setValidatingShipping(false);
       
       // Try to parse error message for unavailable items
       // Check if error mentions variant IDs or product IDs

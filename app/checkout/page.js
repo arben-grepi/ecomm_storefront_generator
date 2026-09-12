@@ -292,16 +292,27 @@ function CheckoutPageContent() {
         body: JSON.stringify({
           cart,
           shippingAddress,
+          storefront: storefront,
         }),
       });
 
-      if (!validationResponse.ok) {
-        throw new Error('Pre-checkout validation failed');
+      let validation;
+      try {
+        validation = await validationResponse.json();
+      } catch {
+        throw new Error('Pre-checkout validation failed. Please try again.');
       }
 
-      const validation = await validationResponse.json();
+      if (!validationResponse.ok && !validation?.errors?.length && !validation?.error) {
+        throw new Error('Pre-checkout validation failed. Please try again.');
+      }
+
       if (!validation.valid) {
-        setValidationError(validation.errors?.join(', ') || 'Validation failed');
+        setValidationError(
+          validation.errors?.join('. ')
+            || validation.error
+            || 'Validation failed'
+        );
         setProcessing(false);
         setValidatingInventory(false);
         return;
@@ -347,6 +358,10 @@ function CheckoutPageContent() {
           const retryAfter = errorData.retryAfter || 30;
           throw new Error(
             `Unable to create checkout. The products may still be indexing. Please try again in ${retryAfter} seconds.`
+          );
+        } else if (errorData.error === 'checkout_unavailable') {
+          throw new Error(
+            errorData.message || 'Checkout is temporarily unavailable. Please try again later.'
           );
         }
         

@@ -17,24 +17,29 @@ export async function POST(request) {
   
   try {
     const body = await request.json();
-    const { cart, shippingAddress: bodyShippingAddress } = body;
+    const { cart, shippingAddress: bodyShippingAddress, storefront } = body;
 
     // Shipping address is optional - if not provided, we can still validate market and inventory
     // Shipping validation will fail if no country is provided, but that's okay
     const shippingAddress = bodyShippingAddress || {};
 
-    console.log(`[API] 📦 Validation request - Cart items: ${cart?.length || 0}, Country: ${shippingAddress?.countryCode || shippingAddress?.country || 'N/A'}`);
+    console.log(`[API] 📦 Validation request - Cart items: ${cart?.length || 0}, Country: ${shippingAddress?.countryCode || shippingAddress?.country || 'N/A'}, Storefront: ${storefront || 'N/A'}`);
     console.log(`[API] 📋 Cart details:`, cart?.map(item => ({
       productId: item.productId,
       variantId: item.variantId,
       shopifyVariantId: item.shopifyVariantId,
       quantity: item.quantity,
+      storefront: item.storefront,
     })));
 
     if (!cart || !Array.isArray(cart) || cart.length === 0) {
       console.error(`[API] ❌ Invalid request: Cart is empty or missing`);
       return NextResponse.json(
-        { error: 'Cart is required and must not be empty' },
+        {
+          valid: false,
+          error: 'Cart is required and must not be empty',
+          errors: ['Cart is required and must not be empty'],
+        },
         { status: 400 }
       );
     }
@@ -46,7 +51,7 @@ export async function POST(request) {
     console.log(`[API] 🔍 Calling validateCheckout (market + inventory + shipping)...`);
     // Validate checkout (market availability + inventory + shipping)
     // All validations are now in one place for simplicity
-    const validation = await validateCheckout({ cart, shippingAddress });
+    const validation = await validateCheckout({ cart, shippingAddress, storefront: storefront || null });
     const validateDuration = Date.now() - validateStartTime;
     
     console.log(`[API] ✅ Validation complete (${validateDuration}ms):`, {
@@ -64,6 +69,7 @@ export async function POST(request) {
 
     const apiDuration = Date.now() - apiStartTime;
     console.log(`[API] ✅ Validation API complete (${apiDuration}ms total)`);
+    // Always 200 with structured payload so the UI can show validation.errors
     return NextResponse.json(validation);
   } catch (error) {
     const apiDuration = Date.now() - apiStartTime;
@@ -73,13 +79,18 @@ export async function POST(request) {
       stack: error.stack,
       name: error.name,
     });
+    // Still return a UI-friendly validation payload (not a bare 500)
     return NextResponse.json(
       {
         valid: false,
         error: error.message || 'Validation failed',
         errors: [error.message || 'Validation failed'],
+        market: { valid: false },
+        inventory: { valid: false, unavailableItems: [] },
+        shipping: { available: false, rates: [], error: error.message || 'Validation failed' },
+        unavailableItems: [],
       },
-      { status: 500 }
+      { status: 200 }
     );
   }
 }
