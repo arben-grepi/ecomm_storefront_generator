@@ -7,6 +7,7 @@ import { doc, getDoc, onSnapshot, collection, query, where, getDocs } from 'fire
 import { getFirebaseDb } from '@/lib/firebase';
 import { getStorefront } from '@/lib/get-storefront';
 import AuthButton from '@/components/AuthButton';
+import { useT } from '@/lib/i18n/language-context';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -21,6 +22,7 @@ export default function OrderConfirmationPage() {
   const pathname = usePathname();
   const orderId = params?.orderId;
   const storefront = getStorefront(); // Get storefront from URL
+  const t = useT();
   // Colors come from Info document (CSS variables provide fallbacks)
   const primaryColor = '#ec4899'; // Fallback - should fetch from Info document if needed
   const primaryColorHover = '#ec4899E6';
@@ -31,14 +33,14 @@ export default function OrderConfirmationPage() {
 
   useEffect(() => {
     if (!orderId) {
-      setError('Order ID is required');
+      setError(t('order.idRequired'));
       setLoading(false);
       return;
     }
 
     const db = getFirebaseDb();
     if (!db) {
-      setError('Database not available');
+      setError(t('order.dbUnavailable'));
       setLoading(false);
       return;
     }
@@ -143,7 +145,7 @@ export default function OrderConfirmationPage() {
 
       // If still not found, show error
       if (!orderData) {
-        setError('Order not found. It may still be processing. Please check back in a few moments.');
+        setError(t('order.stillProcessing'));
         setLoading(false);
         return null;
       }
@@ -183,7 +185,7 @@ export default function OrderConfirmationPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-slate-500">Loading order...</div>
+        <div className="text-slate-500">{t('order.loading')}</div>
       </div>
     );
   }
@@ -200,8 +202,8 @@ export default function OrderConfirmationPage() {
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-16 text-center">
-          <h1 className="mb-4 text-2xl font-medium text-primary">Order Not Found</h1>
-          <p className="mb-8 text-slate-600">{error || 'The order you are looking for does not exist.'}</p>
+          <h1 className="mb-4 text-2xl font-medium text-primary">{t('order.notFoundTitle')}</h1>
+          <p className="mb-8 text-slate-600">{error || t('order.notFoundBody')}</p>
           <Link
             href={`/${storefront}`}
             className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
@@ -215,7 +217,7 @@ export default function OrderConfirmationPage() {
               e.currentTarget.style.backgroundColor = primaryColor;
             }}
           >
-            Continue Shopping
+            {t('order.continueShopping')}
           </Link>
         </main>
       </div>
@@ -238,13 +240,13 @@ export default function OrderConfirmationPage() {
   const getStatusLabel = (status) => {
     switch (status) {
       case 'paid':
-        return 'Payment Received';
+        return t('order.statusPaid');
       case 'shipped':
-        return 'Shipped';
+        return t('order.statusShipped');
       case 'cancelled':
-        return 'Cancelled';
+        return t('order.statusCancelled');
       default:
-        return 'Pending';
+        return t('order.statusPending');
     }
   };
 
@@ -276,9 +278,9 @@ export default function OrderConfirmationPage() {
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h1 className="mb-2 text-2xl font-medium text-green-900">Order Confirmed!</h1>
+          <h1 className="mb-2 text-2xl font-medium text-green-900">{t('order.confirmedTitle')}</h1>
           <p className="text-green-700">
-            Thank you for your order. We've sent a confirmation email to {order.email}
+            {t('order.thankYouEmail', { email: order.email })}
           </p>
         </div>
 
@@ -286,9 +288,9 @@ export default function OrderConfirmationPage() {
         <div className="mb-8 rounded-xl border border-secondary/70 bg-white/90 p-6">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-medium text-primary">Order Details</h2>
+              <h2 className="text-lg font-medium text-primary">{t('order.details')}</h2>
               <p className="text-sm text-slate-600">
-                Order #{order.orderNumber || order.id}
+                {t('order.orderNumber', { number: order.orderNumber || order.id })}
               </p>
             </div>
             <span className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(order.status)}`}>
@@ -309,7 +311,7 @@ export default function OrderConfirmationPage() {
                 )}
                 <div className="flex-1">
                   <p className="font-medium">{item.title}</p>
-                  <p className="text-sm text-slate-600">Quantity: {item.quantity}</p>
+                  <p className="text-sm text-slate-600">{t('order.quantity', { count: item.quantity })}</p>
                 </div>
                 <p className="font-medium">{formatPrice(item.subtotal)}</p>
               </div>
@@ -319,19 +321,19 @@ export default function OrderConfirmationPage() {
           {/* Totals */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Subtotal</span>
+              <span>{t('cart.subtotal')}</span>
               <span>{formatPrice(order.totals?.subtotal || 0)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>Shipping</span>
+              <span>{t('cart.shipping')}</span>
               <span>{formatPrice(order.totals?.shipping || 0)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>Tax</span>
+              <span>{t('common.tax')}</span>
               <span>{formatPrice(order.totals?.tax || 0)}</span>
             </div>
             <div className="flex justify-between border-t border-secondary/70 pt-2 font-semibold">
-              <span>Total</span>
+              <span>{t('common.total')}</span>
               <span>{formatPrice(order.totals?.grandTotal || 0)}</span>
             </div>
           </div>
@@ -340,7 +342,7 @@ export default function OrderConfirmationPage() {
         {/* Shipping Address */}
         {order.shippingAddress && (
           <div className="mb-8 rounded-xl border border-secondary/70 bg-white/90 p-6">
-            <h2 className="mb-4 text-lg font-medium text-primary">Shipping Address</h2>
+            <h2 className="mb-4 text-lg font-medium text-primary">{t('order.shippingAddress')}</h2>
             <div className="text-sm text-slate-600">
               <p className="font-medium">
                 {order.shippingAddress.firstName} {order.shippingAddress.lastName}
@@ -351,7 +353,7 @@ export default function OrderConfirmationPage() {
                 {order.shippingAddress.city}, {order.shippingAddress.province} {order.shippingAddress.zip}
               </p>
               <p>{order.shippingAddress.country}</p>
-              {order.shippingAddress.phone && <p className="mt-2">Phone: {order.shippingAddress.phone}</p>}
+              {order.shippingAddress.phone && <p className="mt-2">{t('common.phone', { phone: order.shippingAddress.phone })}</p>}
             </div>
           </div>
         )}
@@ -359,10 +361,10 @@ export default function OrderConfirmationPage() {
         {/* Shipping/Tracking Info */}
         {order.fulfillment && (
           <div className="mb-8 rounded-xl border border-blue-300 bg-blue-50 p-6">
-            <h2 className="mb-4 text-lg font-medium text-blue-900">Shipping Information</h2>
+            <h2 className="mb-4 text-lg font-medium text-blue-900">{t('order.shippingInfo')}</h2>
             {order.fulfillment.trackingNumber && (
               <div className="mb-3">
-                <p className="text-sm font-medium text-blue-800">Tracking Number:</p>
+                <p className="text-sm font-medium text-blue-800">{t('order.trackingNumber')}</p>
                 <p className="text-lg font-semibold text-blue-900">{order.fulfillment.trackingNumber}</p>
               </div>
             )}
@@ -373,12 +375,12 @@ export default function OrderConfirmationPage() {
                 rel="noopener noreferrer"
                 className="inline-block text-sm font-medium text-blue-600 underline hover:text-blue-800"
               >
-                Track Package
+                {t('order.trackPackage')}
               </a>
             )}
             {order.fulfillment.status && (
               <p className="mt-2 text-sm text-blue-700">
-                Status: <span className="font-medium">{order.fulfillment.status}</span>
+                {t('order.fulfillmentStatus', { status: order.fulfillment.status })}
               </p>
             )}
           </div>
@@ -390,7 +392,7 @@ export default function OrderConfirmationPage() {
             href={`/${storefront}/orders`}
             className="flex-1 rounded-full border border-primary bg-white px-6 py-3 text-center font-semibold text-primary transition hover:bg-secondary"
           >
-            View All Orders
+            {t('order.viewAllOrders')}
           </Link>
           <Link
             href={`/${storefront}`}
@@ -405,7 +407,7 @@ export default function OrderConfirmationPage() {
               e.currentTarget.style.backgroundColor = primaryColor;
             }}
           >
-            Continue Shopping
+            {t('order.continueShopping')}
           </Link>
         </div>
       </main>

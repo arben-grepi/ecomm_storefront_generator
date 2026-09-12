@@ -10,11 +10,13 @@ import { doc, getDoc } from 'firebase/firestore';
 import SettingsMenu from '@/components/SettingsMenu';
 import { getLogo } from '@/lib/logo-cache';
 import { getStorefrontHomePath } from '@/lib/storefront-paths';
+import { useT } from '@/lib/i18n/language-context';
 
 export default function PrivacyPolicyClient({ info = null, storefront: storefrontProp = null }) {
   const storefrontFromContext = useStorefront();
   const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
   const db = getFirebaseDb();
+  const t = useT();
 
   // Get site info for colors, social links, and privacy policy sections
   const [siteInfo, setSiteInfo] = useState({
@@ -134,46 +136,45 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
             className="text-4xl sm:text-5xl font-semibold"
             style={{ color: siteInfo.colorPrimary || '#ec4899' }}
           >
-            Privacy Policy
+            {t('privacy.title')}
           </h1>
 
           <div 
             className="prose prose-lg max-w-none space-y-6"
             style={{ color: siteInfo.colorSecondary || '#64748b' }}
           >
-            {siteInfo.privacyPolicySections && siteInfo.privacyPolicySections.length > 0 ? (
-              siteInfo.privacyPolicySections.map((section, i) => (
-                <section key={i}>
-                  {section.heading && (
-                    <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                      {section.heading}
-                    </h2>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+              <section key={n}>
+                <h2 className="text-2xl font-semibold mb-4" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
+                  {t(`privacy.s${n}Heading`)}
+                </h2>
+                <p>
+                  {t(`privacy.s${n}Text`)}
+                  {n === 8 && siteInfo.emailAddress && (
+                    <>
+                      {' '}
+                      <a
+                        href={`mailto:${siteInfo.emailAddress}`}
+                        className="underline hover:opacity-80"
+                        style={{ color: siteInfo.colorPrimary || '#ec4899' }}
+                      >
+                        {siteInfo.emailAddress}
+                      </a>
+                      .
+                    </>
                   )}
-                  <p>
-                    {section.text}
-                    {section.heading === 'Contact Us' && siteInfo.emailAddress && (
-                      <>
-                        {' '}
-                        <a
-                          href={`mailto:${siteInfo.emailAddress}`}
-                          className="underline hover:opacity-80"
-                          style={{ color: siteInfo.colorPrimary || '#ec4899' }}
-                        >
-                          {siteInfo.emailAddress}
-                        </a>
-                        .
-                      </>
-                    )}
-                  </p>
-                </section>
-              ))
-            ) : (
-              <p className="italic opacity-60">Privacy policy content coming soon.</p>
-            )}
+                </p>
+              </section>
+            ))}
 
             <div className="pt-6 border-t" style={{ borderColor: `${siteInfo.colorSecondary || '#64748b'}33` }}>
               <p className="text-sm" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
-                Last Updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                {t('privacy.lastUpdated', {
+                  date: new Date().toLocaleDateString(
+                    undefined,
+                    { year: 'numeric', month: 'long', day: 'numeric' }
+                  ),
+                })}
               </p>
             </div>
           </div>

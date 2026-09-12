@@ -6,12 +6,14 @@ import { signInWithGoogle, signOutUser, isAdmin, subscribeToAuth } from '@/lib/a
 import { getStorefront } from '@/lib/get-storefront';
 import { useStorefront } from '@/lib/storefront-context';
 import { getStorefrontHomePath } from '@/lib/storefront-paths';
+import { useT } from '@/lib/i18n/language-context';
 
 export default function AuthButton() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const storefront = useStorefront();
+  const t = useT();
 
   useEffect(() => {
     const unsubscribe = subscribeToAuth((currentUser) => {
@@ -91,16 +93,18 @@ export default function AuthButton() {
 
   if (loading) {
     return (
-      <button className={googleButtonClasses} aria-label="Loading" disabled>
+      <button className={googleButtonClasses} aria-label={t('common.loading')} disabled>
         <GoogleLogo />
-        <span>Sign in with Google</span>
+        <span>{t('auth.signInWithGoogle')}</span>
       </button>
     );
   }
 
   if (user) {
     const displayName = user.displayName || user.email;
-    const welcomeLabel = displayName ? `Welcome, ${displayName}` : 'Welcome';
+    const welcomeLabel = displayName
+      ? t('auth.welcomeName', { name: displayName })
+      : t('auth.welcome');
 
     return (
       <div className="flex items-center gap-3">
@@ -108,9 +112,9 @@ export default function AuthButton() {
         <button
           onClick={handleSignOut}
           className={signOutButtonClasses}
-          aria-label="Sign out"
+          aria-label={t('auth.signOut')}
         >
-          Sign Out
+          {t('auth.signOut')}
         </button>
       </div>
     );
@@ -120,10 +124,10 @@ export default function AuthButton() {
     <button
       onClick={handleSignIn}
       className={googleButtonClasses}
-      aria-label="Sign in with Google"
+      aria-label={t('auth.signInWithGoogle')}
     >
       <GoogleLogo />
-      <span>Sign in with Google</span>
+      <span>{t('auth.signInWithGoogle')}</span>
     </button>
   );
 }

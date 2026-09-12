@@ -9,6 +9,7 @@ import { getFirebaseDb } from '@/lib/firebase';
 import { getLogo } from '@/lib/logo-cache';
 import { getCachedInfo, saveInfoToCache } from '@/lib/info-cache';
 import AuthButton from '@/components/AuthButton';
+import { useT } from '@/lib/i18n/language-context';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -29,6 +30,7 @@ const formatPrice = (value, currency = 'USD') => {
 function ThankYouPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const t = useT();
   const [orderData, setOrderData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,7 +45,7 @@ function ThankYouPageContent() {
     async function loadOrder() {
       const db = getFirebaseDb();
       if (!db) {
-        setError('Database not available');
+        setError(t('thankYou.dbUnavailable'));
         setLoading(false);
         return;
       }
@@ -97,7 +99,7 @@ function ThankYouPageContent() {
       }
       
       if (!confirmationNumber) {
-        setError('Order confirmation number not found. Please check your email for order confirmation or wait a moment and refresh the page.');
+        setError(t('thankYou.missingConfirmation'));
         setLoading(false);
         return;
       }
@@ -150,7 +152,7 @@ function ThankYouPageContent() {
             }
           } else if (attempts >= maxAttempts) {
             clearInterval(pollInterval);
-            setError('Order confirmation not found. It may still be processing. Please check your email for order confirmation.');
+            setError(t('thankYou.stillProcessing'));
             setLoading(false);
           }
         }, 1000);
@@ -247,8 +249,8 @@ function ThankYouPageContent() {
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-16 text-center">
-          <h1 className="mb-4 text-2xl font-medium" style={{ color: primaryColor }}>Order Confirmation Not Found</h1>
-          <p className="mb-8 text-slate-600">{error || 'The order confirmation you are looking for does not exist. Please check your email for order confirmation.'}</p>
+          <h1 className="mb-4 text-2xl font-medium" style={{ color: primaryColor }}>{t('thankYou.notFoundTitle')}</h1>
+          <p className="mb-8 text-slate-600">{error || t('thankYou.notFoundBody')}</p>
           <Link
             href={getHomeUrl(displayStorefront)}
             className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
@@ -262,7 +264,7 @@ function ThankYouPageContent() {
               e.currentTarget.style.backgroundColor = primaryColor;
             }}
           >
-            Continue Shopping
+            {t('thankYou.continueShopping')}
           </Link>
         </main>
       </div>
@@ -315,18 +317,18 @@ function ThankYouPageContent() {
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
             />
           </svg>
-          <h1 className="mb-2 text-2xl font-medium text-green-900">Thank you for your order!</h1>
+          <h1 className="mb-2 text-2xl font-medium text-green-900">{t('thankYou.title')}</h1>
           <p className="text-green-700">
-            We've sent a confirmation email to {orderData.email}
+            {t('thankYou.emailSent', { email: orderData.email })}
           </p>
           {orderData.orderNumber && (
             <p className="mt-2 text-sm text-green-600">
-              Order #{orderData.orderNumber}
+              {t('thankYou.orderNumber', { number: orderData.orderNumber })}
             </p>
           )}
           {orderData.confirmationNumber && (
             <p className="mt-1 text-xs text-green-600">
-              Confirmation: {orderData.confirmationNumber}
+              {t('thankYou.confirmation', { number: orderData.confirmationNumber })}
             </p>
           )}
         </div>
@@ -334,20 +336,20 @@ function ThankYouPageContent() {
         {/* Order Items */}
         {orderData.items && orderData.items.length > 0 && (
           <div className="mb-8 rounded-xl border border-secondary/70 bg-white/90 p-6">
-            <h2 className="mb-4 text-lg font-medium" style={{ color: primaryColor }}>Order Summary</h2>
+            <h2 className="mb-4 text-lg font-medium" style={{ color: primaryColor }}>{t('thankYou.orderSummary')}</h2>
             <div className="space-y-4 border-b border-secondary/70 pb-4">
               {orderData.items.map((item, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div className="flex-1">
                     <p className="font-medium">{item.title}</p>
-                    <p className="text-sm text-slate-600">Quantity: {item.quantity}</p>
+                    <p className="text-sm text-slate-600">{t('thankYou.quantity', { count: item.quantity })}</p>
                   </div>
                   <p className="font-medium">{formatPrice(item.subtotal || item.price * item.quantity, orderData.currency)}</p>
                 </div>
               ))}
             </div>
             <div className="mt-4 flex justify-between border-t border-secondary/70 pt-4 font-semibold">
-              <span>Total</span>
+              <span>{t('common.total')}</span>
               <span>{formatPrice(orderData.total, orderData.currency)}</span>
             </div>
           </div>
@@ -368,7 +370,7 @@ function ThankYouPageContent() {
               e.currentTarget.style.backgroundColor = primaryColor;
             }}
           >
-            Continue Shopping at {displayStorefront}
+            {t('thankYou.continueAt', { storefront: displayStorefront })}
           </Link>
         </div>
       </main>
@@ -376,15 +378,20 @@ function ThankYouPageContent() {
   );
 }
 
+function ThankYouFallback() {
+  const t = useT();
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-slate-500">{t('thankYou.loading')}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function ThankYouPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white">
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="text-slate-500">Loading your order confirmation...</div>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<ThankYouFallback />}>
       <ThankYouPageContent />
     </Suspense>
   );

@@ -13,6 +13,7 @@ import {
   getStorefrontAboutPath,
   getStorefrontPrivacyPath,
 } from '@/lib/storefront-paths';
+import { useLanguage } from '@/lib/i18n/language-context';
 
 export default function SettingsMenu({ 
   secondaryColor = '#64748b', 
@@ -31,6 +32,13 @@ export default function SettingsMenu({
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
   const storefrontFromContext = useStorefront();
+  const {
+    t,
+    language,
+    localLanguage,
+    showLanguageToggle,
+    setUiLanguage,
+  } = useLanguage();
   // Always prefer the explicitly passed prop — prevents cross-tab contamination
   // when the user has multiple storefronts open simultaneously
   const storefront = storefrontProp || storefrontFromContext;
@@ -139,7 +147,7 @@ export default function SettingsMenu({
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-secondary/20 transition-colors"
-        aria-label="Settings"
+        aria-label={t('common.settings')}
         style={{ color: primaryColor }}
       >
         <svg
@@ -175,12 +183,12 @@ export default function SettingsMenu({
             <div className="flex flex-col h-full">
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b" style={{ borderColor: `${secondaryColor}30` }}>
-                <h2 className="text-xl font-semibold" style={{ color: primaryColor }}>Menu</h2>
+                <h2 className="text-xl font-semibold" style={{ color: primaryColor }}>{t('common.menu')}</h2>
                 <button
                   onClick={() => setIsOpen(false)}
                   className="p-2 rounded-full hover:bg-secondary/20 transition-colors"
                   style={{ color: secondaryColor }}
-                  aria-label="Close menu"
+                  aria-label={t('common.closeMenu')}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -200,7 +208,7 @@ export default function SettingsMenu({
                     onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor}
                     onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                   >
-                    Home
+                    {t('common.home')}
                   </Link>
                   <Link
                     href={aboutUsPath}
@@ -210,7 +218,7 @@ export default function SettingsMenu({
                     onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor}
                     onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                   >
-                    About Us
+                    {t('nav.aboutUs')}
                   </Link>
                   <Link
                     href={privacyPath}
@@ -220,9 +228,48 @@ export default function SettingsMenu({
                     onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor}
                     onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                   >
-                    Privacy Policy
+                    {t('nav.privacyPolicy')}
                   </Link>
                 </div>
+
+                {showLanguageToggle && (
+                  <>
+                    <div className="my-6 px-4">
+                      <div className="border-t" style={{ borderColor: `${secondaryColor}30` }}></div>
+                    </div>
+                    <div className="px-4">
+                      <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: `${secondaryColor}99` }}>
+                        {t('common.language')}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setUiLanguage(localLanguage)}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm border-2 transition-all"
+                          style={{
+                            color: secondaryColor,
+                            borderColor: language === localLanguage ? primaryColor : 'transparent',
+                            backgroundColor: language === localLanguage ? `${primaryColor}12` : 'transparent',
+                          }}
+                        >
+                          {t(`language.${localLanguage}`)}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setUiLanguage('en')}
+                          className="flex-1 px-3 py-2 rounded-lg text-sm border-2 transition-all"
+                          style={{
+                            color: secondaryColor,
+                            borderColor: language === 'en' ? primaryColor : 'transparent',
+                            backgroundColor: language === 'en' ? `${primaryColor}12` : 'transparent',
+                          }}
+                        >
+                          {t('language.en')}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Divider */}
                 <div className="my-6 px-4">
@@ -232,11 +279,11 @@ export default function SettingsMenu({
                 {/* Auth Section */}
                 <div className="px-4">
                   {loading ? (
-                    <div className="text-sm text-center py-2" style={{ color: `${secondaryColor}66` }}>Loading...</div>
+                    <div className="text-sm text-center py-2" style={{ color: `${secondaryColor}66` }}>{t('common.loading')}</div>
                   ) : user ? (
                     <>
                       <div className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: `${secondaryColor}99` }}>
-                        Account
+                        {t('auth.account')}
                       </div>
                       <div className="text-sm mb-3 px-4 py-2 rounded-lg bg-slate-50" style={{ color: secondaryColor }}>
                         {user.displayName || user.email}
@@ -248,7 +295,7 @@ export default function SettingsMenu({
                         onMouseEnter={(e) => e.currentTarget.style.borderColor = primaryColor}
                         onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
                       >
-                        Sign Out
+                        {t('auth.signOut')}
                       </button>
                     </>
                   ) : (
@@ -257,7 +304,7 @@ export default function SettingsMenu({
                       className="flex items-center justify-center gap-3 w-full rounded-lg border border-[#DADCE0] bg-white px-4 py-2.5 text-sm font-medium text-[#3C4043] shadow-sm transition-all hover:bg-[#F8F9FA] hover:shadow-md"
                     >
                       <GoogleLogo />
-                      <span>Sign in with Google</span>
+                      <span>{t('auth.signInWithGoogle')}</span>
                     </button>
                   )}
                 </div>

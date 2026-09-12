@@ -9,6 +9,7 @@ import { saveStorefrontToCache } from '@/lib/get-storefront';
 import Link from 'next/link';
 import AuthButton from '@/components/AuthButton';
 import { getStorefrontHomePath } from '@/lib/storefront-paths';
+import { useT } from '@/lib/i18n/language-context';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -35,6 +36,7 @@ function CheckoutPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const storefrontFromContext = useStorefront();
+  const t = useT();
   
   // Get storefront using same logic as cart page
   // Priority: URL param > Cookie > Context > localStorage > Default
@@ -300,18 +302,18 @@ function CheckoutPageContent() {
       try {
         validation = await validationResponse.json();
       } catch {
-        throw new Error('Pre-checkout validation failed. Please try again.');
+        throw new Error(t('checkout.preCheckoutFailed'));
       }
 
       if (!validationResponse.ok && !validation?.errors?.length && !validation?.error) {
-        throw new Error('Pre-checkout validation failed. Please try again.');
+        throw new Error(t('checkout.preCheckoutFailed'));
       }
 
       if (!validation.valid) {
         setValidationError(
           validation.errors?.join('. ')
             || validation.error
-            || 'Validation failed'
+            || t('checkout.validationFailed')
         );
         setProcessing(false);
         setValidatingInventory(false);
@@ -319,7 +321,7 @@ function CheckoutPageContent() {
       }
 
       if (!validation.inventory.valid) {
-        setValidationError(validation.inventory.error || 'Inventory validation failed');
+        setValidationError(validation.inventory.error || t('checkout.inventoryFailed'));
         setProcessing(false);
         setValidatingInventory(false);
         return;
@@ -351,9 +353,7 @@ function CheckoutPageContent() {
             `This usually happens when products were recently added or updated.`
           );
         } else if (errorData.error === 'variants_not_available') {
-          throw new Error(
-            'Some products in your cart are no longer available. Please remove them and try again.'
-          );
+          throw new Error(t('checkout.productsUnavailable'));
         } else if (errorData.error === 'cart_creation_failed') {
           const retryAfter = errorData.retryAfter || 30;
           throw new Error(
@@ -361,11 +361,11 @@ function CheckoutPageContent() {
           );
         } else if (errorData.error === 'checkout_unavailable') {
           throw new Error(
-            errorData.message || 'Checkout is temporarily unavailable. Please try again later.'
+            errorData.message || t('checkout.temporarilyUnavailable')
           );
         }
         
-        throw new Error(errorData.message || errorData.error || 'Failed to create checkout');
+        throw new Error(errorData.message || errorData.error || t('checkout.createFailed'));
       }
 
       const checkoutData = await checkoutResponse.json();
@@ -373,7 +373,7 @@ function CheckoutPageContent() {
 
       if (!checkoutUrl) {
         console.error('[Checkout] No checkout URL available for redirect');
-        throw new Error('Failed to get checkout URL');
+        throw new Error(t('checkout.noCheckoutUrl'));
       }
 
       console.log(`[Checkout] Redirecting to Shopify checkout - URL: ${checkoutUrl}, Market: ${shippingAddress.countryCode || shippingAddress.country || 'unknown'}`);
@@ -408,7 +408,7 @@ function CheckoutPageContent() {
       window.location.href = checkoutUrl;
     } catch (err) {
       console.error('Checkout error:', err);
-      setError(err.message || 'An error occurred during checkout. Please try again.');
+      setError(err.message || t('checkout.genericError'));
       setProcessing(false);
       setValidatingInventory(false);
     }
@@ -417,7 +417,7 @@ function CheckoutPageContent() {
   if (cartLoading || cart.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-slate-500">Loading...</div>
+        <div className="text-slate-500">{t('common.loading')}</div>
       </div>
     );
   }
@@ -438,7 +438,7 @@ function CheckoutPageContent() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-8 text-3xl font-light text-primary">Checkout</h1>
+        <h1 className="mb-8 text-3xl font-light text-primary">{t('checkout.title')}</h1>
 
         {error && (
           <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
@@ -451,13 +451,13 @@ function CheckoutPageContent() {
           <div className="lg:col-span-2 space-y-6">
             {/* Shipping Address - Simplified: Only Country, City, Street Address */}
             <section className="rounded-xl border border-secondary/70 bg-white/90 p-6">
-              <h2 className="mb-4 text-lg font-medium text-primary">Shipping Address</h2>
+              <h2 className="mb-4 text-lg font-medium text-primary">{t('checkout.shippingAddress')}</h2>
               <p className="mb-4 text-sm text-slate-600">
-                Enter your shipping address to validate shipping availability. You'll complete your contact information and payment on the next page.
+                {t('checkout.shippingIntro')}
               </p>
               {validatingInventory && (
                 <div className="mb-4 text-sm text-blue-600">
-                  Validating shipping availability...
+                  {t('checkout.validatingShipping')}
                 </div>
               )}
               {validationError && (
@@ -493,7 +493,7 @@ function CheckoutPageContent() {
                   required
                   value={shippingAddress.city}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
-                  placeholder="City"
+                  placeholder={t('checkout.city')}
                   className="w-full rounded-lg border border-secondary/70 px-4 py-2 focus:border-primary focus:outline-none"
                 />
                 
@@ -503,7 +503,7 @@ function CheckoutPageContent() {
                   required
                   value={shippingAddress.address1}
                   onChange={(e) => setShippingAddress({ ...shippingAddress, address1: e.target.value })}
-                  placeholder="Street address"
+                  placeholder={t('checkout.streetAddress')}
                   className="w-full rounded-lg border border-secondary/70 px-4 py-2 focus:border-primary focus:outline-none"
                 />
               </div>
@@ -511,15 +511,15 @@ function CheckoutPageContent() {
 
             {/* Info about next steps */}
             <section className="rounded-xl border border-secondary/70 bg-secondary/20 p-6">
-              <h2 className="mb-2 text-lg font-medium text-primary">Next Steps</h2>
+              <h2 className="mb-2 text-lg font-medium text-primary">{t('checkout.nextSteps')}</h2>
               <p className="text-sm text-slate-600">
-                After validating your shipping address, you'll be redirected to Shopify's secure checkout page where you can:
+                {t('checkout.nextStepsIntro')}
               </p>
               <ul className="mt-2 list-disc list-inside space-y-1 text-sm text-slate-600">
-                <li>Enter your email address</li>
-                <li>Complete your shipping details</li>
-                <li>Select shipping method</li>
-                <li>Enter payment information</li>
+                <li>{t('checkout.stepEmail')}</li>
+                <li>{t('checkout.stepShippingDetails')}</li>
+                <li>{t('checkout.stepShippingMethod')}</li>
+                <li>{t('checkout.stepPayment')}</li>
               </ul>
             </section>
           </div>
@@ -527,7 +527,7 @@ function CheckoutPageContent() {
           {/* Right column - Order Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 rounded-xl border border-secondary/70 bg-white/90 p-6">
-              <h2 className="mb-4 text-lg font-medium text-primary">Order Summary</h2>
+              <h2 className="mb-4 text-lg font-medium text-primary">{t('checkout.orderSummary')}</h2>
               
               <div className="space-y-3 mb-6">
                 {cart.map((item) => (
@@ -544,7 +544,7 @@ function CheckoutPageContent() {
                       {item.variantName && (
                         <p className="text-xs text-slate-500">{item.variantName}</p>
                       )}
-                      <p className="text-xs text-slate-500">Qty: {item.quantity}</p>
+                      <p className="text-xs text-slate-500">{t('common.qty', { count: item.quantity })}</p>
                     </div>
                     <p className="text-sm font-medium">{formatPrice(item.priceAtAdd * item.quantity)}</p>
                   </div>
@@ -553,33 +553,33 @@ function CheckoutPageContent() {
 
               <div className="space-y-2 border-t border-secondary/70 pt-4">
                 <div className="flex justify-between text-sm">
-                  <span>Subtotal</span>
+                  <span>{t('checkout.subtotal')}</span>
                   <span>{formatPrice(subtotal)}</span>
                 </div>
               </div>
               <div className="space-y-2 border-b border-secondary/70 pb-4 mb-4">
                 <div className="flex items-center justify-between text-sm">
-                  <span>Shipping</span>
+                  <span>{t('checkout.shipping')}</span>
                   <div className="text-right">
-                    <div className="font-medium text-slate-600">Est. {formatPrice(estimatedShipping)}</div>
-                    <div className="text-xs text-slate-500">Selected at checkout</div>
+                    <div className="font-medium text-slate-600">{t('checkout.estShipping', { price: formatPrice(estimatedShipping) })}</div>
+                    <div className="text-xs text-slate-500">{t('checkout.selectedAtCheckout')}</div>
                   </div>
                 </div>
                 <p className="text-xs text-slate-500 mt-2">
-                  You'll select your shipping option on Shopify's checkout page
+                  {t('checkout.shippingOptionNote')}
                 </p>
               </div>
               <div className="space-y-2 border-t border-secondary/70 pt-4">
                 <div className="flex justify-between text-sm">
-                  <span>Tax</span>
+                  <span>{t('checkout.tax')}</span>
                   <span>{formatPrice(tax)}</span>
                 </div>
                 <div className="flex justify-between pt-2 text-lg font-semibold">
-                  <span>Est. Total</span>
+                  <span>{t('checkout.estTotal')}</span>
                   <span>{formatPrice(estimatedTotal)}</span>
                 </div>
                 <p className="text-xs text-slate-500 mt-2 text-center">
-                  Includes VAT • Final total shown at checkout
+                  {t('checkout.vatFinalNote')}
                 </p>
               </div>
 
@@ -602,11 +602,11 @@ function CheckoutPageContent() {
                 }}
               >
                 {processing ? (
-                  'Processing...'
+                  t('common.processing')
                 ) : validatingInventory ? (
-                  'Validating...'
+                  t('common.validating')
                 ) : (
-                  `Proceed to Checkout - ${formatPrice(estimatedTotal)}`
+                  t('checkout.proceedWithTotal', { total: formatPrice(estimatedTotal) })
                 )}
               </button>
 
@@ -621,7 +621,7 @@ function CheckoutPageContent() {
                   borderStyle: 'solid',
                 }}
               >
-                Continue Shopping
+                {t('checkout.continueShopping')}
               </Link>
             </div>
           </div>
@@ -632,13 +632,18 @@ function CheckoutPageContent() {
 }
 
 // Wrap CheckoutPageContent in Suspense to handle useSearchParams
+function CheckoutFallback() {
+  const t = useT();
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-slate-500">{t('common.loading')}</div>
+    </div>
+  );
+}
+
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-slate-500">Loading...</div>
-      </div>
-    }>
+    <Suspense fallback={<CheckoutFallback />}>
       <CheckoutPageContent />
     </Suspense>
   );

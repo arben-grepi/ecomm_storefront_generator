@@ -10,12 +10,14 @@ import { getFirebaseDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { getCachedInfo } from '@/lib/info-cache';
 import { getStorefrontHomePath } from '@/lib/storefront-paths';
+import { useT } from '@/lib/i18n/language-context';
 
 export default function NotFound() {
   const storefrontFromContext = useStorefront();
   const [storefront, setStorefront] = useState('LUNERA');
   const [mounted, setMounted] = useState(false);
   const [info, setInfo] = useState(null);
+  const t = useT();
 
   useEffect(() => {
     // Get storefront from cookie/cache (set by middleware) - don't use URL parameters
@@ -92,10 +94,10 @@ export default function NotFound() {
           
           <div className="space-y-4">
             <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
-              Page Not Found
+              {t('notFound.title')}
             </h2>
             <p className="text-lg text-slate-600 max-w-md mx-auto">
-              Sorry, we couldn't find the page you're looking for. The page might have been moved or doesn't exist.
+              {t('notFound.body')}
             </p>
           </div>
 
@@ -105,21 +107,21 @@ export default function NotFound() {
               href={homePath}
               className="rounded-full border border-primary/30 bg-white/80 px-8 py-3 text-sm font-medium text-primary shadow-sm transition-colors hover:bg-secondary hover:text-primary"
             >
-              Go to {storefront === 'LUNERA' ? 'Home' : `${storefront} Home`}
+              {storefront === 'LUNERA' ? t('notFound.goHome') : t('notFound.goStorefrontHome', { storefront })}
             </Link>
             
             <button
               onClick={() => window.history.back()}
               className="rounded-full border border-slate-300 bg-white/80 px-8 py-3 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
             >
-              Go Back
+              {t('common.goBack')}
             </button>
           </div>
 
           {/* Storefront Info (only show if not LUNERA) */}
           {storefront !== 'LUNERA' && mounted && (
             <p className="text-sm text-slate-500 pt-4">
-              Current storefront: <span className="font-medium text-primary">{storefront}</span>
+              {t('notFound.currentStorefront', { storefront })}
             </p>
           )}
         </div>

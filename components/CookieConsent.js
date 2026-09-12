@@ -1,37 +1,38 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useStorefront } from '@/lib/storefront-context';
 import { getLogo } from '@/lib/logo-cache';
+import { useT } from '@/lib/i18n/language-context';
 
 const COOKIE_CONSENT_KEY = 'cookie_consent';
 const COOKIE_PREFERENCES_KEY = 'cookie_preferences';
 
-// Cookie categories
-const COOKIE_CATEGORIES = {
-  essential: {
-    name: 'Essential Cookies',
-    description: 'Required for the website to function. Includes location detection (market/country) and storefront selection.',
-    required: true,
-    cookies: ['market', 'storefront'],
-  },
-  analytics: {
-    name: 'Analytics Cookies',
-    description: 'Help us understand how visitors interact with our website. Includes Google Analytics.',
-    required: false,
-    cookies: ['_ga', '_ga_*'],
-  },
-  functional: {
-    name: 'Functional Cookies',
-    description: 'Enable enhanced functionality like language preferences and cart persistence.',
-    required: false,
-    cookies: ['language', 'ecommerce_cart'],
-  },
-};
-
 export default function CookieConsent() {
   const storefront = useStorefront();
+  const t = useT();
   const [info, setInfo] = useState(null);
+
+  const cookieCategories = useMemo(() => ({
+    essential: {
+      name: t('cookies.essentialName'),
+      description: t('cookies.essentialDescription'),
+      required: true,
+      cookies: ['market', 'storefront'],
+    },
+    analytics: {
+      name: t('cookies.analyticsName'),
+      description: t('cookies.analyticsDescription'),
+      required: false,
+      cookies: ['_ga', '_ga_*'],
+    },
+    functional: {
+      name: t('cookies.functionalName'),
+      description: t('cookies.functionalDescription'),
+      required: false,
+      cookies: ['language', 'ecommerce_cart'],
+    },
+  }), [t]);
   
   // Fetch Info document to get logo and primary color
   useEffect(() => {
@@ -177,24 +178,24 @@ export default function CookieConsent() {
             
             <div className="flex-1">
               <h3 className="text-base font-semibold text-gray-900 mb-2">
-                Cookie Preferences
+                {t('cookies.title')}
               </h3>
               <p className="text-sm text-gray-700 leading-relaxed">
-                We use cookies to enhance your experience. Essential cookies (location and storefront) are required for the site to work.
+                {t('cookies.intro')}
                 {!showDetails && (
                   <button
                     onClick={() => setShowDetails(true)}
                     className="ml-1 hover:underline font-medium"
                     style={{ color: primaryColor }}
                   >
-                    Learn more
+                    {t('cookies.learnMore')}
                   </button>
                 )}
               </p>
             
               {showDetails && (
                 <div className="mt-5 space-y-4">
-                  {Object.entries(COOKIE_CATEGORIES).map(([key, category]) => (
+                  {Object.entries(cookieCategories).map(([key, category]) => (
                     <div key={key} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -202,13 +203,13 @@ export default function CookieConsent() {
                             <h4 className="text-sm font-semibold text-gray-900">
                               {category.name}
                               {category.required && (
-                                <span className="ml-2 text-xs text-gray-500 font-normal">(Required)</span>
+                                <span className="ml-2 text-xs text-gray-500 font-normal">({t('common.required')})</span>
                               )}
                             </h4>
                           </div>
                           <p className="text-xs text-gray-700 mt-2 leading-relaxed">{category.description}</p>
                           <p className="text-xs text-gray-600 mt-2">
-                            Cookies: {category.cookies.join(', ')}
+                            {t('cookies.cookiesLabel')}: {category.cookies.join(', ')}
                           </p>
                         </div>
                         {!category.required && (
@@ -251,13 +252,13 @@ export default function CookieConsent() {
                   e.currentTarget.style.backgroundColor = primaryColor;
                 }}
               >
-                Save Preferences
+                {t('cookies.savePreferences')}
               </button>
               <button
                 onClick={() => setShowDetails(false)}
                 className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-semibold"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </>
           ) : (
@@ -266,7 +267,7 @@ export default function CookieConsent() {
                 onClick={handleAcceptMinimal}
                 className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-semibold"
               >
-                Accept Essential Only
+                {t('cookies.acceptEssentialOnly')}
               </button>
               <button
                 onClick={handleAcceptAll}
@@ -281,7 +282,7 @@ export default function CookieConsent() {
                   e.currentTarget.style.backgroundColor = primaryColor;
                 }}
               >
-                Accept All
+                {t('cookies.acceptAll')}
               </button>
             </>
           )}

@@ -20,6 +20,7 @@ import { getStorefrontHomePath } from '@/lib/storefront-paths';
 import { getLogo, saveLogoToCache } from '@/lib/logo-cache';
 import { getTextColorProps } from '@/lib/text-color-utils';
 import { preventOrphanedWords } from '@/lib/text-wrap-utils';
+import { useT } from '@/lib/i18n/language-context';
 import dynamic from 'next/dynamic';
 
 const AdminRedirect = dynamic(() => import('@/components/AdminRedirect'), {
@@ -32,6 +33,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
   // Use storefront from prop (server-provided) or fallback to context
   const storefrontFromContext = useStorefront();
   const storefront = storefrontProp || storefrontFromContext;
+  const t = useT();
   
   // Get category from URL parameter if present (needed before hooks)
   const searchParams = useSearchParams();
@@ -282,7 +284,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
     const selectedCategoryData = selectedCategory 
       ? categories.find(c => c.id === selectedCategory)
       : null;
-    const selectedCategoryName = selectedCategoryData?.label || selectedCategoryData?.name || 'All Categories';
+    const selectedCategoryName = selectedCategoryData?.label || selectedCategoryData?.name || t('categories.all');
     
     console.log('[HomeClient] 🔍 Category Filtering:', {
       category: selectedCategoryName,
@@ -317,7 +319,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
       const categoryData = selectedCategory 
         ? categories.find(c => c.id === selectedCategory)
         : null;
-      const categoryName = categoryData?.label || categoryData?.name || 'All Categories';
+      const categoryName = categoryData?.label || categoryData?.name || t('categories.all');
       console.log('[HomeClient] 🔄 Category changed:', categoryName, '- showing ghost cards');
       setIsFiltering(true);
       categoryChangeTimeRef.current = Date.now();
@@ -637,7 +639,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                       onMouseEnter={(e) => {
                         e.currentTarget.style.color = secondaryColor;
                       }}
-                      aria-label="Shopping cart"
+                      aria-label={t('home.shoppingCart')}
                     >
                     <svg
                       className="h-5 w-5"
@@ -930,7 +932,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                         priceColor={siteInfo.productCardPriceColor || 'primary'}
                         priceFont={siteInfo.productCardPriceFont || 'primary'}
                         priceFontSize={siteInfo.productCardPriceFontSize != null ? parseFloat(siteInfo.productCardPriceFontSize) || 1 : 1}
-                        vatText={siteInfo.productCardVatText || 'Includes VAT'}
+                        vatText={t('product.includesVat')}
                         vatColor={siteInfo.productCardVatColor || 'secondary'}
                         vatFont={siteInfo.productCardVatFont || 'primary'}
                         vatFontSize={siteInfo.productCardVatFontSize != null ? parseFloat(siteInfo.productCardVatFontSize) || 0.75 : 0.75}
@@ -950,7 +952,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
               colorTertiary: siteInfo.colorTertiary,
             };
             const colorProps = getTextColorProps(siteInfo.categoryDescriptionColor || 'secondary', colorPalette);
-            const noProductsText = selectedCategory ? 'No products found in this category.' : 'Products will appear here soon. Check back shortly.';
+            const noProductsText = selectedCategory ? t('home.noProductsInCategory') : t('home.noProductsYet');
             const wrappedText = preventOrphanedWords(noProductsText);
             return (
               <div className={`rounded-3xl border border-secondary/70 bg-white/80 p-6 text-center ${colorProps.className}`} style={colorProps.style} dangerouslySetInnerHTML={{ __html: wrappedText }} />
@@ -981,7 +983,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                       e.currentTarget.style.color = primaryColor;
                     }}
                   >
-                    Load More Products ({filteredProducts.length - displayedProductsCount} more)
+                    {t('home.loadMoreCount', { count: filteredProducts.length - displayedProductsCount })}
                   </button>
                 </div>
               );
@@ -1008,7 +1010,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
                       e.currentTarget.style.color = primaryColor;
                     }}
                   >
-                    {productsLoading ? 'Loading...' : 'Load More Products'}
+                    {productsLoading ? t('common.loading') : t('home.loadMore')}
                   </button>
                 </div>
               );

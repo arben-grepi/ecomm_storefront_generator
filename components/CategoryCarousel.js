@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
+import { useT } from '@/lib/i18n/language-context';
 
 export default function CategoryCarousel({ 
   align = 'center', 
@@ -17,6 +18,7 @@ export default function CategoryCarousel({
   fontPalette = { fontPrimary: 'inherit', fontSecondary: 'inherit', fontTertiary: 'inherit' },
   fontSize = 0.875, // Font size in rem
 }) {
+  const t = useT();
   // Get actual color from color selection
   // Use colorPalette if available, otherwise fall back to primaryColor prop or defaults
   // Memoize to recalculate when colorPalette or color changes
@@ -98,7 +100,7 @@ export default function CategoryCarousel({
       orderedCategories.push(...remainingCategories);
 
       return [
-        { value: 'all', label: 'All Categories', id: null },
+        { value: 'all', label: t('categories.all'), id: null },
         ...orderedCategories.map((category) => ({
           value: category.slug,
           label: category.label,
@@ -109,14 +111,14 @@ export default function CategoryCarousel({
 
     // For other storefronts, use default order
     return [
-      { value: 'all', label: 'All Categories', id: null },
+      { value: 'all', label: t('categories.all'), id: null },
       ...activeCategories.map((category) => ({
         value: category.slug,
         label: category.label,
         id: category.id,
       })),
     ];
-  }, [categories, storefront]); // Added storefront dependency
+  }, [categories, storefront, t]); // Added storefront dependency
 
   // Check scroll position and show/hide fade indicators
   const checkScrollPosition = () => {

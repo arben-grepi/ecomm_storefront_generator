@@ -10,11 +10,13 @@ import SettingsMenu from '@/components/SettingsMenu';
 import InstagramLogo from '@/components/InstagramLogo';
 import { getLogo } from '@/lib/logo-cache';
 import { getStorefrontHomePath } from '@/lib/storefront-paths';
+import { useT } from '@/lib/i18n/language-context';
 
 export default function AboutUsClient({ info = null, storefront: storefrontProp = null }) {
   const storefrontFromContext = useStorefront();
   const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
   const db = getFirebaseDb();
+  const t = useT();
 
   const [siteInfo, setSiteInfo] = useState({
     colorPrimary: info?.colorPrimary || '#ec4899',
@@ -139,27 +141,21 @@ export default function AboutUsClient({ info = null, storefront: storefrontProp 
               className="text-4xl sm:text-5xl font-semibold"
               style={{ color: siteInfo.colorPrimary || '#ec4899' }}
             >
-              About Us
+              {t('about.title')}
             </h1>
             <div 
               className="text-lg leading-relaxed space-y-4"
               style={{ color: siteInfo.colorSecondary || '#64748b' }}
             >
-              {siteInfo.aboutUsText ? (
-                siteInfo.aboutUsText.split('\n').filter(Boolean).map((paragraph, i) => (
-                  <p key={i}>{paragraph}</p>
-                ))
-              ) : (
-                <p className="italic opacity-60">
-                  About us content coming soon. Check back later!
-                </p>
-              )}
+              <p>{t('about.p1')}</p>
+              <p>{t('about.p2')}</p>
+              <p>{t('about.p3')}</p>
               {(siteInfo.showInstagram || siteInfo.showEmail) && (
                 <div className="pt-4 border-t" style={{ borderColor: `${siteInfo.colorSecondary || '#64748b'}33` }}>
                   {siteInfo.showInstagram && siteInfo.instagramUrl && (
                     <>
                       <p className="mb-4">
-                        Stay up to date on our newest products and exclusive offers. Follow us on Instagram to be the first to know about new arrivals, styling tips, and special promotions.
+                        {t('about.instagramCta')}
                       </p>
                       <div className="flex items-center gap-4">
                         <a
@@ -174,7 +170,7 @@ export default function AboutUsClient({ info = null, storefront: storefrontProp 
                               ? (siteInfo.colorSecondary || '#64748b')
                               : (siteInfo.colorTertiary || '#94a3b8'),
                           }}
-                          aria-label="Follow us on Instagram"
+                          aria-label={t('about.followInstagram')}
                         >
                           <InstagramLogo size="w-9 h-9" bgColor="transparent" bgOpacity={1} />
                         </a>
@@ -182,7 +178,7 @@ export default function AboutUsClient({ info = null, storefront: storefrontProp 
                           className="text-sm"
                           style={{ color: siteInfo.colorSecondary || '#64748b' }}
                         >
-                          Follow us on Instagram to see the latest catalog
+                          {t('about.followInstagram')}
                         </p>
                       </div>
                     </>

@@ -16,9 +16,13 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 // - app/luneralingerie/layout.js imports app/luneralingerie/globals.css
 import "./globals.css";
 // PageTransitionBar removed - wasn't working/visible. Can be re-added if needed.
+import { cookies } from 'next/headers';
 import CookieConsent from "@/components/CookieConsent";
 import GoogleFontsLoader from "@/components/GoogleFontsLoader";
 import { StorefrontProvider } from '@/lib/storefront-context';
+import { LanguageProvider } from '@/lib/i18n/language-context';
+import { resolveLanguage } from '@/lib/i18n/resolve-language';
+import { loadMessages } from '@/lib/i18n/load-messages';
 import { getServerSideInfo } from '@/lib/firestore-server';
 
 /**
@@ -97,39 +101,30 @@ export async function generateMetadata() {
  * 
  * This runs on the SERVER, so you CAN set breakpoints here and debug it.
  */
-export default function RootLayout({ children }) {
-  // 🔍 ROOT LAYOUT - Set breakpoint here in Cursor (Node.js debugger will work)
-  // Root layout wraps all pages. Root (/) redirects to /luneralingerie via middleware.
-  
+export default async function RootLayout({ children }) {
+  const cookieStore = await cookies();
+  const market = cookieStore.get('market')?.value || 'XK';
+  const language = resolveLanguage(
+    cookieStore.get('language')?.value,
+    market
+  );
+  const messages = await loadMessages(language);
+
   return (
-    <html lang="en" data-scroll-behavior="smooth">
-      {/* 
-        className applies the font CSS variables to the <body> tag
-        This makes the fonts available to all child components via CSS variables
-        
-        The variables are defined in the font objects above (--font-geist-sans, etc.)
-        and can be used in CSS like: font-family: var(--font-geist-sans);
-        
-        antialiased: Tailwind class that makes text look smoother
-      */}
+    <html lang={language} data-scroll-behavior="smooth">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} antialiased`}
       >
         <StorefrontProvider>
-          {/* 
-            {children} is where the actual page content gets rendered
-          */}
-          {children}
-          
-          {/* 
-            Cookie Consent Banner - appears at bottom until user gives consent
-          */}
-          <CookieConsent />
-          
-          {/* 
-            Google Fonts Loader - loads fonts for font selector preview
-          */}
-          <GoogleFontsLoader />
+          <LanguageProvider
+            initialLanguage={language}
+            initialMessages={messages}
+            initialMarket={market}
+          >
+            {children}
+            <CookieConsent />
+            <GoogleFontsLoader />
+          </LanguageProvider>
         </StorefrontProvider>
       </body>
     </html>

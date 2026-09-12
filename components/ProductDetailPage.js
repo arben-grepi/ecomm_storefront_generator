@@ -14,6 +14,7 @@ import { getFirebaseDb } from '@/lib/firebase';
 import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { getDocumentPath } from '@/lib/store-collections';
 import { getStorefrontHomePath } from '@/lib/storefront-paths';
+import { useT } from '@/lib/i18n/language-context';
 
 // Format price based on market (EUR for EU markets)
 import { isEUMarket, getMarketLocale, getMarketCurrency } from '@/lib/market-utils';
@@ -86,6 +87,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
   // Use prop if provided (from server), otherwise use context (client-side only)
   const storefront = storefrontProp || storefrontFromContext;
   const searchParams = useSearchParams();
+  const t = useT();
   
   // Update cache when storefront prop is provided (from server)
   useEffect(() => {
@@ -1037,9 +1039,9 @@ export default function ProductDetailPage({ category, product, variants, info = 
             // Filter out countries from type
             const type = selectedVariant.type ? filterOutCountries(selectedVariant.type) : null;
             if (type) parts.push(type);
-            return parts.length > 0 ? parts.join(' ') : 'One size';
+            return parts.length > 0 ? parts.join(' ') : t('product.oneSize');
           })()
-        : 'One size';
+        : t('product.oneSize');
       
       const image = selectedVariant?.images?.[0] || selectedVariant?.image || product.images?.[0] || null;
 
@@ -1131,7 +1133,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                   }
                 }}
                 className="relative ml-2 flex items-center justify-center rounded-full border bg-white/80 p-2 shadow-sm transition-colors hover:bg-secondary"
-                aria-label="Shopping cart"
+                aria-label={t('product.shoppingCart')}
                 style={{ 
                   borderColor: `${siteInfo.colorSecondary || '#64748b'}4D`,
                   color: siteInfo.colorSecondary || '#64748b',
@@ -1285,7 +1287,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
             {Array.isArray(product.bulletPoints) && product.bulletPoints.length > 0 && (
               <div className="space-y-2">
                 <h2 className="text-sm font-semibold uppercase tracking-[0.3em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                  Details
+                  {t('product.details')}
                 </h2>
                 <ul className="list-disc space-y-1 pl-5 text-sm" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                   {product.bulletPoints
@@ -1306,7 +1308,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 </div>
                 {isEU && (
                   <p className="text-sm" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
-                    Includes VAT
+                    {t('product.includesVat')}
                   </p>
                 )}
               </div>
@@ -1324,11 +1326,11 @@ export default function ProductDetailPage({ category, product, variants, info = 
                       const groupVariants = variantsByGroup.get(selectedGroup) || [];
                       const groupHasColor = groupVariants.some(v => v.color && !isCountry(v.color));
                       if (groupHasColor) {
-                        return 'Color';
+                        return t('product.color');
                       } else if (hasTypes) {
-                        return 'Type';
+                        return t('product.type');
                       } else {
-                        return 'Variant';
+                        return t('product.variant');
                       }
                     })()}: {filterOutCountries(selectedGroup) || selectedGroup}
                   </h2>
@@ -1400,7 +1402,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
               {availableSizes.length > 1 && (
                 <div className="space-y-3">
                   <h2 className="text-sm font-semibold uppercase tracking-[0.3em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                    Size
+                    {t('product.size')}
                   </h2>
                   <div className="grid grid-cols-4 gap-3">
                     {availableSizes.map((size) => {
@@ -1473,7 +1475,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                         // Filter out countries from type
                         const type = selectedVariant.type ? filterOutCountries(selectedVariant.type) : null;
                         if (type) parts.push(type);
-                        return parts.length > 0 ? parts.join(' • ') : 'One size';
+                        return parts.length > 0 ? parts.join(' • ') : t('product.oneSize');
                       })()}
                     </span>
                   </div>
@@ -1562,7 +1564,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                           d="M4.5 12.75l6 6 9-13.5"
                         />
                       </svg>
-                      Added to cart!
+                      {t('product.addedToCart')}
                     </>
                   ) : currentCartItem ? (
                     <>
@@ -1579,7 +1581,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
                           d="M12 4.5v15m7.5-7.5h-15"
                         />
                       </svg>
-                      Add another ({currentCartItem.quantity} in cart)
+                      {t('product.addAnother', { count: currentCartItem.quantity })}
                     </>
                   ) : (
                     <>
@@ -1596,24 +1598,24 @@ export default function ProductDetailPage({ category, product, variants, info = 
                           d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"
                         />
                       </svg>
-                      Add to bag
+                      {t('product.addToBag')}
                     </>
                   )}
                 </button>
                 {currentCartItem && !justAdded && (
                   <p className="text-xs font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
-                    This item is already in your cart. Click to add another.
+                    {t('product.alreadyInCart')}
                   </p>
                 )}
                 <p className="text-xs" style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>
-                  Free express shipping on orders over $150. Easy 30-day returns.
+                  {t('product.shippingReturnsHint')}
                 </p>
               </div>
 
               {product.careInstructions && (
             <div className="space-y-2 rounded-3xl bg-white/70 p-6 ring-1 ring-secondary/70">
               <h3 className="text-sm font-semibold uppercase tracking-[0.3em]" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                Care instructions
+                {t('product.careInstructions')}
               </h3>
               <p className="text-sm whitespace-pre-line" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                 {product.careInstructions}

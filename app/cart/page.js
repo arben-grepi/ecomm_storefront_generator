@@ -14,6 +14,7 @@ import SettingsMenu from '@/components/SettingsMenu';
 import { getFirebaseDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { getStorefrontHomePath } from '@/lib/storefront-paths';
+import { useT } from '@/lib/i18n/language-context';
 
 // Format price based on market currency
 import { getMarketCurrency, getMarketLocale } from '@/lib/market-utils';
@@ -69,6 +70,7 @@ function CartPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { cart, updateQuantity, removeFromCart, getCartTotal, loading } = useCart();
+  const t = useT();
   
   // Get storefront from context (set by middleware cookie or URL path)
   // This allows the cart to know which storefront the user came from
@@ -354,12 +356,12 @@ function CartPageContent() {
     
     setProcessing(true);
     setValidationError(null);
-    setCheckoutStatus('Validating your cart...');
+    setCheckoutStatus(t('cart.validating'));
 
     try {
       // Validate country is entered (full address will be collected in Shopify checkout)
       if (!shippingAddress.countryCode) {
-        setValidationError('Please select your country');
+        setValidationError(t('cart.selectCountry'));
         setProcessing(false);
         setCheckoutStatus('');
         return;
@@ -367,7 +369,7 @@ function CartPageContent() {
 
       // Validate inventory and shipping (only when proceeding to checkout)
       setValidatingShipping(true);
-      setCheckoutStatus('Checking availability and shipping...');
+      setCheckoutStatus(t('cart.checkingAvailability'));
       
       const validationResponse = await fetch('/api/checkout/validate', {
         method: 'POST',
@@ -453,7 +455,7 @@ function CartPageContent() {
         // Use improved error messages that include product names
         const errorMessage = validation.errors?.length > 0 
           ? validation.errors.join('. ')
-          : 'Validation failed. Please check your cart items and shipping address.';
+          : t('cart.validationFailed');
         setValidationError(errorMessage);
         setProcessing(false);
         setCheckoutStatus('');
@@ -487,7 +489,7 @@ function CartPageContent() {
       setCartEmptiedMessage(null);
 
       // Create Shopify checkout and redirect
-      setCheckoutStatus('Creating checkout...');
+      setCheckoutStatus(t('cart.creatingCheckout'));
       const checkoutResponse = await fetch('/api/checkout/create-shopify-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -569,7 +571,7 @@ function CartPageContent() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>Loading cart...</div>
+        <div style={{ color: siteInfo.colorTertiary || '#94a3b8' }}>{t('cart.loading')}</div>
       </div>
     );
   }
@@ -609,17 +611,17 @@ function CartPageContent() {
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-16 text-center">
-          <h1 className="mb-4 text-2xl font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Your cart is empty</h1>
+          <h1 className="mb-4 text-2xl font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{t('cart.emptyTitle')}</h1>
           
           {cartEmptiedMessage ? (
             <>
               <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-left text-red-800 max-w-2xl mx-auto">
                 {cartEmptiedMessage}
               </div>
-              <p className="mb-8" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Please add other items to continue.</p>
+              <p className="mb-8" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{t('cart.emptyUnavailable')}</p>
             </>
           ) : (
-            <p className="mb-8" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Add some items to get started.</p>
+            <p className="mb-8" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{t('cart.emptyHint')}</p>
           )}
           
           <Link
@@ -667,7 +669,7 @@ function CartPageContent() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-        <h1 className="mb-8 text-3xl font-light" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Shopping Cart</h1>
+        <h1 className="mb-8 text-3xl font-light" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{t('cart.title')}</h1>
 
         {validationError && (
           <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 text-red-800">
@@ -680,7 +682,7 @@ function CartPageContent() {
           <div className="lg:col-span-2 space-y-6">
             {/* Shipping Address Form - At the top */}
             <section className="rounded-xl border border-secondary/70 bg-white/90 p-6">
-              <h2 className="mb-2 text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Shipping Location</h2>
+              <h2 className="mb-2 text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{t('cart.shippingLocation')}</h2>
               <p className="mb-4 text-sm" style={{ color: '#000000' }}>
                 Select your country to check shipping availability. Full address will be collected on the checkout page.
               </p>
@@ -689,7 +691,7 @@ function CartPageContent() {
                 {/* Country - At the top */}
                 <div>
                   <label htmlFor="country" className="mb-1 block text-sm font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
-                    Country
+                    {t('cart.country')}
                   </label>
                   <select
                     id="country"
@@ -735,7 +737,7 @@ function CartPageContent() {
 
             {/* Cart Items */}
             <section className="space-y-4">
-              <h2 className="text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Cart Items</h2>
+              <h2 className="text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{t('cart.cartItems')}</h2>
               {cart.map((item) => {
                 const itemKey = `${item.productId}-${item.variantId}`;
                 const isUnavailable = unavailableItems.has(itemKey);
@@ -819,7 +821,7 @@ function CartPageContent() {
                         e.currentTarget.style.color = siteInfo.colorSecondary || '#64748b';
                       }}
                     >
-                      Remove
+                      {t('cart.remove')}
                     </button>
                   </div>
                   {isUnavailable && (
@@ -836,12 +838,12 @@ function CartPageContent() {
           {/* Order Summary */}
           <div className="lg:col-span-1">
             <div className="sticky top-24 rounded-xl border border-secondary/70 bg-white/90 p-6 shadow-sm">
-              <h2 className="mb-6 text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>Order Summary</h2>
+              <h2 className="mb-6 text-lg font-medium" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>{t('cart.orderSummary')}</h2>
               
               {/* Subtotal */}
               <div className="mb-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600" style={{ color: '#000000' }}>Subtotal</span>
+                  <span className="text-slate-600" style={{ color: '#000000' }}>{t('cart.subtotal')}</span>
                   <span className="font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{formatPrice(subtotal, shippingAddress.countryCode || market)}</span>
                 </div>
               </div>
@@ -849,7 +851,7 @@ function CartPageContent() {
               {/* Shipping Estimate */}
               <div className="mb-4 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600" style={{ color: '#000000' }}>Shipping</span>
+                  <span className="text-slate-600" style={{ color: '#000000' }}>{t('cart.shipping')}</span>
                   <span className="font-medium" style={{ color: siteInfo.colorSecondary || '#64748b' }}>
                     {formatPrice(shippingEstimatePrice, currentMarket)}
                   </span>
@@ -860,7 +862,7 @@ function CartPageContent() {
               {/* Estimated Total - Exclude unavailable items */}
               <div className="border-t border-secondary/70 pt-4">
                 <div className="mb-2 flex justify-between">
-                  <span className="text-sm font-medium text-slate-700" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Estimated Total</span>
+                  <span className="text-sm font-medium text-slate-700" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{t('cart.estimatedTotal')}</span>
                   <span className="text-lg font-semibold" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                     {formatPrice(
                       cart
@@ -871,7 +873,7 @@ function CartPageContent() {
                     )}
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-2" style={{ color: siteInfo.colorSecondary || '#64748b' }}>Includes VAT</p>
+                <p className="text-xs text-slate-500 mt-2" style={{ color: siteInfo.colorSecondary || '#64748b' }}>{t('cart.includesVat')}</p>
               </div>
 
               {/* Proceed to Checkout Button */}
@@ -894,9 +896,9 @@ function CartPageContent() {
                 }}
               >
                 {processing || validatingShipping ? (
-                  checkoutStatus || 'Validating...'
+                  checkoutStatus || t('cart.validating')
                 ) : (
-                  'Proceed to Checkout'
+                  t('cart.proceedToCheckout')
                 )}
               </button>
 
@@ -909,7 +911,7 @@ function CartPageContent() {
                   color: siteInfo.colorPrimary || '#ec4899',
                 }}
               >
-                Continue Shopping
+                {t('cart.continueShopping')}
               </Link>
 
               {/* Info */}
@@ -925,13 +927,18 @@ function CartPageContent() {
 }
 
 // Wrap CartPageContent in Suspense to handle useSearchParams
+function CartPageFallback() {
+  const t = useT();
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div style={{ color: '#94a3b8' }}>{t('cart.loading')}</div>
+    </div>
+  );
+}
+
 export default function CartPage() {
   return (
-    <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center">
-        <div style={{ color: '#94a3b8' }}>Loading cart...</div>
-      </div>
-    }>
+    <Suspense fallback={<CartPageFallback />}>
       <CartPageContent />
     </Suspense>
   );
