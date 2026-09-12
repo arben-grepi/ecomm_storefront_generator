@@ -1,0 +1,17 @@
+/**
+ * LUNERA STOREFRONT THEME CSS (app/luneralingerie/globals.css)
+ *
+ * FALLBACK values only — Firestore Info document is the source of truth.
+ */
+
+:root {
+  --primary: #ec4899;
+  --secondary: #fdf2f8;
+  --tertiary: #94a3b8;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-tertiary: var(--tertiary);
+}
