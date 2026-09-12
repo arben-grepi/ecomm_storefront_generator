@@ -67,13 +67,12 @@ function AdminLayoutContent({ children }) {
 
     // Last fallback: use current storefront detection or selectedWebsite from context
     const currentStorefront = selectedWebsite || getStorefront();
-    if (currentStorefront && currentStorefront !== 'FIVESTARFINDS') {
+    if (currentStorefront) {
       sessionStorage.setItem('admin_referrer', currentStorefront);
       sessionStorage.setItem('admin_storefront', currentStorefront);
     } else {
-      // Default to FIVESTARFINDS if we can't determine
-      sessionStorage.setItem('admin_referrer', 'FIVESTARFINDS');
-      sessionStorage.setItem('admin_storefront', 'FIVESTARFINDS');
+      sessionStorage.setItem('admin_referrer', 'LUNERA');
+      sessionStorage.setItem('admin_storefront', 'LUNERA');
     }
   }, []);
 
@@ -112,13 +111,9 @@ function AdminLayoutContent({ children }) {
       sessionStorage.removeItem('admin_referrer');
     }
     
-    // Redirect to the storefront we came from, or default to FIVESTARFINDS
-    if (storefront && storefront !== 'FIVESTARFINDS') {
-      router.push(`/${storefront}`);
-    } else {
-      // FIVESTARFINDS is the default storefront (root redirects to /FIVESTARFINDS)
-      router.push('/FIVESTARFINDS');
-    }
+    // Redirect to the storefront home
+    const { getStorefrontHomePath } = await import('@/lib/storefront-paths');
+    router.push(getStorefrontHomePath(storefront || 'LUNERA'));
   };
 
   if (loading) {

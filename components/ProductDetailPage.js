@@ -13,11 +13,12 @@ import { getLogo } from '@/lib/logo-cache';
 import { getFirebaseDb } from '@/lib/firebase';
 import { doc, updateDoc, increment, getDoc } from 'firebase/firestore';
 import { getDocumentPath } from '@/lib/store-collections';
+import { getStorefrontHomePath } from '@/lib/storefront-paths';
 
 // Format price based on market (EUR for EU markets)
 import { isEUMarket, getMarketLocale, getMarketCurrency } from '@/lib/market-utils';
 
-const formatPrice = (value, market = 'DE') => {
+const formatPrice = (value, market = 'XK') => {
   const isEU = isEUMarket(market);
   const locale = getMarketLocale(market);
   const currency = getMarketCurrency(market);
@@ -1051,7 +1052,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
         productName: product.name,
         variantName,
         image,
-        storefront: storefront || storefrontProp || 'FIVESTARFINDS', // Include storefront so validation can find the product
+        storefront: storefront || storefrontProp || 'LUNERA', // Include storefront so validation can find the product
       });
 
       // Show success state
@@ -1074,9 +1075,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Link
-              href={storefront === 'LUNERA' 
-                ? `/?category=${category.id}` 
-                : `/${storefront}?category=${category.id}`}
+              href={`${getStorefrontHomePath(storefront)}?category=${category.id}`}
               className="flex items-center transition"
               style={{ color: siteInfo.colorPrimary || '#ec4899' }}
               aria-label={`Back to ${category.label}`}
@@ -1092,7 +1091,7 @@ export default function ProductDetailPage({ category, product, variants, info = 
               </svg>
             </Link>
             <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4">
-              <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center sm:hidden">
+              <Link href={getStorefrontHomePath(storefront)} className="flex items-center sm:hidden">
                 <Image
                   src={getLogo(storefront, siteInfo)}
                   alt={siteInfo.companyName || storefront}
@@ -1104,14 +1103,12 @@ export default function ProductDetailPage({ category, product, variants, info = 
                 />
               </Link>
               <nav className="hidden items-center gap-2 text-xs uppercase tracking-[0.2em] sm:flex" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
-                <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="transition" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
+                <Link href={getStorefrontHomePath(storefront)} className="transition" style={{ color: siteInfo.colorPrimary || '#ec4899' }}>
                   Home
                 </Link>
                 <span>•</span>
                 <Link 
-                  href={storefront === 'LUNERA' 
-                    ? `/?category=${category.id}` 
-                    : `/${storefront}?category=${category.id}`} 
+                  href={`${getStorefrontHomePath(storefront)}?category=${category.id}`} 
                   className="transition"
                   style={{ color: siteInfo.colorPrimary || '#ec4899' }}
                 >

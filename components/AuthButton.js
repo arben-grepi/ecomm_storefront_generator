@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { signInWithGoogle, signOutUser, isAdmin, subscribeToAuth } from '@/lib/auth';
 import { getStorefront } from '@/lib/get-storefront';
 import { useStorefront } from '@/lib/storefront-context';
+import { getStorefrontHomePath } from '@/lib/storefront-paths';
 
 export default function AuthButton() {
   const [user, setUser] = useState(null);
@@ -65,8 +66,8 @@ export default function AuthButton() {
         sessionStorage.removeItem('admin_storefront');
       }
       
-      // FIVESTARFINDS is the default storefront (root redirects to /FIVESTARFINDS)
-      const redirectPath = storefront === 'FIVESTARFINDS' ? '/FIVESTARFINDS' : `/${storefront}`;
+      // Redirect back to the storefront home (LUNERA → /luneralingerie locally)
+      const redirectPath = getStorefrontHomePath(storefront);
       router.push(redirectPath);
     } catch (error) {
       console.error('Sign out error:', error);

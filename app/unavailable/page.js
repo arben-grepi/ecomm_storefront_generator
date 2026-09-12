@@ -56,7 +56,7 @@ export default function UnavailablePage() {
           Your location: <strong className="text-primary">{countryName}</strong>
         </p>
         <p className="text-slate-600 mb-8">
-          We currently ship to Finland and Germany only. We're working on expanding to more countries soon!
+          We currently ship to Kosovo only. We&apos;re working on expanding to more countries soon!
         </p>
         
         {/* Email signup form */}

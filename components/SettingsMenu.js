@@ -8,6 +8,11 @@ import { getStorefront } from '@/lib/get-storefront';
 import Link from 'next/link';
 import { useStorefront } from '@/lib/storefront-context';
 import InstagramLogo from '@/components/InstagramLogo';
+import {
+  getStorefrontHomePath,
+  getStorefrontAboutPath,
+  getStorefrontPrivacyPath,
+} from '@/lib/storefront-paths';
 
 export default function SettingsMenu({ 
   secondaryColor = '#64748b', 
@@ -98,7 +103,7 @@ export default function SettingsMenu({
         sessionStorage.removeItem('admin_storefront');
       }
       
-      const redirectPath = currentStorefront === 'LUNERA' ? '/' : `/${currentStorefront}`;
+      const redirectPath = getStorefrontHomePath(currentStorefront);
       router.push(redirectPath);
     } catch (error) {
       console.error('Sign out error:', error);
@@ -114,9 +119,9 @@ export default function SettingsMenu({
     </svg>
   );
 
-  const aboutUsPath = storefront === 'LUNERA' ? '/about' : `/${storefront}/about`;
-  const homePath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
-  const privacyPath = storefront === 'LUNERA' ? '/privacy' : `/${storefront}/privacy`;
+  const aboutUsPath = getStorefrontAboutPath(storefront);
+  const homePath = getStorefrontHomePath(storefront);
+  const privacyPath = getStorefrontPrivacyPath(storefront);
   
   // Helper to get color from selection
   const getColorFromSelection = (colorSelection) => {

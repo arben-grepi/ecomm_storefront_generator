@@ -4,6 +4,7 @@ import { memo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useStorefront } from '@/lib/storefront-context';
+import { getStorefrontHomePath } from '@/lib/storefront-paths';
 
 function CategoryCard({ category, products }) {
   // Use the products provided (which should be the preview products from the database)
@@ -23,10 +24,7 @@ function CategoryCard({ category, products }) {
   };
 
   // Categories are now filters on the home page, not separate pages
-  // Link to home page with category filter
-  const categoryLink = storefront === 'LUNERA' 
-    ? `/?category=${category.id}`
-    : `/${storefront}?category=${category.id}`;
+  const categoryLink = `${getStorefrontHomePath(storefront)}?category=${category.id}`;
 
   return (
     <div className="relative">

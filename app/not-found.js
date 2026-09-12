@@ -9,10 +9,11 @@ import { getLogo } from '@/lib/logo-cache';
 import { getFirebaseDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { getCachedInfo } from '@/lib/info-cache';
+import { getStorefrontHomePath } from '@/lib/storefront-paths';
 
 export default function NotFound() {
   const storefrontFromContext = useStorefront();
-  const [storefront, setStorefront] = useState('FIVESTARFINDS');
+  const [storefront, setStorefront] = useState('LUNERA');
   const [mounted, setMounted] = useState(false);
   const [info, setInfo] = useState(null);
 
@@ -63,7 +64,7 @@ export default function NotFound() {
   }, [storefront, mounted]);
 
   // Calculate home path based on storefront
-  const homePath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
+  const homePath = getStorefrontHomePath(storefront);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-secondary/40 to-white flex items-center justify-center px-4">

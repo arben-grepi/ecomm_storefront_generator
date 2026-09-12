@@ -8,6 +8,7 @@ import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import Link from 'next/link';
 import AuthButton from '@/components/AuthButton';
+import { getStorefrontHomePath } from '@/lib/storefront-paths';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -87,7 +88,7 @@ function CheckoutPageContent() {
     }
     
     // Default fallback
-    return 'FIVESTARFINDS';
+    return 'LUNERA';
   });
   
   // Check for storefront changes from URL parameter
@@ -211,7 +212,7 @@ function CheckoutPageContent() {
   useEffect(() => {
     if (!cartLoading && cart.length === 0) {
       // Redirect to correct storefront (not root)
-      const redirectPath = storefront === 'LUNERA' ? '/' : `/${storefront}`;
+      const redirectPath = getStorefrontHomePath(storefront);
       router.push(redirectPath);
     }
   }, [cart, cartLoading, router, storefront]);
@@ -412,7 +413,7 @@ function CheckoutPageContent() {
       <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
           <Link 
-            href={storefront === 'LUNERA' ? '/' : `/${storefront}`} 
+            href={getStorefrontHomePath(storefront)} 
             className="text-xl font-light text-primary tracking-wide"
           >
             {storefront}
@@ -596,7 +597,7 @@ function CheckoutPageContent() {
 
               {/* Continue Shopping */}
               <Link
-                href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
+                href={getStorefrontHomePath(storefront)}
                 className="mt-3 block w-full rounded-full bg-white px-6 py-3 text-center font-semibold transition hover:bg-slate-50"
                 style={{
                   borderColor: primaryColor,

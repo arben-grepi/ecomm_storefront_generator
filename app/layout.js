@@ -6,14 +6,14 @@
  * 
  * IMPORTANT: This file is executed for EVERY page request, before any route-specific layouts.
  * Execution order: middleware.js → app/layout.js → app/{storefront}/page.js
- * Root (/) redirects to /FIVESTARFINDS via middleware.
+ * Root (/) redirects to /luneralingerie via middleware (LUNERA).
  */
 
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 // Import shared global CSS (common styles for all pages)
 // Default theme colors are fallbacks only (actual colors come from Firestore Info documents).
 // Storefronts import their own theme CSS in their layouts:
-// - app/FIVESTARFINDS/layout.js imports app/FIVESTARFINDS/globals.css (turquoise theme)
+// - app/luneralingerie/layout.js imports app/luneralingerie/globals.css
 import "./globals.css";
 // PageTransitionBar removed - wasn't working/visible. Can be re-added if needed.
 import CookieConsent from "@/components/CookieConsent";
@@ -51,11 +51,10 @@ const inter = Inter({
 /**
  * METADATA (SEO & Browser Information)
  * 
- * Root layout metadata uses FIVESTARFINDS as the default storefront.
- * Metadata is generated dynamically from the FIVESTARFINDS Info document.
+ * Root layout metadata uses LUNERA as the default storefront.
  */
 export async function generateMetadata() {
-  const storefront = 'FIVESTARFINDS';
+  const storefront = 'LUNERA';
   const info = await getServerSideInfo('en', storefront);
   
   // Generate metadata from Info document
@@ -74,10 +73,10 @@ export async function generateMetadata() {
       title,
       description,
       type: 'website',
-      url: 'https://www.blerinas.com',
+      url: 'https://luneralingerie.com',
     },
     alternates: {
-      canonical: 'https://www.blerinas.com',
+      canonical: 'https://luneralingerie.com',
     },
     icons: {
       icon: [
@@ -100,7 +99,7 @@ export async function generateMetadata() {
  */
 export default function RootLayout({ children }) {
   // 🔍 ROOT LAYOUT - Set breakpoint here in Cursor (Node.js debugger will work)
-  // Root layout wraps all pages. Root (/) redirects to /FIVESTARFINDS via middleware.
+  // Root layout wraps all pages. Root (/) redirects to /luneralingerie via middleware.
   
   return (
     <html lang="en" data-scroll-behavior="smooth">

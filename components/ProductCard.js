@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { getMarket } from '@/lib/get-market';
 import { useStorefront } from '@/lib/storefront-context';
 import { isEUMarket } from '@/lib/market-utils';
+import { getStorefrontProductPath } from '@/lib/storefront-paths';
 
 function ProductCard({ 
   product, 
@@ -71,14 +72,9 @@ function ProductCard({
     setTimeout(() => setIsNavigating(false), 2000);
   };
 
-  // Product URLs no longer include category
-  // Root (LUNERA): /product-slug
-  // Other storefronts: /storefront/product-slug
-  // Include color parameters for product page
-  const basePath = storefront === 'LUNERA' 
-    ? `/${product.slug}`
-    : `/${storefront}/${product.slug}`;
-  
+  // LUNERA: /product-slug on luneralingerie.com, /luneralingerie/slug on localhost
+  const basePath = getStorefrontProductPath(storefront, product.slug);
+
   const productPath = colorPalette
     ? `${basePath}?colorPrimary=${encodeURIComponent(colorPalette.colorPrimary || '')}&colorSecondary=${encodeURIComponent(colorPalette.colorSecondary || '')}&colorTertiary=${encodeURIComponent(colorPalette.colorTertiary || '')}`
     : basePath;

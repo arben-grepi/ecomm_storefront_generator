@@ -16,6 +16,7 @@ import { useCart } from '@/lib/cart';
 import { useStorefront } from '@/lib/storefront-context';
 import { saveStorefrontToCache } from '@/lib/get-storefront';
 import { getStorefrontTheme, getStorefrontLogo, getStorefrontBanner } from '@/lib/storefront-logos';
+import { getStorefrontHomePath } from '@/lib/storefront-paths';
 import { getLogo, saveLogoToCache } from '@/lib/logo-cache';
 import { getTextColorProps } from '@/lib/text-color-utils';
 import { preventOrphanedWords } from '@/lib/text-wrap-utils';
@@ -574,7 +575,7 @@ export default function HomeClient({ initialCategories = [], initialProducts = [
             <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:justify-between sm:gap-4 sm:px-6 lg:px-8">
               {/* Mobile: Logo, Desktop: Full branding */}
               <div className="flex flex-col sm:flex-col">
-                <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center">
+                <Link href={getStorefrontHomePath(storefront)} className="flex items-center">
                   <Image
                     src={getLogo(storefront, siteInfo)}
                     alt={siteInfo.companyName || storefront}

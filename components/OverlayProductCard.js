@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { getMarket } from '@/lib/get-market';
 import { useStorefront } from '@/lib/storefront-context';
 import { isEUMarket } from '@/lib/market-utils';
+import { getStorefrontProductPath } from '@/lib/storefront-paths';
 
 function OverlayProductCard({ 
   product, 
@@ -67,9 +68,7 @@ function OverlayProductCard({
     setTimeout(() => setIsNavigating(false), 2000);
   };
 
-  const basePath = storefront === 'LUNERA' 
-    ? `/${product.slug}`
-    : `/${storefront}/${product.slug}`;
+  const basePath = getStorefrontProductPath(storefront, product.slug);
   
   const productPath = colorPalette
     ? `${basePath}?colorPrimary=${encodeURIComponent(colorPalette.colorPrimary || '')}&colorSecondary=${encodeURIComponent(colorPalette.colorSecondary || '')}&colorTertiary=${encodeURIComponent(colorPalette.colorTertiary || '')}`

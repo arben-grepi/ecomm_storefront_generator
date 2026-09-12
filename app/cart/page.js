@@ -13,11 +13,12 @@ import { saveStorefrontToCache } from '@/lib/get-storefront';
 import SettingsMenu from '@/components/SettingsMenu';
 import { getFirebaseDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { getStorefrontHomePath } from '@/lib/storefront-paths';
 
 // Format price based on market currency
 import { getMarketCurrency, getMarketLocale } from '@/lib/market-utils';
 
-const formatPrice = (value, market = 'DE') => {
+const formatPrice = (value, market = 'XK') => {
   const currency = getMarketCurrency(market);
   const locale = getMarketLocale(market);
   const formatter = new Intl.NumberFormat(locale, {
@@ -29,6 +30,8 @@ const formatPrice = (value, market = 'DE') => {
 
 // Country list (European countries for shipping)
 const countries = [
+  { code: 'XK', name: 'Kosovo' },
+  { code: 'AL', name: 'Albania' },
   { code: 'FI', name: 'Finland' },
   { code: 'SE', name: 'Sweden' },
   { code: 'NO', name: 'Norway' },
@@ -125,7 +128,7 @@ function CartPageContent() {
     }
     
     // Default fallback
-    return 'FIVESTARFINDS';
+    return 'LUNERA';
   });
   
   // Check for storefront changes from URL parameter (highest priority)
@@ -570,7 +573,7 @@ function CartPageContent() {
         <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <Link 
-              href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
+              href={getStorefrontHomePath(storefront)}
               className="flex items-center transition-opacity hover:opacity-80"
               aria-label={`Return to ${storefront} homepage`}
             >
@@ -612,7 +615,7 @@ function CartPageContent() {
           )}
           
           <Link
-            href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
+            href={getStorefrontHomePath(storefront)}
             className="inline-block rounded-full px-6 py-3 font-semibold text-white transition"
             style={{ 
               backgroundColor: siteInfo.colorPrimary || '#ec4899',
@@ -634,7 +637,7 @@ function CartPageContent() {
       <header className="sticky top-0 z-50 border-b border-secondary/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <Link 
-            href={storefront === 'LUNERA' ? '/' : `/${storefront}`} 
+            href={getStorefrontHomePath(storefront)} 
             className="flex items-center transition-opacity hover:opacity-80"
             aria-label={`Return to ${storefront} homepage`}
           >
@@ -891,7 +894,7 @@ function CartPageContent() {
 
               {/* Continue Shopping */}
               <Link
-                href={storefront === 'LUNERA' ? '/' : `/${storefront}`}
+                href={getStorefrontHomePath(storefront)}
                 className="mt-3 block w-full rounded-full bg-white px-6 py-3 text-center font-semibold transition hover:bg-slate-50"
                 style={{
                   borderColor: siteInfo.colorPrimary || '#ec4899',

@@ -9,10 +9,11 @@ import { getFirebaseDb } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import SettingsMenu from '@/components/SettingsMenu';
 import { getLogo } from '@/lib/logo-cache';
+import { getStorefrontHomePath } from '@/lib/storefront-paths';
 
 export default function PrivacyPolicyClient({ info = null, storefront: storefrontProp = null }) {
   const storefrontFromContext = useStorefront();
-  const storefront = storefrontProp || storefrontFromContext || 'FIVESTARFINDS';
+  const storefront = storefrontProp || storefrontFromContext || 'LUNERA';
   const db = getFirebaseDb();
 
   // Get site info for colors, social links, and privacy policy sections
@@ -101,7 +102,7 @@ export default function PrivacyPolicyClient({ info = null, storefront: storefron
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-secondary/70 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-          <Link href={storefront === 'LUNERA' ? '/' : `/${storefront}`} className="flex items-center">
+          <Link href={getStorefrontHomePath(storefront)} className="flex items-center">
             <Image
               src={getLogo(storefront, siteInfo)}
               alt={storefront}
