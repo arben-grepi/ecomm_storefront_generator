@@ -1,87 +1,75 @@
 import { NextResponse } from 'next/server';
-import { SUPPORTED_MARKETS } from './lib/market-utils';
+import { getStorefrontMarkets } from './lib/market-utils';
+import {
+  LUNERA_URL_SLUG,
+  isLuneraDomain,
+  pathSegmentToStorefront,
+} from './lib/storefront-paths';
 
 /**
  * Get client's real IP address from request headers
  * Firebase App Hosting / Cloud Run uses standard HTTP headers
  */
 function getClientIP(request) {
-  // Try various headers (in order of reliability)
-  // X-Forwarded-For can contain multiple IPs (client, proxy, etc.) - take the first one
   const forwarded = request.headers.get('x-forwarded-for');
   if (forwarded) {
     const ips = forwarded.split(',').map(ip => ip.trim());
-    // Filter out localhost/private IPs and get the first real IP
-    const realIP = ips.find(ip => 
-      ip && 
-      ip !== '127.0.0.1' && 
-      ip !== '::1' && 
-      !ip.startsWith('192.168.') && 
+    const realIP = ips.find(ip =>
+      ip &&
+      ip !== '127.0.0.1' &&
+      ip !== '::1' &&
+      !ip.startsWith('192.168.') &&
       !ip.startsWith('10.') &&
       !ip.startsWith('172.16.')
     );
     if (realIP) return realIP;
-    // If no real IP found, use the first one anyway
     if (ips[0]) return ips[0];
   }
-  
+
   const realIP = request.headers.get('x-real-ip');
   if (realIP && realIP !== '127.0.0.1' && realIP !== '::1') {
     return realIP;
   }
-  
-  // Fallback to connection IP (if available)
+
   return request.ip || null;
 }
 
 /**
- * Get country from IP address using external geolocation API
- * Uses ipapi.co free tier (no API key needed, rate limited)
- * Fallback to ip-api.com if first fails
- * 
- * @param {string} ip - Client IP address
- * @param {boolean} isDevelopment - Whether we're in development mode
- * @returns {Promise<string|null>} Country code (2 letters) or null if detection fails
+ * Prefers ip-api.com (accurate for Kosovo / XK); falls back to ipapi.co
  */
 async function getCountryFromIP(ip) {
-  // Skip localhost/private IPs - can't geolocate these
   if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.')) {
     return { country: null, reason: `Cannot geolocate localhost/private IP: ${ip}` };
   }
 
   try {
-    // Try ipapi.co first (free, no API key needed)
-    const response = await fetch(`https://ipapi.co/${ip}/country/`, {
-      headers: {
-        'User-Agent': 'Next.js-Middleware/1.0',
-      },
-      signal: AbortSignal.timeout(2000), // 2 second timeout
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,countryCode`, {
+      headers: { 'User-Agent': 'Next.js-Middleware/1.0' },
+      signal: AbortSignal.timeout(2000),
     });
-    
+
     if (response.ok) {
-      const country = (await response.text()).trim();
-      if (country && country.length === 2) {
-        return { country: country.toUpperCase(), reason: null };
+      const data = await response.json();
+      if (data.status === 'success' && data.countryCode && data.countryCode.length === 2) {
+        return { country: data.countryCode.toUpperCase(), reason: null };
       }
+      return { country: null, reason: `ip-api.com returned invalid payload: ${JSON.stringify(data)}` };
     }
-    return { country: null, reason: `ipapi.co returned invalid response: ${response.status}` };
+    return { country: null, reason: `ip-api.com returned invalid response: ${response.status}` };
   } catch (error) {
-    // If ipapi.co fails, try ip-api.com as fallback
     try {
-      const fallbackResponse = await fetch(`http://ip-api.com/json/${ip}?fields=countryCode`, {
-        headers: {
-          'User-Agent': 'Next.js-Middleware/1.0',
-        },
+      const fallbackResponse = await fetch(`https://ipapi.co/${ip}/country/`, {
+        headers: { 'User-Agent': 'Next.js-Middleware/1.0' },
         signal: AbortSignal.timeout(2000),
       });
-      
+
       if (fallbackResponse.ok) {
-        const data = await fallbackResponse.json();
-        if (data.countryCode && data.countryCode.length === 2) {
-          return { country: data.countryCode.toUpperCase(), reason: null };
+        const country = (await fallbackResponse.text()).trim();
+        if (country && country.length === 2) {
+          return { country: country.toUpperCase(), reason: null };
         }
       }
-      return { country: null, reason: `ip-api.com returned invalid response: ${fallbackResponse.status}` };
+      return { country: null, reason: `ipapi.co returned invalid response: ${fallbackResponse.status}` };
     } catch (fallbackError) {
       return { country: null, reason: `Both geolocation APIs failed: ${error.message}, ${fallbackError.message}` };
     }
@@ -89,12 +77,10 @@ async function getCountryFromIP(ip) {
 }
 
 export async function middleware(request) {
-  // 🔍 FIRST FILE EXECUTED - Middleware runs on Edge Runtime
-  // ⚠️ BREAKPOINTS DON'T WORK HERE - Use console.log for debugging
-  const middlewareStartTime = Date.now();
   const { pathname } = request.nextUrl;
-  
-  // Skip middleware for API routes, static files, admin routes, and unavailable page
+  const hostname = request.nextUrl.hostname;
+  const onLuneraDomain = isLuneraDomain(hostname);
+
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
@@ -102,148 +88,137 @@ export async function middleware(request) {
     pathname.startsWith('/admin') ||
     pathname.includes('.')
   ) {
-    console.log(`[MIDDLEWARE] ⏭️  Skipping middleware (excluded path: ${pathname})`);
     return NextResponse.next();
   }
 
-  // Extract storefront from URL path
-  // Root (/) redirects to FIVESTARFINDS (default storefront)
-  // All storefronts are at /{storefrontName}
-  // Product URLs: /{storefrontName}/product-slug
   const segments = pathname.split('/').filter(Boolean);
-  const excludedSegments = ['admin', 'api', 'thank-you', 'order-confirmation', 'unavailable', '_next', 'cart', 'orders', 'checkout'];
-  let storefront = null;
-  
-  // Redirect root (/) to FIVESTARFINDS
+  const excludedSegments = [
+    'admin', 'api', 'thank-you', 'order-confirmation', 'unavailable',
+    '_next', 'cart', 'orders', 'checkout',
+  ];
+
+  // --- Production domain: rewrite clean URLs → /luneralingerie/* ---
+  // Public: https://luneralingerie.com/  (NOT /luneralingerie)
+  if (onLuneraDomain) {
+    // If someone hits /luneralingerie on the real domain, redirect to clean URL
+    if (segments[0]?.toLowerCase() === LUNERA_URL_SLUG) {
+      const rest = segments.slice(1).join('/');
+      const url = request.nextUrl.clone();
+      url.pathname = rest ? `/${rest}` : '/';
+      return NextResponse.redirect(url);
+    }
+
+    const first = segments[0]?.toLowerCase();
+    const isSystemPath = first && excludedSegments.includes(first);
+
+    if (!isSystemPath) {
+      // /, /about, /privacy, /product-slug → internal /luneralingerie/...
+      const url = request.nextUrl.clone();
+      url.pathname = pathname === '/'
+        ? `/${LUNERA_URL_SLUG}`
+        : `/${LUNERA_URL_SLUG}${pathname}`;
+      const response = NextResponse.rewrite(url);
+      return await finishRequest(request, response, 'LUNERA');
+    }
+
+    // System paths on lunera domain (cart, checkout, …)
+    const storefront = request.cookies.get('storefront')?.value || 'LUNERA';
+    return await finishRequest(request, NextResponse.next(), storefront);
+  }
+
+  // --- Localhost / other hosts: path-based routing ---
+  // Root → /luneralingerie
   if (segments.length === 0 || pathname === '/') {
     const url = request.nextUrl.clone();
-    url.pathname = '/FIVESTARFINDS';
+    url.pathname = `/${LUNERA_URL_SLUG}`;
     return NextResponse.redirect(url);
   }
-  
-  // Check if we're on the cart page - if so, use existing storefront cookie or default
-  if (pathname === '/cart' || pathname.startsWith('/cart/')) {
-    // On cart page, preserve the existing storefront cookie (don't change it)
-    const existingStorefront = request.cookies.get('storefront')?.value;
-    storefront = existingStorefront || 'FIVESTARFINDS';
-  } else if (segments.length === 1 && !excludedSegments.includes(segments[0].toLowerCase())) {
-    // Single segment - must be a storefront home (e.g., /FIVESTARFINDS)
-    // All single segments are treated as storefronts (no root products)
-    const firstSegment = segments[0];
-    const isLikelyStorefront = firstSegment === firstSegment.toUpperCase() && !firstSegment.includes('-');
-    storefront = isLikelyStorefront ? firstSegment.toUpperCase() : 'FIVESTARFINDS';
-  } else if (segments.length >= 2 && !excludedSegments.includes(segments[0].toLowerCase())) {
-    // Two or more segments (e.g., /FIVESTARFINDS/product-slug)
-    // First segment is a storefront name
-    storefront = segments[0].toUpperCase();
-  } else {
-    // For excluded paths (order-confirmation, orders, etc.), use existing cookie or default to FIVESTARFINDS
-    const existingStorefront = request.cookies.get('storefront')?.value;
-    storefront = existingStorefront || 'FIVESTARFINDS';
-  } 
 
-  // Check if market is already set in cookie (memoization - skip detection if already set)
+  let storefront = null;
+
+  if (pathname === '/cart' || pathname.startsWith('/cart/')) {
+    storefront = request.cookies.get('storefront')?.value || 'LUNERA';
+  } else if (segments.length >= 1 && !excludedSegments.includes(segments[0].toLowerCase())) {
+    storefront = pathSegmentToStorefront(segments[0]) || 'LUNERA';
+  } else {
+    storefront = request.cookies.get('storefront')?.value || 'LUNERA';
+  }
+
+  return await finishRequest(request, NextResponse.next(), storefront);
+}
+
+async function finishRequest(request, response, storefront) {
+  const { pathname } = request.nextUrl;
+  const allowedMarkets = getStorefrontMarkets(storefront);
+  const defaultMarket = allowedMarkets[0] || 'XK';
+
   const existingMarket = request.cookies.get('market')?.value;
-  let country = existingMarket; // Use existing market if available
+  let country = existingMarket;
   let shouldSetMarketCookie = false;
-  
-  // Only detect country if market cookie doesn't exist or is invalid
-  if (!country || !SUPPORTED_MARKETS.includes(country)) {
+
+  if (!country || !allowedMarkets.includes(country)) {
     const clientIP = getClientIP(request);
     let geoCountry = null;
-    
+
     if (clientIP) {
       const result = await getCountryFromIP(clientIP);
       if (result.country) {
         geoCountry = result.country;
-        console.log(`[MIDDLEWARE] ✅ Geo-location successful: ${geoCountry} (IP: ${clientIP})`);
+        console.log(`[MIDDLEWARE] ✅ Geo-location: ${geoCountry} (IP: ${clientIP})`);
       } else {
-        console.warn(`[MIDDLEWARE] ⚠️  Geo-location failed for IP ${clientIP}: ${result.reason}`);
+        console.warn(`[MIDDLEWARE] ⚠️  Geo failed for ${clientIP}: ${result.reason}`);
       }
-    } else {
-      console.warn(`[MIDDLEWARE] ⚠️  Could not extract client IP`);
     }
-    
-    // Use detected country or fallback to 'DE' (Germany) if all methods fail
-    country = geoCountry || 'DE';
+
+    // Localhost / geo failure: default to storefront's primary market (XK for LUNERA)
+    country = geoCountry || defaultMarket;
     shouldSetMarketCookie = true;
-    
+
     if (!geoCountry) {
-      console.log(`[MIDDLEWARE] ⚠️  Using default country: ${country} (geo-location failed)`);
+      console.log(`[MIDDLEWARE] ⚠️  Using default market: ${country}`);
     }
-    
-    // Check if market is supported
-    if (!SUPPORTED_MARKETS.includes(country)) {
+
+    if (!allowedMarkets.includes(country)) {
       const url = request.nextUrl.clone();
       url.pathname = '/unavailable';
       url.searchParams.set('country', country);
       return NextResponse.redirect(url);
     }
   }
-  
-  // Set cookies (only if needed)
-  const response = NextResponse.next();
-  
-  // Set market cookie (only if we detected it and it's not already set)
+
   if (shouldSetMarketCookie) {
     response.cookies.set('market', country, {
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      maxAge: 60 * 60 * 24 * 30,
       path: '/',
-      sameSite: 'lax'
+      sameSite: 'lax',
     });
   }
-  
-  // Set storefront cookie (only if it changed or doesn't exist, and we're not on cart page)
-  // On cart page, we preserve the existing cookie and don't update it
+
   if (pathname !== '/cart' && !pathname.startsWith('/cart/')) {
     const existingStorefrontCookie = request.cookies.get('storefront')?.value;
     if (existingStorefrontCookie !== storefront) {
       response.cookies.set('storefront', storefront, {
-        maxAge: 60 * 60 * 24 * 30, // 30 days
+        maxAge: 60 * 60 * 24 * 30,
         path: '/',
-        sameSite: 'lax'
+        sameSite: 'lax',
       });
     }
   }
 
-  // Track visit (fire and forget - don't wait for response)
-  // This increments the visit counter and logs the country
   if (storefront && country) {
-    // Use the request URL to build the API route URL
     const url = new URL(request.url);
-    const apiUrl = `${url.origin}/api/track-visit`;
-    
-    // Fire and forget - don't block the response
-    fetch(apiUrl, {
+    fetch(`${url.origin}/api/track-visit`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        storefront,
-        country,
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ storefront, country }),
     }).catch((error) => {
-      // Silently fail - analytics shouldn't break the app
       console.warn(`[MIDDLEWARE] ⚠️  Failed to track visit: ${error.message}`);
     });
-    
-    console.log(`[MIDDLEWARE] 📊 Tracking visit: ${storefront} from ${country}`);
   }
-  
+
   return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - admin (admin routes)
-     */
-    '/((?!api|_next/static|_next/image|admin).*)',
-  ],
+  matcher: ['/((?!api|_next/static|_next/image|admin).*)'],
 };
-
