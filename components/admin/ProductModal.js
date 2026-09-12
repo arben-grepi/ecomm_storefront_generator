@@ -428,11 +428,22 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
 
   // Initialize storefront selections from sessionStorage when creating new products
   useEffect(() => {
+    if (availableWebsites.length === 0) return;
+
+    // Single active storefront: always lock selection to it
+    if (availableWebsites.length === 1) {
+      const only = availableWebsites[0];
+      if (storefrontSelections.length !== 1 || storefrontSelections[0] !== only) {
+        setStorefrontSelections([only]);
+      }
+      return;
+    }
+
     // Only initialize for new products (not edit mode)
     if (mode === 'edit' || storefrontSelections.length > 0) return;
     
     // Check sessionStorage for stored storefront from admin overview
-    if (typeof window !== 'undefined' && availableWebsites.length > 0) {
+    if (typeof window !== 'undefined') {
       const storedStorefront = sessionStorage.getItem('admin_storefront');
       
       // If we have a stored storefront and it's available, pre-select it
@@ -441,12 +452,12 @@ export default function ProductModal({ mode = 'shopify', shopifyItem, existingPr
       } else if (selectedWebsite && availableWebsites.includes(selectedWebsite)) {
         // Fallback to selectedWebsite from context
         setStorefrontSelections([selectedWebsite]);
-      } else if (availableWebsites.length > 0) {
+      } else {
         // Final fallback to first available
         setStorefrontSelections([availableWebsites[0]]);
       }
     }
-  }, [mode, availableWebsites, selectedWebsite, storefrontSelections.length]);
+  }, [mode, availableWebsites, selectedWebsite, storefrontSelections]);
 
   // Load existing product data when editing
   useProductLoader({
